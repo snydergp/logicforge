@@ -1,0 +1,28 @@
+{
+  "actions": {
+    "set-variable": {
+      "title": "Set Variable",
+      "description": "Stores a value in the execution context using a given variable name",
+      "inputs": {
+        "value": {
+          "title": "Value",
+          "description": "The value to store"
+        },
+        "variableName": {
+          "title": "Variable Name",
+          "description": "The name to use for the stored variable"
+        }
+      }
+    },
+    "delete-variable": {
+      "title": "Delete Variable",
+      "description": "Deletes a value from the execution context",
+      "inputs": {
+        "variableName": {
+          "title": "Variable Name",
+          "description": "The name of the variable to delete"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,86 @@
+types:
+  - name: text
+    title: Text
+    description: A plain text string
+    runtimeClass: java.lang.String
+  - name: integer
+    title: Integer
+    description: A non-decimal number
+    runtimeClass: java.lang.Long
+  - name: decimal
+    title: Decimal
+    description: A decimal number
+    runtimeClass: java.lang.Double
+  - name: boolean
+    title: Boolean
+    description: A true/false value
+    runtimeClass: java.lang.Boolean
+  - name: any
+    title: Any Type
+    description: Can be any of the defined types, or potentially null
+    runtimeClass: java.lang.Object
+functionCategories:
+  - name: logic
+    title: Logic
+    description: Basic logical functions
+    functions:
+      - name: and
+        title: And
+        description: Returns true if and only if all inputs are true
+        implementationClassName: com.github.snydergp.computationconfig.model.type.logic.AndQualification
+        inputs:
+          - name: values
+            title: Values
+            description: The values to be checked
+            type: boolean
+            multi: true
+            min: 1
+        outputDescription:
+          - boolean
+      - name: or
+        title: Or
+        description: Returns true if any inputs are true
+        implementationClassName: com.github.snydergp.computationconfig.model.type.logic.OrQualification
+        inputs:
+          - name: values
+            title: Values
+            description: The values to be checked
+            type: boolean
+            multi: true
+            min: 1
+        outputDescription:
+          - boolean
+      - name: not
+        title: Not
+        description: Returns true if the input is false, or vice-versa
+        implementationClassName: com.github.snydergp.computationconfig.model.type.logic.OrQualification
+        inputs:
+          - name: value
+            title: Value
+            description: The value to be inverted
+            type: boolean
+            min: 1
+        outputDescription:
+          - boolean
+      - name: equals
+        title: Equals
+        description: Returns true if all of the numbers, text strings, boolean values, or objects being compared are equal
+        implementationClassName:
+
+  - name: math
+    title: Math
+    description: Mathematical functions
+    functions:
+      - name: equals
+        title: Equals
+        description: Returns true if the numbers, text strings, boolean values, or objects being compared are equal
+        implementationClassName:
+  - name: text
+    title: Text
+    description: Text-manipulation functions
+  - name: cryptography
+    title: Cryptography
+    description: Cryptographic functions
+  - name: math
+    title: Math
+    description: Mathematical functions

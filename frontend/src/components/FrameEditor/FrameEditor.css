@@ -1,0 +1,16 @@
+.logicforgeFrameEditor__processFrame .logicforgeFrameHeading__subtitle {
+  color: #37ac8f; }
+
+.logicforgeFrameEditor__actionFrame .logicforgeFrameHeading__subtitle {
+  color: #37ac8f; }
+
+.logicforgeFrameEditor__functionFrame .logicforgeFrameHeading__subtitle {
+  color: #37ac8f; }
+
+.logicforgeFrameHeading .logicforgeFrameHeading__title {
+  font-size: 1.5rem; }
+
+.logicforgeFrameHeading .logicforgeFrameHeading__subtitle {
+  font-size: 1rem;
+  font-variant: all-small-caps;
+  font-weight: 500; }
