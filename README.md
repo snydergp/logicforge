@@ -1,39 +1,123 @@
 > ## Status
 >
-> * [2023-12-28] I've decided to clean this project up and bring it public, despite it very much still being a work-in-progress. See the roadmap below for details on how I'd like to evolve things from here.
+> * [2023-12-28] I've decided to clean this project up and bring it public, despite it very much still being a work-in-progress. See the [roadmap](#roadmap) section below for details on how I'd like to evolve things from here.
 
 # LogicForge
 
-LogicForge allows developers to expose methods that users can leverage to create custom executable logic without code. Developers annotate methods that should be available to users, the engine:
+LogicForge is a library that facilitates the creation of "advanced editing" features that users can leverage to create complex logic for later execution. Example use cases are:
 
-* analyzes the methods to determine parameters and return type
-* builds UI elements allowing user to configure the method call
+* For a content management system, allowing authors to target or secure content based on a user profile
+* For a CDN, allowing admins to set up A/B testing or routing based on user profile
+* For analytics processing, allowing users to set up custom alerts and/or custom actions based on input filters
 
-At runtime, the engine stitches together the user-defined logic into an runnable method that can be executed against supplied inputs.
+The system works by allowing developers to annotate Java methods as _actions_ (methods that hava side effects) or _functions_ (methods that return a value, but do not have side effects; i.e., "pure functions"). The library analyzes those methods through reflection to characterize the parameters and return type. 
 
-![LogicForge UI](docs/images/ui.jpg "LogicForge UI")
+```java
+@Action
+public static void setVariable(
+        ModifiableExecutionContext context,
+        String variableName,
+        String variableValue
+      ) {
+    context.put(variableName, variableValue);
+}
 
-LogicForge provides reusable UI components that allow users to author their process flows. The UI gives users the ability to:
+@Funtion
+public static int addIntegers(int a, int b) {
+    return a + b;
+}
+```
+_Example Java action and function_
+
+Actions and function methods can also include "injectable" parameters, such as the `context` parameter in the `setVariable` action above. These can be included in method signatures to be injected by the library at runtime.
+
+The introspected method data is used to generate UI elements that end users can leverage to compose those actions and functions with variables and static values to create custom logic without code.
+
+The generated UI components give users the ability to:
 
 * Add/remove/reorder actions in a process
 * Edit input values, including using functions or variable references as inputs
 * Add/remove/reorder inputs for multi-input parameters
 
-The UI is generated automatically from the developer-supplied configuration, meaning users will only have access to capabilities the developer has chosen. All displayed text is provided via a translation dictionary, allowing text to be translated and altered without updating any code.
+The UI is generated from the developer-supplied configuration, meaning users will only have access to capabilities the developer has chosen. All displayed text is provided via a translation dictionary, allowing text to be translated and altered without updating any code.
 
-## How It Works
+![LogicForge UI](docs/images/ui.jpg "LogicForge UI")
 
-LogicForge is centered around two related functions:
+At runtime, the user-supplied logic is compiled into a Java class that can be executed against input variables (a user profile, an HTTP request).
 
-* Exposing process-editing functionality to users with minimal developer time
-* Efficiently and securely executing user-edited processes at runtime
+```java
+package io.metalmind.generated.action.pid_0;
 
-Most other matters (persistence, serialization, rate-limiting)
-are considered outside the core problem domain, although this repository intends to demonstrate a reasonable example implementation using MongoDB persistence integrated via Spring Boot.
+import io.logicforge.core.engine.Action;
+import io.logicforge.core.engine.ActionExecutor;
+import io.logicforge.core.engine.ChildActionsImpl;
+import io.logicforge.core.engine.Process;
+import io.logicforge.core.engine.compile.CompilationProcessBuilderTest;
+import io.logicforge.core.exception.ProcessExecutionException;
+import io.logicforge.core.injectable.ChildActions;
+import io.logicforge.core.injectable.ExecutionContext;
+import io.logicforge.core.injectable.ModifiableExecutionContext;
 
-The core implementation consists of an execution engine that developers configure with the capabilities users should have access to. This engine is then supplied with user-created process configurations, which it compiles. Compiled process objects can be executed against input contexts to produce outputs (see [Concepts](#concepts), below). Compiled processes are thread-safe and can be cached for reuse.
+import java.util.concurrent.atomic.AtomicLong;
 
-Developers define the available actions and functions via configuration. These configurations are used both to lookup implementation methods during runtime execution, and to generate the frontend UI.
+public class Process0 implements Process {
+
+    private final AtomicLong executionCount = new AtomicLong(0L);
+
+    private final CompilationProcessBuilderTest.Functions var0;
+    private final Action[] children0;
+
+    public Process0(final CompilationProcessBuilderTest.Functions var0) {
+        this.var0 = var0;
+        this.children0 = new Action[]{new Action0()};
+    }
+
+
+    public void execute(final ModifiableExecutionContext context, final ActionExecutor executor) {
+        executionCount.getAndIncrement();
+        final ChildActions rootActions = new ChildActionsImpl(executor, children0);
+        rootActions.executeSync(context);
+    }
+
+    public String getProcessId() {
+        return "0";
+    }
+
+    public long getExecutionCount() {
+        return executionCount.get();
+    }
+
+    private class Action0 implements Action {
+
+        public void execute(final ModifiableExecutionContext context) throws ProcessExecutionException {
+            final ExecutionContext readonlyContext = context.getReadonlyView();
+
+            var0.recordPair(var0.concat("Hello, ", "World!"), var0.add(Integer.valueOf("3"), Integer.valueOf("5")));
+        }
+
+        public String getName() {
+            return "recordPair";
+        }
+
+        public String getProcessId() {
+            return "0";
+        }
+
+        public String getPath() {
+            return "root";
+        }
+
+        public int getIndex() {
+            return 0;
+        }
+
+        public String toString() {
+            return "var0.recordPair(var0.concat(\"Hello, \", \"World!\"), var0.add(Integer.valueOf(\"3\"), Integer.valueOf(\"5\")))";
+        }
+    }
+}
+```
+_Generated Java code implementing a single-action process_
 
 ## Concepts
 
@@ -114,8 +198,8 @@ The following sections detail these customizations.
 
 To create a new action, developers just need to supply the engine with a reference to the method name and containing class. Methods will be automatically analyzed to determine the list of input parameters. Actions can also define "injected" parameters that provide additional functionality. Injected parameters include:
 
-* The execution context (ModifiableExecutionContext), which provides the action context with the ability to get and set variables
-* Child actions (ChildActions), to allow definition of lists of child action which the parent action can execute.
+* The execution context ([ModifiableExecutionContext](core/src/main/java/io/logicforge/core/injectable/ModifiableExecutionContext.java)), which provides the action context with the ability to get and set variables
+* Child actions ([ChildActions](core/src/main/java/io/logicforge/core/injectable/ChildActions.java)), to allow definition of lists of child action which the parent action can execute.
 
 The action will be rejected if it has a non-null return type, or if it defines unsupported input parameter types. Since parameter names are by default obtained via introspection, classes must be compiled with the `-parameters` flag to ensure these names are available at runtime. In cases where this is not feasible, or the parameter is renamed, the @Input annotation can be used to specify or override the parameter name.
 
@@ -125,8 +209,7 @@ Actions are stored and looked up by name. By default, the method name is used as
 
 Similar to creating an action, creating a function just requires a reference to the Java method representing the function. In addition to user-supplied parameters, the following injected parameters are available:
 
-* The execution context (ExecutionContext), which provides the function with the ability to read variables from the context
-* Dynamic input resolution (DynamicInputResolver), which allows a function to avoid unnecessary computation when inputs are only used conditionally.
+* The execution context ([ExecutionContext](core/src/main/java/io/logicforge/core/injectable/ExecutionContext.java)), which provides the function with the ability to read variables from the context
 
 Although not enforced, functions must take care to be free of side effects. Side effects in functions can lead to processes executing unpredictably.
 
@@ -136,12 +219,10 @@ Like actions, functions are looked up by name. Therefore, care must be taken not
 
 While actions and functions should be designed as static whenever possible, there are use cases (for actions especially) where referencing local instance variables is required. For example, an action that executes a web request might wish to route all outgoing requests through a specially-configured client. Where static action and function methods can be referenced by method and class name only, non-static methods require a class instance to be constructed.
 
-TODO: Discuss flow for building engine spec relying on instance methods, and provide code examples
-
 
 ### Overriding or Upgrading Actions or Functions
 
-Since actions and functions are looked up by name, replacing it with a new function is as simple as matching the existing name (either implicitly via the method name itself, or explicitly using the @LogicForgeAction or @LogicForgeFunction annotations). When changing the implementation of an in-use action or function, obey the following rules to avoid breaking existing processes:
+Since actions and functions are looked up by name, replacing it with a new function is as simple as matching the existing name (either implicitly via the method name itself, or explicitly using the [@Action](core/src/main/java/io/logicforge/core/annotations/Action.java) or [@Function](core/src/main/java/io/logicforge/core/annotations/Function.java) annotations). When changing the implementation of an in-use action or function, obey the following rules to avoid breaking existing processes:
 
 * Optional parameters can be freely added or removed
 * Required parameters can be removed, but not added
@@ -175,10 +256,11 @@ This section contains prospective future releases.
 * Hardening
   * Unit tests for core and frontend libraries
   * Cucumber integration tests for demo
+  * Add Reflection-based processor for non-JVM systems
   * Solidify developer documentation
 * Performance (`1.0.0`)
   * Write performance test scripts
-  * Switch from Java introspection to method handles
+  * ASM-based class generation
   * Maven Central release
 * Capability Plugins
   * Add capability modules that can be included to extend the engine. Plugin modules will include functions and/or actions aligned with a specific problem domain. Potential modules:
