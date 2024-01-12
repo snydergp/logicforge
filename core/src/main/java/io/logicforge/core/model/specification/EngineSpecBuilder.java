@@ -18,6 +18,7 @@ import java.lang.invoke.MethodType;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.Parameter;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -31,7 +32,7 @@ public class EngineSpecBuilder {
   private final Map<String, TypeSpec> types = new HashMap<>();
   private final Map<String, ActionSpec> actions = new HashMap<>();
   private final Map<String, FunctionSpec> functions = new HashMap<>();
-  private final Map<String, ConverterSpec> converters = new HashMap<>();
+  private final List<ConverterSpec> converters = new ArrayList<>();
 
   private final Map<Pair<EngineMethodType, Class<?>>, Optional<InjectedParameterSpec>> injectableCache =
       new HashMap<>();
@@ -64,7 +65,7 @@ public class EngineSpecBuilder {
     return this;
   }
 
-  public EngineSpecBuilder withProviderClasses(final Class<?> ... providerClasses) {
+  public EngineSpecBuilder withProviderClasses(final Class<?>... providerClasses) {
     Arrays.stream(providerClasses).forEach(this::withProviderClass);
     return this;
   }
@@ -128,9 +129,9 @@ public class EngineSpecBuilder {
 
   private void processAction(final Method method, final Object provider, final Action annotation) {
     final Class<?> returnType = method.getReturnType();
-    if (!Void.class.equals(returnType)) {
-      throw new IllegalStateException(
-          String.format("Action-annotated method %s has a non-void return type", method));
+    if (!void.class.equals(returnType)) {
+      throw new IllegalStateException(String
+          .format("Action-annotated method %s has a non-void return type: %s", method, returnType));
     }
     final String name = getNameForMethod(method);
     final List<ParameterSpec> parameterSpecs = processParameters(method, annotation);
@@ -159,7 +160,9 @@ public class EngineSpecBuilder {
   }
 
   private List<ParameterSpec> processParameters(final Method method, final Object annotation) {
-    final EngineMethodType methodType = EngineMethodUtil.getTypeForAnnotation(annotation).get();
+    final EngineMethodType methodType = EngineMethodUtil.getTypeForAnnotation(annotation)
+        .orElseThrow(() -> new IllegalStateException(String
+            .format("Method %s with annotation %s is illegally defined", method, annotation)));
     final Parameter[] parameters = method.getParameters();
     return Arrays.stream(parameters).map(parameter -> processParameter(parameter, methodType))
         .collect(Collectors.toList());
@@ -237,14 +240,14 @@ public class EngineSpecBuilder {
     private final Map<String, TypeSpec> types;
     private final Map<String, ActionSpec> actions;
     private final Map<String, FunctionSpec> functions;
-    private final Map<String, ConverterSpec> converters;
+    private final List<ConverterSpec> converters;
 
     public EngineSpecImpl(final Map<String, TypeSpec> types, final Map<String, ActionSpec> actions,
-        final Map<String, FunctionSpec> functions, final Map<String, ConverterSpec> converters) {
+        final Map<String, FunctionSpec> functions, final List<ConverterSpec> converters) {
       this.types = Collections.unmodifiableMap(types);
       this.actions = Collections.unmodifiableMap(actions);
       this.functions = Collections.unmodifiableMap(functions);
-      this.converters = Collections.unmodifiableMap(converters);
+      this.converters = Collections.unmodifiableList(converters);
     }
   }
 

@@ -3,6 +3,7 @@ package io.logicforge.core.util;
 import io.logicforge.core.common.Pair;
 import io.logicforge.core.constant.EngineMethodType;
 
+import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.List;
@@ -16,7 +17,7 @@ public class EngineMethodUtil {
     final List<Pair<EngineMethodType, Object>> annotatedTypes =
         Arrays.stream(EngineMethodType.values())
             .map(methodType -> new Pair<EngineMethodType, Object>(methodType,
-                method.getAnnotation(methodType.getAnnotationType())))
+                method.getAnnotation((Class<? extends Annotation>) methodType.getAnnotationType())))
             .filter(pair -> Objects.nonNull(pair.getRight())).collect(Collectors.toList());
 
     if (annotatedTypes.size() > 1) {
@@ -36,6 +37,6 @@ public class EngineMethodUtil {
     }
     final Class<?> annotationType = annotation.getClass();
     return Arrays.stream(EngineMethodType.values())
-        .filter(type -> Objects.equals(type, annotationType)).findFirst();
+        .filter(type -> type.getAnnotationType().isAssignableFrom(annotationType)).findFirst();
   }
 }

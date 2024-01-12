@@ -4,13 +4,13 @@
  */
 
 export enum SpecType {
-  ENGINE = 'engine',
-  TYPE = 'type',
-  PROCESS = 'process',
-  ACTION_LIST = 'actions',
-  ACTION = 'action',
-  FUNCTION = 'function',
-  PARAMETER = 'parameter',
+  ENGINE = 'ENGINE',
+  TYPE = 'TYPE',
+  PROCESS = 'PROCESS',
+  ACTION_LIST = 'ACTION_LIST',
+  ACTION = 'ACTION',
+  FUNCTION = 'FUNCTION',
+  PARAMETER = 'PARAMETER',
 }
 
 export type TypeSpec = {
@@ -30,7 +30,6 @@ export type ParameterSpec = {
   type: SpecType.PARAMETER;
   returnType: string;
   multi: boolean;
-  required: boolean;
   properties?: { [key: string]: string[] };
 };
 

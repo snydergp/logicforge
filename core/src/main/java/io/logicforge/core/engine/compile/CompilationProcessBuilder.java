@@ -613,7 +613,7 @@ public class CompilationProcessBuilder implements ProcessBuilder {
       if (input instanceof ValueConfig valueConfig) {
         new StaticValueWriter(spec, valueConfig).write(builder, outer, inner);
       } else if (input instanceof FunctionConfig functionConfig) {
-        final String functionName = functionConfig.getFunctionName();
+        final String functionName = functionConfig.getName();
         final FunctionSpec functionSpec = loadFunction(functionName);
         final Map<String, InputListConfig> arguments = functionConfig.getArguments();
         new MethodWriter(functionSpec, arguments).write(builder, outer, inner);

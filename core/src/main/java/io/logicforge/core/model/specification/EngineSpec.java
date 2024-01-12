@@ -1,5 +1,6 @@
 package io.logicforge.core.model.specification;
 
+import java.util.List;
 import java.util.Map;
 
 public interface EngineSpec {
@@ -10,5 +11,5 @@ public interface EngineSpec {
 
   Map<String, FunctionSpec> getFunctions();
 
-  Map<String, ConverterSpec> getConverters();
+  List<ConverterSpec> getConverters();
 }

@@ -6,8 +6,6 @@ public interface TypeSpec {
 
   Class<?> getRuntimeClass();
 
-  boolean isPrimitive();
-
   List<String> getValues();
 
 }

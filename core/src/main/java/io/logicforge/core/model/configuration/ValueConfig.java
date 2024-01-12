@@ -4,4 +4,5 @@ public interface ValueConfig extends InputConfig {
 
   String getValue();
 
+  Class<?> getType();
 }

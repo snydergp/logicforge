@@ -10,21 +10,22 @@ import io.logicforge.core.exception.EngineInitializationException;
 import io.logicforge.core.exception.ProcessConstructionException;
 import io.logicforge.core.injectable.ModifiableExecutionContext;
 import io.logicforge.core.injectable.impl.DefaultModifiableExecutionContext;
-import io.logicforge.core.model.configuration.ActionConfig;
 import io.logicforge.core.model.configuration.ActionListConfig;
-import io.logicforge.core.model.configuration.ArgumentConfig;
-import io.logicforge.core.model.configuration.FunctionConfig;
 import io.logicforge.core.model.configuration.InputConfig;
 import io.logicforge.core.model.configuration.InputListConfig;
 import io.logicforge.core.model.configuration.ProcessConfig;
-import io.logicforge.core.model.configuration.ValueConfig;
+import io.logicforge.core.model.configuration.impl.DefaultActionConfig;
+import io.logicforge.core.model.configuration.impl.DefaultActionListConfig;
+import io.logicforge.core.model.configuration.impl.DefaultFunctionConfig;
+import io.logicforge.core.model.configuration.impl.DefaultProcessConfig;
+import io.logicforge.core.model.configuration.impl.DefaultValueConfig;
 import io.logicforge.core.model.specification.ActionSpec;
 import io.logicforge.core.model.specification.ComputedParameterSpec;
 import io.logicforge.core.model.specification.EngineSpec;
 import io.logicforge.core.model.specification.EngineSpecBuilder;
 import io.logicforge.core.model.specification.FunctionSpec;
 import io.logicforge.core.model.specification.ParameterSpec;
-import lombok.Builder;
+import lombok.Data;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
@@ -76,38 +77,37 @@ public class CompilationProcessBuilderTest {
 
   private static ProcessConfig buildProcessConfig(final String concatA, final String concatB,
       final Integer addA, final Integer addB) {
-    return ProcessConfigImpl.builder()
-        .actions(
-            buildRecordPairConfig(buildConcatConfig(concatA, concatB), buildAddConfig(addA, addB)))
-        .build();
+    final DefaultProcessConfig config = new DefaultProcessConfig();
+    config.setActions(
+        buildRecordPairConfig(buildConcatConfig(concatA, concatB), buildAddConfig(addA, addB)));
+    return config;
   }
 
   private static ActionListConfig buildRecordPairConfig(final InputListConfig a,
       final InputListConfig b) {
-    return new ActionListConfigImpl(
-        ActionConfigImpl.builder().name("recordPair").arguments(Map.of("a", a, "b", b)).build());
+    return DefaultActionListConfig.builder().actions(List.of(
+        DefaultActionConfig.builder().name("recordPair").arguments(Map.of("a", a, "b", b)).build()))
+        .build();
   }
 
   private static InputListConfig buildConcatConfig(final String a, final String b) {
-    return new SingleInputListConfig(
-        FunctionConfigImpl.builder().type(String.class).functionName("concat")
-            .arguments(Map.of("a",
-                new SingleInputListConfig(
-                    ValueConfigImpl.builder().type(String.class).value(a).build()),
-                "b", new SingleInputListConfig(
-                    ValueConfigImpl.builder().type(String.class).value(b).build())))
-            .build());
+    return new SingleInputListConfig(DefaultFunctionConfig.builder().name("concat")
+        .arguments(Map.of("a",
+            new SingleInputListConfig(
+                DefaultValueConfig.builder().type(String.class).value(a).build()),
+            "b", new SingleInputListConfig(
+                DefaultValueConfig.builder().type(String.class).value(b).build())))
+        .build());
   }
 
   private static InputListConfig buildAddConfig(final int a, final int b) {
-    return new SingleInputListConfig(FunctionConfigImpl.builder().type(String.class)
-        .functionName("add")
-        .arguments(Map.of("a",
-            new SingleInputListConfig(
-                ValueConfigImpl.builder().type(Integer.class).value(Integer.toString(a)).build()),
-            "b",
-            new SingleInputListConfig(
-                ValueConfigImpl.builder().type(Integer.class).value(Integer.toString(b)).build())))
+    return new SingleInputListConfig(DefaultFunctionConfig.builder().name("add").arguments(Map.of(
+        "a",
+        new SingleInputListConfig(
+            DefaultValueConfig.builder().type(Integer.class).value(Integer.toString(a)).build()),
+        "b",
+        new SingleInputListConfig(
+            DefaultValueConfig.builder().type(Integer.class).value(Integer.toString(b)).build())))
         .build());
   }
 
@@ -202,57 +202,13 @@ public class CompilationProcessBuilderTest {
     private final List<ParameterSpec> parameters;
   }
 
-  @RequiredArgsConstructor
-  @Builder
-  @Getter
-  public static class ProcessConfigImpl implements ProcessConfig {
-    private final String name;
-    private final ActionListConfig actions;
-  }
-
-  @Getter
-  private static class ActionListConfigImpl implements ActionListConfig {
-    private final List<ActionConfig> actions;
-
-    public ActionListConfigImpl(final ActionConfig... actions) {
-      this.actions = List.of(actions);
-    }
-  }
-
-  @RequiredArgsConstructor
-  @Builder
-  @Getter
-  public static class ActionConfigImpl implements ActionConfig {
-    private final String name;
-    private final Map<String, ArgumentConfig> arguments;
-  }
-
-
-  @Getter
+  @Data
   private static class SingleInputListConfig implements InputListConfig {
+
     private final List<InputConfig> inputs = new ArrayList<>();
 
-    public SingleInputListConfig(final InputConfig inputConfig) {
-      inputs.add(inputConfig);
+    public SingleInputListConfig(final InputConfig input) {
+      this.inputs.add(input);
     }
   }
-
-  @RequiredArgsConstructor
-  @Builder
-  @Getter
-  private static class FunctionConfigImpl implements FunctionConfig {
-    private final String functionName;
-    private final Class<?> type;
-    private final Map<String, InputListConfig> arguments;
-  }
-
-  @RequiredArgsConstructor
-  @Builder
-  @Getter
-  private static class ValueConfigImpl implements ValueConfig {
-    private final Class<?> type;
-    private final String value;
-  }
-
-
 }

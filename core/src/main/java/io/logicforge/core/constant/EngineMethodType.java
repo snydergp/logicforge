@@ -9,9 +9,9 @@ public enum EngineMethodType {
   ACTION(Action.class), FUNCTION(Function.class), CONVERTER(Converter.class);
 
   @Getter
-  private final Class annotationType;
+  private final Class<?> annotationType;
 
-  EngineMethodType(final Class annotationType) {
+  EngineMethodType(final Class<?> annotationType) {
     this.annotationType = annotationType;
   }
 }

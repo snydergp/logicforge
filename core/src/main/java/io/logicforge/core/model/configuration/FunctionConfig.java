@@ -4,7 +4,7 @@ import java.util.Map;
 
 public interface FunctionConfig extends InputConfig {
 
-  String getFunctionName();
+  String getName();
 
   Map<String, InputListConfig> getArguments();
 }
