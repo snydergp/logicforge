@@ -18,20 +18,20 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class LogicForgeService {
 
-    @Getter
-    private final EngineSpec engineSpec;
-    private final CompilationProcessBuilder compiler;
-    private final ProcessConfigDAO processConfigDAO;
+  @Getter
+  private final EngineSpec engineSpec;
+  private final CompilationProcessBuilder compiler;
+  private final ProcessConfigDAO processConfigDAO;
 
-    @Autowired
-    public LogicForgeService(final EngineSpec engineSpec, final ProcessConfigDAO processConfigDAO) {
-        this.engineSpec = engineSpec;
-        this.compiler = new CompilationProcessBuilder(engineSpec);
-        this.processConfigDAO = processConfigDAO;
-    }
+  @Autowired
+  public LogicForgeService(final EngineSpec engineSpec, final ProcessConfigDAO processConfigDAO) {
+    this.engineSpec = engineSpec;
+    this.compiler = new CompilationProcessBuilder(engineSpec);
+    this.processConfigDAO = processConfigDAO;
+  }
 
-    public Optional<ExtendedProcessConfig> loadConfigById(final UUID id) {
-        return processConfigDAO.getById(id);
-    }
+  public Optional<ExtendedProcessConfig> loadConfigById(final UUID id) {
+    return processConfigDAO.getById(id);
+  }
 
 }

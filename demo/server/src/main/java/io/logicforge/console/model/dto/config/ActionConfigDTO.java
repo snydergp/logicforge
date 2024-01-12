@@ -10,7 +10,7 @@ import java.util.Map;
 @Builder
 public class ActionConfigDTO {
 
-    private String name;
-    private Map<String, List<ActionConfigDTO>> actionArguments;
-    private Map<String, List<InputConfigDTO>> inputArguments;
+  private String name;
+  private Map<String, List<ActionConfigDTO>> actionArguments;
+  private Map<String, List<InputConfigDTO>> inputArguments;
 }

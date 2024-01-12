@@ -8,12 +8,12 @@ import lombok.Data;
 @Builder
 public class InputParameterSpecDTO implements SpecDTO {
 
-    private String name;
-    private String returnType;
-    private boolean multi;
+  private String name;
+  private String returnType;
+  private boolean multi;
 
-    @Override
-    public SpecType getType() {
-        return SpecType.PARAMETER;
-    }
+  @Override
+  public SpecType getType() {
+    return SpecType.PARAMETER;
+  }
 }

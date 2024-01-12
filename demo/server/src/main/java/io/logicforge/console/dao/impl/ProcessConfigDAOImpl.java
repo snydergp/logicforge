@@ -14,29 +14,30 @@ import java.util.UUID;
 @Component
 public class ProcessConfigDAOImpl implements ProcessConfigDAO {
 
-    private final ProcessConfigRepository repository;
-    private final DocumentMapper mapper;
+  private final ProcessConfigRepository repository;
+  private final DocumentMapper mapper;
 
-    @Autowired
-    public ProcessConfigDAOImpl(final ProcessConfigRepository repository, final DocumentMapper mapper) {
-        this.repository = repository;
-        this.mapper = mapper;
-    }
+  @Autowired
+  public ProcessConfigDAOImpl(final ProcessConfigRepository repository,
+      final DocumentMapper mapper) {
+    this.repository = repository;
+    this.mapper = mapper;
+  }
 
-    @Override
-    public void save(final ExtendedProcessConfig processConfig) {
-        final ProcessConfigDocument internal = mapper.internal(processConfig);
-        repository.save(internal);
-    }
+  @Override
+  public void save(final ExtendedProcessConfig processConfig) {
+    final ProcessConfigDocument internal = mapper.internal(processConfig);
+    repository.save(internal);
+  }
 
-    @Override
-    public Optional<ExtendedProcessConfig> getById(final UUID id) {
-        final Optional<ProcessConfigDocument> optionalInternal = repository.findById(id);
-        return optionalInternal.map(mapper::external);
-    }
+  @Override
+  public Optional<ExtendedProcessConfig> getById(final UUID id) {
+    final Optional<ProcessConfigDocument> optionalInternal = repository.findById(id);
+    return optionalInternal.map(mapper::external);
+  }
 
-    @Override
-    public void delete(final UUID id) {
-        repository.deleteById(id);
-    }
+  @Override
+  public void delete(final UUID id) {
+    repository.deleteById(id);
+  }
 }

@@ -7,6 +7,6 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface ProcessConfigRepository extends MongoRepository<ProcessConfigDocument, UUID> {
-    @Override
-    Optional<ProcessConfigDocument> findById(final UUID key);
+  @Override
+  Optional<ProcessConfigDocument> findById(final UUID key);
 }

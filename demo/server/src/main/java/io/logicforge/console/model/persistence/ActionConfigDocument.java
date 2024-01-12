@@ -10,7 +10,7 @@ import java.util.Map;
 @Builder
 public class ActionConfigDocument {
 
-    private String name;
-    private Map<String, List<ActionConfigDocument>> actionArguments;
-    private Map<String, List<InputConfigDocument>> inputArguments;
+  private String name;
+  private Map<String, List<ActionConfigDocument>> actionArguments;
+  private Map<String, List<InputConfigDocument>> inputArguments;
 }

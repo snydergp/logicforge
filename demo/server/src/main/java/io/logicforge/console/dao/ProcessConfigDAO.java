@@ -7,10 +7,10 @@ import java.util.UUID;
 
 public interface ProcessConfigDAO {
 
-    void save(final ExtendedProcessConfig processConfig);
+  void save(final ExtendedProcessConfig processConfig);
 
-    Optional<ExtendedProcessConfig> getById(final UUID id);
+  Optional<ExtendedProcessConfig> getById(final UUID id);
 
-    void delete(final UUID id);
+  void delete(final UUID id);
 
 }

@@ -10,12 +10,12 @@ import java.util.Map;
 @Builder
 public class FunctionSpecDTO implements SpecDTO {
 
-    private String name;
-    private String returnType;
-    public Map<String, InputParameterSpecDTO> parameters;
+  private String name;
+  private String returnType;
+  public Map<String, InputParameterSpecDTO> parameters;
 
-    @Override
-    public SpecType getType() {
-        return SpecType.FUNCTION;
-    }
+  @Override
+  public SpecType getType() {
+    return SpecType.FUNCTION;
+  }
 }

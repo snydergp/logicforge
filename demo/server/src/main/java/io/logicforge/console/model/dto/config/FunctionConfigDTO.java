@@ -10,6 +10,6 @@ import java.util.Map;
 @Builder
 public class FunctionConfigDTO extends InputConfigDTO {
 
-    private String name;
-    private Map<String, List<InputConfigDTO>> arguments;
+  private String name;
+  private Map<String, List<InputConfigDTO>> arguments;
 }

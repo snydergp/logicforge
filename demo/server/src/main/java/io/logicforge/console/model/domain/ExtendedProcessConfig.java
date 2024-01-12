@@ -11,5 +11,5 @@ import java.util.UUID;
 @Data
 public class ExtendedProcessConfig extends DefaultProcessConfig {
 
-    private UUID id;
+  private UUID id;
 }

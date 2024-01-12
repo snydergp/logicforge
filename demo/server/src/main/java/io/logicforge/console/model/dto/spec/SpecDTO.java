@@ -8,5 +8,5 @@ import io.logicforge.core.constant.SpecType;
 public interface SpecDTO {
 
 
-    SpecType getType();
+  SpecType getType();
 }

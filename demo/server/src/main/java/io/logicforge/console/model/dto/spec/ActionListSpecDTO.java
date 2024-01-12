@@ -8,10 +8,10 @@ import lombok.Data;
 @Builder
 public class ActionListSpecDTO implements SpecDTO {
 
-    private String name;
+  private String name;
 
-    @Override
-    public SpecType getType() {
-        return SpecType.ACTION_LIST;
-    }
+  @Override
+  public SpecType getType() {
+    return SpecType.ACTION_LIST;
+  }
 }

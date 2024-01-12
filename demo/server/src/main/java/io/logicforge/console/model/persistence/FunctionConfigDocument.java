@@ -10,6 +10,6 @@ import java.util.Map;
 @Builder
 public class FunctionConfigDocument extends InputConfigDocument {
 
-    private String name;
-    private Map<String, List<InputConfigDocument>> arguments;
+  private String name;
+  private Map<String, List<InputConfigDocument>> arguments;
 }

@@ -10,6 +10,6 @@ import java.util.UUID;
 @Builder
 public class ProcessConfigDTO {
 
-    private UUID id;
-    private List<ActionConfigDTO> actions;
+  private UUID id;
+  private List<ActionConfigDTO> actions;
 }

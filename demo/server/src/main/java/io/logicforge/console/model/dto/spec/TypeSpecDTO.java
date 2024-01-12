@@ -10,12 +10,12 @@ import java.util.List;
 @Builder
 public class TypeSpecDTO implements SpecDTO {
 
-    private String id;
-    private List<String> parentIds;
-    private List<String> values;
+  private String id;
+  private List<String> parentIds;
+  private List<String> values;
 
-    @Override
-    public SpecType getType() {
-        return SpecType.TYPE;
-    }
+  @Override
+  public SpecType getType() {
+    return SpecType.TYPE;
+  }
 }

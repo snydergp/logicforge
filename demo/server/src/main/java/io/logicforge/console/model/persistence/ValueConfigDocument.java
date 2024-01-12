@@ -7,6 +7,6 @@ import lombok.Data;
 @Builder
 public class ValueConfigDocument extends InputConfigDocument {
 
-    private String type;
-    private String value;
+  private String type;
+  private String value;
 }

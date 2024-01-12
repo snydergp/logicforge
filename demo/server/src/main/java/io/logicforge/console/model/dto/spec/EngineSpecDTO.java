@@ -10,12 +10,12 @@ import java.util.Map;
 @Builder
 public class EngineSpecDTO implements SpecDTO {
 
-    private Map<String, TypeSpecDTO> types;
-    private Map<String, ActionSpecDTO> actions;
-    private Map<String, FunctionSpecDTO> functions;
+  private Map<String, TypeSpecDTO> types;
+  private Map<String, ActionSpecDTO> actions;
+  private Map<String, FunctionSpecDTO> functions;
 
-    @Override
-    public SpecType getType() {
-        return SpecType.ENGINE;
-    }
+  @Override
+  public SpecType getType() {
+    return SpecType.ENGINE;
+  }
 }

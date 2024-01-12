@@ -14,8 +14,8 @@ import java.util.UUID;
 @Document
 public class ProcessConfigDocument extends BsonDocument {
 
-    @Id
-    private UUID id;
-    private List<ActionConfigDocument> actions;
+  @Id
+  private UUID id;
+  private List<ActionConfigDocument> actions;
 
 }

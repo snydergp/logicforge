@@ -21,31 +21,32 @@ import java.util.concurrent.TimeUnit;
 @Configuration
 public class LogicForgeConfig {
 
-    @Bean
-    public EngineSpec engineSpec() {
-        return new EngineSpecBuilder().withProviderClasses(BuiltinProviders.getBuiltinProviders()).build();
-    }
+  @Bean
+  public EngineSpec engineSpec() {
+    return new EngineSpecBuilder().withProviderClasses(BuiltinProviders.getBuiltinProviders())
+        .build();
+  }
 
-    @Bean
-    public ActionExecutor actionExecutor(final LogicForgeOptions logicForgeOptions,
-                                         final ExecutorService executorService) {
-        return new ActionExecutor(executorService, logicForgeOptions);
-    }
+  @Bean
+  public ActionExecutor actionExecutor(final LogicForgeOptions logicForgeOptions,
+      final ExecutorService executorService) {
+    return new ActionExecutor(executorService, logicForgeOptions);
+  }
 
-    @Bean
-    public LogicForgeOptions logicForgeOptions() {
-        return new LogicForgeOptions(Duration.of(10, ChronoUnit.SECONDS), new HashMap<>(), Duration.ZERO);
-    }
+  @Bean
+  public LogicForgeOptions logicForgeOptions() {
+    return new LogicForgeOptions(Duration.of(10, ChronoUnit.SECONDS), new HashMap<>(),
+        Duration.ZERO);
+  }
 
-    @Bean
-    public ExecutorService executorService() {
-        return new ThreadPoolExecutor(4, 16, 10, TimeUnit.SECONDS,
-                new ArrayBlockingQueue<>(128));
-    }
+  @Bean
+  public ExecutorService executorService() {
+    return new ThreadPoolExecutor(4, 16, 10, TimeUnit.SECONDS, new ArrayBlockingQueue<>(128));
+  }
 
-    @Bean
-    public ProcessBuilder processBuilder(final EngineSpec engineSpec) {
-        return new CompilationProcessBuilder(engineSpec);
-    }
+  @Bean
+  public ProcessBuilder processBuilder(final EngineSpec engineSpec) {
+    return new CompilationProcessBuilder(engineSpec);
+  }
 
 }

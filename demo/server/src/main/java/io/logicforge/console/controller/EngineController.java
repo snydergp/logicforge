@@ -19,26 +19,26 @@ import java.util.UUID;
 @RestController
 public class EngineController {
 
-    private final DTOMapper mapper;
-    private final LogicForgeService service;
+  private final DTOMapper mapper;
+  private final LogicForgeService service;
 
-    @Autowired
-    public EngineController(final DTOMapper mapper, final LogicForgeService service) {
-        this.mapper = mapper;
-        this.service = service;
-    }
+  @Autowired
+  public EngineController(final DTOMapper mapper, final LogicForgeService service) {
+    this.mapper = mapper;
+    this.service = service;
+  }
 
-    @GetMapping(value = "/engine/spec", produces = MediaType.APPLICATION_JSON_VALUE)
-    public EngineSpecDTO getEngineSpec() {
-        return mapper.externalizeSpec();
-    }
+  @GetMapping(value = "/engine/spec", produces = MediaType.APPLICATION_JSON_VALUE)
+  public EngineSpecDTO getEngineSpec() {
+    return mapper.externalizeSpec();
+  }
 
-    @GetMapping(value = "/process/{processId}", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ProcessConfigDTO getProcess(@PathVariable final UUID processId) {
-        final Optional<ExtendedProcessConfig> extendedProcessConfig = service.loadConfigById(processId);
-        final ExtendedProcessConfig internal = extendedProcessConfig
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
-        return mapper.external(internal);
-    }
+  @GetMapping(value = "/process/{processId}", produces = MediaType.APPLICATION_JSON_VALUE)
+  public ProcessConfigDTO getProcess(@PathVariable final UUID processId) {
+    final Optional<ExtendedProcessConfig> extendedProcessConfig = service.loadConfigById(processId);
+    final ExtendedProcessConfig internal =
+        extendedProcessConfig.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+    return mapper.external(internal);
+  }
 
 }
