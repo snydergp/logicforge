@@ -9,7 +9,8 @@ public class ConditionalActions {
   @Action
   public void executeConditional(final boolean test, final ChildActions ifTrue,
       final ChildActions ifFalse, final ModifiableExecutionContext context) {
-    (test ? ifTrue : ifFalse).execute(context);
+
+    (test ? ifTrue : ifFalse).executeSync(context);
   }
 
 }

@@ -12,4 +12,9 @@ public class BooleanConverters {
     return bool.toString();
   }
 
+  @Converter
+  public static String toText(final boolean bool) {
+    return Boolean.toString(bool);
+  }
+
 }

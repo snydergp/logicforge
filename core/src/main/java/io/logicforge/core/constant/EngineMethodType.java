@@ -6,14 +6,12 @@ import io.logicforge.core.annotations.Function;
 import lombok.Getter;
 
 public enum EngineMethodType {
-        ACTION(Action.class),
-        FUNCTION(Function.class),
-        CONVERTER(Converter.class);
+  ACTION(Action.class), FUNCTION(Function.class), CONVERTER(Converter.class);
 
-        @Getter
-        private final Class annotationType;
+  @Getter
+  private final Class annotationType;
 
-        EngineMethodType(final Class annotationType) {
-            this.annotationType = annotationType;
-        }
-    }
+  EngineMethodType(final Class annotationType) {
+    this.annotationType = annotationType;
+  }
+}

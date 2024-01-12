@@ -4,7 +4,12 @@
 
 # LogicForge
 
-LogicForge is a framework that allows developers to expose codeless "advanced editing" capabilities for customizing runtime logic. Developers decide what context variables, actions, and functions are available to users. Users leverage these building blocks to construct their process via reusable UI components. At runtime, the custom process logic is loaded and executed against an input context.
+LogicForge allows developers to expose methods that users can leverage to create custom executable logic without code. Developers annotate methods that should be available to users, the engine:
+
+* analyzes the methods to determine parameters and return type
+* builds UI elements allowing user to configure the method call
+
+At runtime, the engine stitches together the user-defined logic into an runnable method that can be executed against supplied inputs.
 
 ![LogicForge UI](docs/images/ui.jpg "LogicForge UI")
 
@@ -29,19 +34,6 @@ are considered outside the core problem domain, although this repository intends
 The core implementation consists of an execution engine that developers configure with the capabilities users should have access to. This engine is then supplied with user-created process configurations, which it compiles. Compiled process objects can be executed against input contexts to produce outputs (see [Concepts](#concepts), below). Compiled processes are thread-safe and can be cached for reuse.
 
 Developers define the available actions and functions via configuration. These configurations are used both to lookup implementation methods during runtime execution, and to generate the frontend UI.
-
-## Isn't This Dangerous?
-
-Maybe! It all comes down to what capabilities you provide your users.
-
-A general way developers address the problem of providing highly-capable "advanced editor" solutions is to expose some DSL (often just JavaScript that's parsed and executed at runtime). While this is extremely powerful, it comes with drawbacks:
-
-* The user needs to write code
-* You are only ever as secure as your parser/sandbox
-
-The thinking with LogicForge was to abstract out operations that would usually be defined via source code into small, testable, reusable capabilities, and then fully-restrict the user to that capability set. There is no parsing, because the user is defining an abstract syntax tree directly.
-
-Obviously, developers can still expose insecure actions/functions that a user might be able to leverage in unexpected ways, but at least vulnerabilities in a parser/sandbox are no longer exploitable.
 
 ## Concepts
 

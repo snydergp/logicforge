@@ -8,4 +8,6 @@ public interface ParameterSpec {
 
   Class<?> getType();
 
+  String getName();
+
 }

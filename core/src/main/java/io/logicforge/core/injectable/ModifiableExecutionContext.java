@@ -10,4 +10,6 @@ public interface ModifiableExecutionContext extends ExecutionContext {
 
   void delete(final String name);
 
+  ExecutionContext getReadonlyView();
+
 }

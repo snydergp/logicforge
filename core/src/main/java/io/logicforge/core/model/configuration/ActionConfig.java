@@ -6,5 +6,5 @@ public interface ActionConfig {
 
   String getName();
 
-  Map<String, InputConfig> getInputs();
+  Map<String, ArgumentConfig> getArguments();
 }

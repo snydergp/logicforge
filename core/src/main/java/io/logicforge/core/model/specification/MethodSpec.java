@@ -1,11 +1,11 @@
 package io.logicforge.core.model.specification;
 
-import java.lang.invoke.MethodHandle;
+import java.lang.reflect.Method;
 import java.util.List;
 
 public interface MethodSpec {
 
-  MethodHandle getMethodHandle();
+  Method getMethod();
 
   Object getProvider();
 

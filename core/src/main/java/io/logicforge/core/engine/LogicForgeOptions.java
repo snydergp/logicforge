@@ -1,12 +1,12 @@
 package io.logicforge.core.engine;
 
-import lombok.Getter;
-import lombok.RequiredArgsConstructor;
+import java.time.Duration;
+import java.util.Map;
 
-@RequiredArgsConstructor
-@Getter
-public class LogicForgeOptions {
+public record LogicForgeOptions(Duration defaultActionTimeout,Map<String,Duration>actionTimeoutOverrides,Duration shutdownGracePeriod){
 
-  private final boolean precompile;
+@Override public Duration defaultActionTimeout(){return defaultActionTimeout;}
 
-}
+@Override public Map<String,Duration>actionTimeoutOverrides(){return actionTimeoutOverrides;}
+
+@Override public Duration shutdownGracePeriod(){return shutdownGracePeriod;}}

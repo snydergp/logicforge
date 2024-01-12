@@ -6,5 +6,5 @@ public interface FunctionConfig extends InputConfig {
 
   String getFunctionName();
 
-  Map<String, InputConfig> getInputs();
+  Map<String, InputListConfig> getArguments();
 }

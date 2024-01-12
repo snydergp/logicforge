@@ -1,8 +1,7 @@
 package io.logicforge.core.builtin.functions;
 
-import io.logicforge.core.annotations.Input;
 import io.logicforge.core.annotations.Function;
-import io.logicforge.core.constant.BuiltinFunctionCategoryNames;
+import io.logicforge.core.annotations.Input;
 import io.logicforge.core.annotations.Property;
 
 import java.util.Arrays;
@@ -10,33 +9,33 @@ import java.util.Comparator;
 
 public class MathFunctions {
 
-  @Function(categoryName = BuiltinFunctionCategoryNames.MATH)
+  @Function
   public static <T extends Number & Comparable<Number>> T minimum(final T... values) {
     return Arrays.stream(values).min(Comparator.naturalOrder()).orElseThrow(RuntimeException::new); // TODO checked exception before
   }
 
-  @Function(categoryName = BuiltinFunctionCategoryNames.MATH)
+  @Function
   public static <T extends Number & Comparable<Number>> T maximum(final T... values) {
     return Arrays.stream(values).max(Comparator.naturalOrder()).orElseThrow(RuntimeException::new); // TODO checked exception before
   }
 
-  @Function(categoryName = BuiltinFunctionCategoryNames.MATH)
+  @Function
   public static Number product(final Number... values) {
     return Arrays.stream(values).reduce(MathFunctions::multiply).orElse(1L);
   }
 
-  @Function(categoryName = BuiltinFunctionCategoryNames.MATH)
+  @Function
   public static Number sum(final Number... values) {
     return Arrays.stream(values).reduce(MathFunctions::add).orElse(0L);
   }
 
-  @Function(categoryName = BuiltinFunctionCategoryNames.MATH)
+  @Function
   public static Long staticLong(
       @Input(properties = @Property(name = "editor", value = "integer")) final Long value) {
     return value;
   }
 
-  @Function(categoryName = BuiltinFunctionCategoryNames.MATH)
+  @Function
   public static Double staticDouble(
       @Input(properties = @Property(name = "editor", value = "float")) final Double value) {
     return value;

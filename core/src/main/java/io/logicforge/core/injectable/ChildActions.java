@@ -4,24 +4,22 @@ import io.logicforge.core.annotations.Action;
 import io.logicforge.core.annotations.Injectable;
 import io.logicforge.core.constant.EngineMethodType;
 
-import java.util.List;
-import java.util.function.Function;
-
 /**
- * A parameter that can be injected into {@link Action} functions, representing an executable series of child
- * actions. Child actions might be used for actions that conditionally execute sets of children based on some input.
+ * A parameter that can be injected into {@link Action} functions, representing an executable series of child actions.
+ * Child actions might be used for actions that conditionally execute sets of children based on some input.
  */
 @Injectable(methodTypes = EngineMethodType.ACTION)
 public interface ChildActions {
 
   /**
-   * Executes the child actions. Actions are executes synchronously and in their defined order by a single thread.
+   * Executes the child actions synchronously in a single thread. Actions are executed in their defined order.
    */
-  void execute(final ModifiableExecutionContext context);
+  void executeSync(final ModifiableExecutionContext context);
 
   /**
-   * @return the list of child actions in their defined order
+   * Executes the child actions asynchronously in-parallel. The actual number of threads used will be dependent on the
+   * engine's concurrency settings.
    */
-  List<Function<ModifiableExecutionContext, Void>> getActions();
+  void executeAsync(final ModifiableExecutionContext context);
 
 }

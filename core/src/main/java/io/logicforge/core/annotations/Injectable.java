@@ -12,8 +12,8 @@ import java.lang.annotation.Target;
 @Target(ElementType.TYPE)
 public @interface Injectable {
 
-    EngineMethodType[] methodTypes();
+  EngineMethodType[] methodTypes();
 
-    Class<? extends InjectableFactory> factory() default InjectableFactory.Builtin.class;
+  Class<? extends InjectableFactory> factory() default InjectableFactory.Builtin.class;
 
 }
