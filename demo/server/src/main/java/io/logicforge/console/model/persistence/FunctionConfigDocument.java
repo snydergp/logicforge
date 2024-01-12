@@ -3,6 +3,7 @@ package io.logicforge.console.model.persistence;
 import lombok.Builder;
 import lombok.Data;
 
+import java.util.List;
 import java.util.Map;
 
 @Data
@@ -10,5 +11,5 @@ import java.util.Map;
 public class FunctionConfigDocument extends InputConfigDocument {
 
     private String name;
-    private Map<String, InputListConfigDocument> arguments;
+    private Map<String, List<InputConfigDocument>> arguments;
 }

@@ -6,8 +6,9 @@ import lombok.Data;
 
 @Data
 @Builder
-public class ComputedParameterSpecDTO extends ParameterSpecDTO {
+public class InputParameterSpecDTO implements SpecDTO {
 
+    private String name;
     private String returnType;
     private boolean multi;
 

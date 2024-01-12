@@ -3,6 +3,7 @@ package io.logicforge.console.model.dto.config;
 import lombok.Builder;
 import lombok.Data;
 
+import java.util.List;
 import java.util.Map;
 
 @Data
@@ -10,5 +11,6 @@ import java.util.Map;
 public class ActionConfigDTO {
 
     private String name;
-    private Map<String, ArgumentConfigDTO> arguments;
+    private Map<String, List<ActionConfigDTO>> actionArguments;
+    private Map<String, List<InputConfigDTO>> inputArguments;
 }

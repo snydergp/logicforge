@@ -10,12 +10,10 @@ import io.logicforge.core.exception.EngineInitializationException;
 import io.logicforge.core.exception.ProcessConstructionException;
 import io.logicforge.core.injectable.ModifiableExecutionContext;
 import io.logicforge.core.injectable.impl.DefaultModifiableExecutionContext;
-import io.logicforge.core.model.configuration.ActionListConfig;
+import io.logicforge.core.model.configuration.ActionConfig;
 import io.logicforge.core.model.configuration.InputConfig;
-import io.logicforge.core.model.configuration.InputListConfig;
 import io.logicforge.core.model.configuration.ProcessConfig;
 import io.logicforge.core.model.configuration.impl.DefaultActionConfig;
-import io.logicforge.core.model.configuration.impl.DefaultActionListConfig;
 import io.logicforge.core.model.configuration.impl.DefaultFunctionConfig;
 import io.logicforge.core.model.configuration.impl.DefaultProcessConfig;
 import io.logicforge.core.model.configuration.impl.DefaultValueConfig;
@@ -25,7 +23,6 @@ import io.logicforge.core.model.specification.EngineSpec;
 import io.logicforge.core.model.specification.EngineSpecBuilder;
 import io.logicforge.core.model.specification.FunctionSpec;
 import io.logicforge.core.model.specification.ParameterSpec;
-import lombok.Data;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
@@ -78,37 +75,31 @@ public class CompilationProcessBuilderTest {
   private static ProcessConfig buildProcessConfig(final String concatA, final String concatB,
       final Integer addA, final Integer addB) {
     final DefaultProcessConfig config = new DefaultProcessConfig();
-    config.setActions(
-        buildRecordPairConfig(buildConcatConfig(concatA, concatB), buildAddConfig(addA, addB)));
+    config.setActions(List.of(
+        buildRecordPairConfig(buildConcatConfig(concatA, concatB), buildAddConfig(addA, addB))));
     return config;
   }
 
-  private static ActionListConfig buildRecordPairConfig(final InputListConfig a,
-      final InputListConfig b) {
-    return DefaultActionListConfig.builder().actions(List.of(
-        DefaultActionConfig.builder().name("recordPair").arguments(Map.of("a", a, "b", b)).build()))
+  private static ActionConfig buildRecordPairConfig(final InputConfig a, final InputConfig b) {
+    return DefaultActionConfig.builder().name("recordPair")
+        .inputArguments(Map.of("a", List.of(a), "b", List.of(b))).build();
+  }
+
+  private static InputConfig buildConcatConfig(final String a, final String b) {
+    return DefaultFunctionConfig.builder().name("concat").arguments(Map.of("a",
+        List.of(DefaultValueConfig.builder().typeId(String.class.getName()).value(a).build()), "b",
+        List.of(DefaultValueConfig.builder().typeId(String.class.getName()).value(b).build())))
         .build();
   }
 
-  private static InputListConfig buildConcatConfig(final String a, final String b) {
-    return new SingleInputListConfig(DefaultFunctionConfig.builder().name("concat")
+  private static InputConfig buildAddConfig(final int a, final int b) {
+    return DefaultFunctionConfig.builder().name("add")
         .arguments(Map.of("a",
-            new SingleInputListConfig(
-                DefaultValueConfig.builder().type(String.class).value(a).build()),
-            "b", new SingleInputListConfig(
-                DefaultValueConfig.builder().type(String.class).value(b).build())))
-        .build());
-  }
-
-  private static InputListConfig buildAddConfig(final int a, final int b) {
-    return new SingleInputListConfig(DefaultFunctionConfig.builder().name("add").arguments(Map.of(
-        "a",
-        new SingleInputListConfig(
-            DefaultValueConfig.builder().type(Integer.class).value(Integer.toString(a)).build()),
-        "b",
-        new SingleInputListConfig(
-            DefaultValueConfig.builder().type(Integer.class).value(Integer.toString(b)).build())))
-        .build());
+            List.of(DefaultValueConfig.builder().typeId(Integer.class.getName())
+                .value(Integer.toString(a)).build()),
+            "b", List.of(DefaultValueConfig.builder().typeId(Integer.class.getName())
+                .value(Integer.toString(b)).build())))
+        .build();
   }
 
   private static EngineSpec buildSpec(final Functions functions) {
@@ -200,15 +191,5 @@ public class CompilationProcessBuilderTest {
     private final Method method;
     private final Object provider;
     private final List<ParameterSpec> parameters;
-  }
-
-  @Data
-  private static class SingleInputListConfig implements InputListConfig {
-
-    private final List<InputConfig> inputs = new ArrayList<>();
-
-    public SingleInputListConfig(final InputConfig input) {
-      this.inputs.add(input);
-    }
   }
 }

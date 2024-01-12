@@ -3,6 +3,7 @@ package io.logicforge.console.model.dto.config;
 import lombok.Builder;
 import lombok.Data;
 
+import java.util.List;
 import java.util.UUID;
 
 @Data
@@ -10,5 +11,5 @@ import java.util.UUID;
 public class ProcessConfigDTO {
 
     private UUID id;
-    private ActionListConfigDTO actions;
+    private List<ActionConfigDTO> actions;
 }

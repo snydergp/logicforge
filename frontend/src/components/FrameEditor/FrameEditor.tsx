@@ -146,13 +146,9 @@ function ProcessFrame({ content }: ProcessFrameProps) {
         subtitle={'Process'}
         type={FrameType.PROCESS}
       />
-      {Object.entries(specification.parameters).map(([name]) => {
-        return (
-          <Paper key={name}>
-            <ParameterList contentKey={content.childKeys[name]} name={name} parent={content} />
-          </Paper>
-        );
-      })}
+      <Paper>
+        <ParameterList contentKey={content.key} name={'root'} parent={content} />
+      </Paper>
     </Stack>
   );
 }
@@ -179,10 +175,21 @@ function ActionFrame({ content }: ActionFrameProps) {
         description={description}
         type={FrameType.ACTION}
       />
-      {Object.entries(specification.parameters)?.map(([name]) => {
+      {Object.entries(specification.actionParameters)?.map(([name]) => {
         return (
           <Paper key={name}>
-            <ParameterList contentKey={content.childKeys[name]} name={name} parent={content} />
+            <ParameterList
+              contentKey={content.actionChildKeys[name]}
+              name={name}
+              parent={content}
+            />
+          </Paper>
+        );
+      })}
+      {Object.entries(specification.inputParameters)?.map(([name]) => {
+        return (
+          <Paper key={name}>
+            <ParameterList contentKey={content.inputChildKeys[name]} name={name} parent={content} />
           </Paper>
         );
       })}

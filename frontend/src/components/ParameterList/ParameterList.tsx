@@ -13,13 +13,13 @@ import {
 import { useDispatch, useSelector } from 'react-redux';
 import {
   addValue,
-  selectContentByKey,
-  selectParameterSpecificationForKey,
-  setSelection,
-  selectSelectedSubtree,
-  selectIsKeySelected,
-  reorderItem,
   deleteItem,
+  reorderItem,
+  selectContentByKey,
+  selectIsKeySelected,
+  selectParameterSpecificationForKey,
+  selectSelectedSubtree,
+  setSelection,
 } from '../../redux/slices/editors';
 import { ParameterHeading } from '../ParameterHeading/ParameterHeading';
 import {
@@ -56,7 +56,6 @@ import {
   DraggableProvided,
   Droppable,
   DropResult,
-  OnDragEndResponder,
 } from '@hello-pangea/dnd';
 
 export interface ParameterListProps {
@@ -94,7 +93,11 @@ export function ParameterList({ contentKey, name, parent }: ParameterListProps) 
   const parameterSpec = useSelector(selectParameterSpecificationForKey(editorId, content?.key));
 
   if (content !== undefined && selection !== undefined) {
-    if (content.type !== ContentType.ACTION_LIST && content.type !== ContentType.INPUT_LIST) {
+    if (
+      content.type !== ContentType.PROCESS &&
+      content.type !== ContentType.ACTION_LIST &&
+      content.type !== ContentType.INPUT_LIST
+    ) {
       throw new Error(
         `Unexpected state at key ${content.key} -- expected actions, found ${content.type}`,
       );
@@ -107,6 +110,11 @@ export function ParameterList({ contentKey, name, parent }: ParameterListProps) 
       const processEditorState = parent as ProcessContent;
       title = translate(processParameterTitlePath(processEditorState.name, name));
       description = translate(processParameterDescriptionPath(processEditorState.name, name));
+    }
+    if (parent.type === ContentType.PROCESS) {
+      // TODO move this into translations
+      title = 'Actions';
+      description = 'Root actions';
     }
     if (parent.type === ContentType.ACTION) {
       const actionEditorState = parent as ActionContent;

@@ -10,8 +10,6 @@ export enum ConfigType {
   FUNCTION = 'function',
 }
 
-export const PROCESS_DEFAULT_ACTIONS = 'actions';
-
 export type ValueConfig = {
   type: ConfigType.VALUE;
   value: string;
@@ -20,19 +18,20 @@ export type ValueConfig = {
 export type FunctionConfig = {
   type: ConfigType.FUNCTION;
   name: string;
-  arguments: { [key: string]: Array<InputConfig> };
+  arguments: { [key: string]: InputConfig[] };
 };
 
 export type ActionConfig = {
   type: ConfigType.ACTION;
   name: string;
-  arguments: { [key: string]: Array<InputConfig | ActionConfig> };
+  actionArguments: { [key: string]: ActionConfig[] };
+  inputArguments: { [key: string]: InputConfig[] };
 };
 
 export type ProcessConfig = {
   type: ConfigType.PROCESS;
   name: string;
-  arguments: { [key: string]: Array<ActionConfig> };
+  actions: ActionConfig[];
 };
 
 export type InputConfig = ValueConfig | FunctionConfig;

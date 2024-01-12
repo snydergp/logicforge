@@ -33,19 +33,19 @@ export type ParameterSpec = {
   properties?: { [key: string]: string[] };
 };
 
-export type ActionsSpec = {
+export type ActionListSpec = {
   type: SpecType.ACTION_LIST;
-  name: string;
 };
 
 export type ActionSpec = {
   type: SpecType.ACTION;
-  parameters: { [key: string]: ParameterSpec | ActionsSpec };
+  actionParameters: { [key: string]: ActionListSpec };
+  inputParameters: { [key: string]: ParameterSpec };
 };
 
 export type ProcessSpec = {
   type: SpecType.PROCESS;
-  parameters: { [key: string]: ActionsSpec };
+  name: string;
 };
 
 export type EngineSpec = {

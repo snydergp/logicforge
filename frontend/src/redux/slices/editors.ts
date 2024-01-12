@@ -292,19 +292,20 @@ function newFunctionConfigForSpec(functionName: string, spec: FunctionSpec): Fun
 }
 
 function newActionConfigForSpec(actionName: string, spec: ActionSpec): ActionConfig {
-  const argumentConfigs: { [key: string]: ArgumentConfig[] } = {};
-  Object.entries(spec.parameters).forEach(([key, value]) => {
-    if (value.type === SpecType.PARAMETER) {
-      argumentConfigs[key] = [{ type: ConfigType.VALUE, value: '' }];
-    } else {
-      argumentConfigs[key] = [];
-    }
+  const inputArgumentConfigs: { [key: string]: InputConfig[] } = {};
+  const actionArgumentConfigs: { [key: string]: ActionConfig[] } = {};
+  Object.entries(spec.inputParameters).forEach(([key, value]) => {
+    inputArgumentConfigs[key] = [{ type: ConfigType.VALUE, value: '' }];
+  });
+  Object.entries(spec.actionParameters).forEach(([key, value]) => {
+    actionArgumentConfigs[key] = [];
   });
 
   return {
     type: ConfigType.ACTION,
     name: actionName,
-    arguments: argumentConfigs,
+    inputArguments: inputArgumentConfigs,
+    actionArguments: actionArgumentConfigs,
   };
 }
 

@@ -9,5 +9,5 @@ import lombok.Data;
 public class DefaultValueConfig implements ValueConfig {
 
   private String value;
-  private Class<?> type;
+  private String typeId;
 }

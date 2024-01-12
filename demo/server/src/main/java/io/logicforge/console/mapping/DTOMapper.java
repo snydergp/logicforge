@@ -2,40 +2,30 @@ package io.logicforge.console.mapping;
 
 import io.logicforge.console.model.domain.ExtendedProcessConfig;
 import io.logicforge.console.model.dto.config.ActionConfigDTO;
-import io.logicforge.console.model.dto.config.ActionListConfigDTO;
-import io.logicforge.console.model.dto.config.ArgumentConfigDTO;
 import io.logicforge.console.model.dto.config.FunctionConfigDTO;
 import io.logicforge.console.model.dto.config.InputConfigDTO;
-import io.logicforge.console.model.dto.config.InputListConfigDTO;
 import io.logicforge.console.model.dto.config.ProcessConfigDTO;
 import io.logicforge.console.model.dto.config.ValueConfigDTO;
 import io.logicforge.console.model.dto.spec.ActionListSpecDTO;
 import io.logicforge.console.model.dto.spec.ActionSpecDTO;
-import io.logicforge.console.model.dto.spec.ComputedParameterSpecDTO;
 import io.logicforge.console.model.dto.spec.EngineSpecDTO;
 import io.logicforge.console.model.dto.spec.FunctionSpecDTO;
-import io.logicforge.console.model.dto.spec.ParameterSpecDTO;
+import io.logicforge.console.model.dto.spec.InputParameterSpecDTO;
 import io.logicforge.console.model.dto.spec.TypeSpecDTO;
 import io.logicforge.core.common.Pair;
 import io.logicforge.core.injectable.ChildActions;
 import io.logicforge.core.model.configuration.ActionConfig;
-import io.logicforge.core.model.configuration.ActionListConfig;
-import io.logicforge.core.model.configuration.ArgumentConfig;
 import io.logicforge.core.model.configuration.FunctionConfig;
 import io.logicforge.core.model.configuration.InputConfig;
-import io.logicforge.core.model.configuration.InputListConfig;
 import io.logicforge.core.model.configuration.ValueConfig;
 import io.logicforge.core.model.configuration.impl.DefaultActionConfig;
-import io.logicforge.core.model.configuration.impl.DefaultActionListConfig;
 import io.logicforge.core.model.configuration.impl.DefaultFunctionConfig;
-import io.logicforge.core.model.configuration.impl.DefaultInputListConfig;
 import io.logicforge.core.model.configuration.impl.DefaultValueConfig;
 import io.logicforge.core.model.specification.ActionSpec;
 import io.logicforge.core.model.specification.ComputedParameterSpec;
 import io.logicforge.core.model.specification.ConverterSpec;
 import io.logicforge.core.model.specification.EngineSpec;
 import io.logicforge.core.model.specification.FunctionSpec;
-import io.logicforge.core.model.specification.InjectedParameterSpec;
 import io.logicforge.core.model.specification.ParameterSpec;
 import io.logicforge.core.model.specification.TypeSpec;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -73,14 +63,23 @@ public class DTOMapper {
     public ExtendedProcessConfig internal(final ProcessConfigDTO external) {
         final ExtendedProcessConfig internal = new ExtendedProcessConfig();
         internal.setId(external.getId());
-        internal.setActions(actionListInternal(external.getActions()));
+        internal.setActions(
+                external.getActions().stream()
+                        .map(this::actionInternal)
+                        .collect(Collectors.toList())
+        );
         return internal;
     }
 
     public ProcessConfigDTO external(final ExtendedProcessConfig internal) {
         return ProcessConfigDTO.builder()
                 .id(internal.getId())
-                .actions(actionListExternal(internal.getActions()))
+                .actions(
+                        internal.getActions()
+                                .stream()
+                                .map(this::actionExternal)
+                                .collect(Collectors.toList())
+                )
                 .build();
     }
 
@@ -88,45 +87,26 @@ public class DTOMapper {
         return cachedDTO;
     }
 
-    private ActionListConfig actionListInternal(final ActionListConfigDTO external) {
-        return DefaultActionListConfig.builder()
-                .actions(
-                        external.getActions().stream()
-                                .map(this::actionInternal)
-                                .collect(Collectors.toList())
-                )
-                .build();
-    }
-
     private ActionConfig actionInternal(final ActionConfigDTO external) {
         return DefaultActionConfig.builder()
                 .name(external.getName())
-                .arguments(
-                        external.getArguments()
+                .actionArguments(
+                        external.getActionArguments()
                                 .entrySet()
                                 .stream()
-                                .map(e -> new Pair<>(e.getKey(), argumentInternal(e.getValue())))
+                                .map(e -> new Pair<>(e.getKey(), e.getValue().stream()
+                                        .map(this::actionInternal)
+                                        .collect(Collectors.toList())))
                                 .collect(Collectors.toMap(Pair::getLeft, Pair::getRight))
                 )
-                .build();
-    }
-
-    private ArgumentConfig argumentInternal(final ArgumentConfigDTO external) {
-        if (external instanceof ActionListConfigDTO actionListConfig) {
-            return actionListInternal(actionListConfig);
-        } else if (external instanceof InputListConfigDTO inputListConfig) {
-            return inputListInternal(inputListConfig);
-        } else {
-            throw new RuntimeException("Unknown ArgumentConfigDTO type: " + external.getClass());
-        }
-    }
-
-    private InputListConfig inputListInternal(final InputListConfigDTO external) {
-        return DefaultInputListConfig.builder()
-                .inputs(
-                        external.getInputs().stream()
-                                .map(this::inputInternal)
-                                .collect(Collectors.toList())
+                .inputArguments(
+                        external.getInputArguments()
+                                .entrySet()
+                                .stream()
+                                .map(e -> new Pair<>(e.getKey(), e.getValue().stream()
+                                        .map(this::inputInternal)
+                                        .collect(Collectors.toList())))
+                                .collect(Collectors.toMap(Pair::getLeft, Pair::getRight))
                 )
                 .build();
     }
@@ -146,7 +126,9 @@ public class DTOMapper {
                 .name(external.getName())
                 .arguments(
                         external.getArguments().entrySet().stream()
-                                .map(e -> new Pair<>(e.getKey(), inputListInternal(e.getValue())))
+                                .map(e -> new Pair<>(e.getKey(), e.getValue().stream()
+                                        .map(this::inputInternal)
+                                        .collect(Collectors.toList())))
                                 .collect(Collectors.toMap(Pair::getLeft, Pair::getRight))
                 )
                 .build();
@@ -154,56 +136,36 @@ public class DTOMapper {
 
     private ValueConfig valueInternal(final ValueConfigDTO external) {
 
-        final TypeSpec matchingType = engineSpec.getTypes().entrySet().stream()
-                .filter(e -> e.getKey().equals(external.getType()))
+        final String matchingType = engineSpec.getTypes().keySet().stream()
+                .filter(key -> key.equals(external.getType()))
                 .findFirst()
-                .map(Entry::getValue)
                 .orElseThrow();
         return DefaultValueConfig.builder()
                 .value(external.getValue())
-                .type(matchingType.getRuntimeClass())
-                .build();
-    }
-
-    private ActionListConfigDTO actionListExternal(final ActionListConfig internal) {
-        return ActionListConfigDTO.builder()
-                .actions(
-                        internal.getActions().stream()
-                                .map(this::actionExternal)
-                                .collect(Collectors.toList())
-                )
+                .typeId(matchingType)
                 .build();
     }
 
     private ActionConfigDTO actionExternal(final ActionConfig internal) {
         return ActionConfigDTO.builder()
                 .name(internal.getName())
-                .arguments(
-                        internal.getArguments()
+                .actionArguments(
+                        internal.getActionArguments()
                                 .entrySet()
                                 .stream()
-                                .map(e -> new Pair<>(e.getKey(), argumentExternal(e.getValue())))
+                                .map(e -> new Pair<>(e.getKey(), e.getValue().stream()
+                                        .map(this::actionExternal)
+                                        .collect(Collectors.toList())))
                                 .collect(Collectors.toMap(Pair::getLeft, Pair::getRight))
                 )
-                .build();
-    }
-
-    private ArgumentConfigDTO argumentExternal(final ArgumentConfig internal) {
-        if (internal instanceof ActionListConfig actionListConfig) {
-            return actionListExternal(actionListConfig);
-        } else if (internal instanceof InputListConfig inputListConfig) {
-            return inputListExternal(inputListConfig);
-        } else {
-            throw new RuntimeException("Unknown ArgumentConfig type: " + internal.getClass());
-        }
-    }
-
-    private InputListConfigDTO inputListExternal(final InputListConfig internal) {
-        return InputListConfigDTO.builder()
-                .inputs(
-                        internal.getInputs().stream()
-                                .map(this::inputExternal)
-                                .collect(Collectors.toList())
+                .inputArguments(
+                        internal.getInputArguments()
+                                .entrySet()
+                                .stream()
+                                .map(e -> new Pair<>(e.getKey(), e.getValue().stream()
+                                        .map(this::inputExternal)
+                                        .collect(Collectors.toList())))
+                                .collect(Collectors.toMap(Pair::getLeft, Pair::getRight))
                 )
                 .build();
     }
@@ -223,7 +185,9 @@ public class DTOMapper {
                 .name(internal.getName())
                 .arguments(
                         internal.getArguments().entrySet().stream()
-                                .map(e -> new Pair<>(e.getKey(), inputListExternal(e.getValue())))
+                                .map(e -> new Pair<>(e.getKey(), e.getValue().stream()
+                                        .map(this::inputExternal)
+                                        .collect(Collectors.toList())))
                                 .collect(Collectors.toMap(Pair::getLeft, Pair::getRight))
                 )
                 .build();
@@ -231,10 +195,9 @@ public class DTOMapper {
 
     private ValueConfigDTO valueExternal(final ValueConfig internal) {
 
-        final String matchingType = engineSpec.getTypes().entrySet().stream()
-                .filter(e -> e.getValue().getRuntimeClass().equals(internal.getType()))
+        final String matchingType = engineSpec.getTypes().keySet().stream()
+                .filter(id -> id.equals(internal.getTypeId()))
                 .findFirst()
-                .map(Entry::getKey)
                 .orElseThrow();
         return ValueConfigDTO.builder()
                 .value(internal.getValue())
@@ -313,27 +276,23 @@ public class DTOMapper {
     private ActionSpecDTO externalizeAction(final ActionSpec internal, final Map<Class<?>, String> typesByClass) {
         return ActionSpecDTO.builder()
                 .name(internal.getName())
-                .parameters(this.externalizeActionParameters(internal.getParameters(), typesByClass))
+                .actionParameters(
+                        internal.getParameters().stream()
+                                .filter(parameterSpec -> parameterSpec.getType().equals(ChildActions.class))
+                                .map(parameterSpec -> ActionListSpecDTO.builder()
+                                        .name(parameterSpec.getName())
+                                        .build())
+                                .collect(Collectors.toMap(ActionListSpecDTO::getName, Function.identity()))
+                )
+                .inputParameters(
+                        internal.getParameters().stream()
+                                .filter(parameterSpec -> parameterSpec instanceof ComputedParameterSpec)
+                                .map(parameterSpec ->
+                                        this.externalizeInputParameter((ComputedParameterSpec) parameterSpec,
+                                                typesByClass))
+                                .collect(Collectors.toMap(InputParameterSpecDTO::getName, Function.identity()))
+                )
                 .build();
-    }
-
-    private Map<String, ParameterSpecDTO> externalizeActionParameters(final List<ParameterSpec> internal,
-                                                                      final Map<Class<?>, String> typesByClass) {
-
-        final Map<String, ParameterSpecDTO> out = new HashMap<>();
-        internal.forEach(parameterSpec -> {
-            final String name = parameterSpec.getName();
-            final Class<?> type = parameterSpec.getType();
-            if (parameterSpec instanceof ComputedParameterSpec computedParameterSpec) {
-                out.put(name, ComputedParameterSpecDTO.builder()
-                        .returnType(typesByClass.get(computedParameterSpec.getType()))
-                        .multi(computedParameterSpec.isMulti())
-                        .build());
-            } else if (type.equals(ChildActions.class) && parameterSpec instanceof InjectedParameterSpec) {
-                out.put(name, ActionListSpecDTO.builder().build());
-            }
-        });
-        return out;
     }
 
     private Map<String, FunctionSpecDTO> externalizeFunctions(final Map<String, FunctionSpec> internal,
@@ -352,20 +311,29 @@ public class DTOMapper {
                 .build();
     }
 
-    private Map<String, ComputedParameterSpecDTO> externalizeFunctionParameters(final List<ParameterSpec> internal,
-                                                                                final Map<Class<?>, String> typesByClass) {
+    private Map<String, InputParameterSpecDTO> externalizeFunctionParameters(final List<ParameterSpec> internal,
+                                                                             final Map<Class<?>, String> typesByClass) {
 
-        final Map<String, ComputedParameterSpecDTO> out = new HashMap<>();
+        final Map<String, InputParameterSpecDTO> out = new HashMap<>();
         internal.forEach(parameterSpec -> {
             final String name = parameterSpec.getName();
             if (parameterSpec instanceof ComputedParameterSpec computedParameterSpec) {
-                out.put(name, ComputedParameterSpecDTO.builder()
+                out.put(name, InputParameterSpecDTO.builder()
                         .returnType(typesByClass.get(computedParameterSpec.getType()))
                         .multi(computedParameterSpec.isMulti())
                         .build());
             }
         });
         return out;
+    }
+
+    private InputParameterSpecDTO externalizeInputParameter(final ComputedParameterSpec internal,
+                                                            final Map<Class<?>, String> typesByClass) {
+        return InputParameterSpecDTO.builder()
+                .name(internal.getName())
+                .returnType(typesByClass.get(internal.getType()))
+                .multi(internal.isMulti())
+                .build();
     }
 
 }

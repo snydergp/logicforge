@@ -33,7 +33,6 @@ export function loadRootContent(
     throw new Error(`Illegal editor root type: ${config.type}`);
   }
   const rootState = constructContent(editorStateStore, config, engineSpec);
-  updateEncodedRepresentation(editorStateStore, rootState, engineSpec);
   editorStateStore.rootConfigKey = rootState.key;
 }
 
@@ -80,7 +79,6 @@ export function replaceInput(
   newChildContent.parentKey = parentInputContent.key;
   parentInputContent.childKeys[previousIndex] = newChildContent.key;
   recursiveDelete(editorStateStore, previousChildKey);
-  updateEncodedRepresentation(editorStateStore, parentInputContent, engineSpec);
   return newChildContent;
 }
 
@@ -100,7 +98,6 @@ export function addAction(
   const newChildState = constructContent(editorStateStore, newConfig, engineSpec);
   newChildState.parentKey = parentActionsState.key;
   parentActionsState.childKeys.push(newChildState.key);
-  updateEncodedRepresentation(editorStateStore, parentActionsState, engineSpec);
 }
 
 export function deleteAction(editorStore: ContentStore, key: string) {
@@ -212,32 +209,14 @@ export function constructContent(
         key: processKey,
         type: ContentType.PROCESS,
         name: processName,
-        childKeys: {},
+        childKeys: [],
       };
       contentStore.data[processContent.key] = processContent;
-      const processSpec = engineSpec.processes[processName];
-      Object.entries(processSpec.parameters)
-        .map(([actionListName, value]) => {
-          const actionListKey = nextKey(contentStore);
-          const actionListState: ActionListContent = {
-            key: actionListKey,
-            type: ContentType.ACTION_LIST,
-            parentKey: processKey,
-            childKeys: [],
-          };
-          contentStore.data[actionListState.key] = actionListState;
-          processContent.childKeys[actionListName] = actionListKey;
-          return {
-            actionListState: actionListState,
-            childConfigs: config.arguments[actionListName],
-          };
-        })
-        .forEach(({ actionListState, childConfigs }) => {
-          childConfigs.forEach((actionConfig) => {
-            const content = constructContent(contentStore, actionConfig, engineSpec);
-            content.parentKey = actionListState.key;
-            actionListState.childKeys.push(content.key);
-          });
+      config.actions
+        .map((actionConfig) => constructContent(contentStore, actionConfig, engineSpec))
+        .forEach((actionContent) => {
+          actionContent.parentKey = processKey;
+          processContent.childKeys.push(actionContent.key);
         });
       return processContent;
     case ConfigType.ACTION:
@@ -247,33 +226,43 @@ export function constructContent(
         key: actionKey,
         type: ContentType.ACTION,
         name: actionName,
-        childKeys: {},
+        actionChildKeys: {},
+        inputChildKeys: {},
       };
       contentStore.data[actionContent.key] = actionContent;
       const actionSpec = engineSpec.actions[actionName];
-      Object.entries(config.arguments).forEach(([name, configs]) => {
-        const parameterSpec = actionSpec.parameters[name];
+      Object.entries(config.actionArguments).forEach(([name, configs]) => {
+        const parameterSpec = actionSpec.actionParameters[name];
         let listContent: ListContent;
         const childKey = nextKey(contentStore);
-        if (parameterSpec.type === SpecType.ACTION_LIST) {
-          listContent = {
-            key: childKey,
-            type: ContentType.ACTION_LIST,
-            name,
-            parentKey: actionKey,
-            childKeys: [],
-          } as ActionListContent;
-        } else {
-          listContent = {
-            key: childKey,
-            type: ContentType.INPUT_LIST,
-            name,
-            parentKey: actionKey,
-            childKeys: [],
-          } as InputsContent;
-        }
+        listContent = {
+          key: childKey,
+          type: ContentType.ACTION_LIST,
+          name,
+          parentKey: actionKey,
+          childKeys: [],
+        } as ActionListContent;
         contentStore.data[childKey] = listContent;
-        actionContent.childKeys[name] = childKey;
+        actionContent.actionChildKeys[name] = childKey;
+        configs.forEach((config) => {
+          const content = constructContent(contentStore, config, engineSpec);
+          content.parentKey = listContent.key;
+          listContent.childKeys.push(content.key);
+        });
+      });
+      Object.entries(config.inputArguments).forEach(([name, configs]) => {
+        const parameterSpec = actionSpec.inputParameters[name];
+        let listContent: ListContent;
+        const childKey = nextKey(contentStore);
+        listContent = {
+          key: childKey,
+          type: ContentType.INPUT_LIST,
+          name,
+          parentKey: actionKey,
+          childKeys: [],
+        } as InputsContent;
+        contentStore.data[childKey] = listContent;
+        actionContent.inputChildKeys[name] = childKey;
         configs.forEach((config) => {
           const content = constructContent(contentStore, config, engineSpec);
           content.parentKey = listContent.key;
@@ -379,14 +368,14 @@ function configFromState<T extends LogicForgeConfig | LogicForgeConfig[]>(
   switch (content.type) {
     case ContentType.PROCESS:
       const processContent = content as ProcessContent;
-      const processArgs: { [key: string]: ActionConfig[] } = {};
-      Object.entries(processContent.childKeys).forEach(([name, childKey]) => {
-        processArgs[name] = configFromState<ActionConfig[]>(contentStore, childKey);
+      const processArgs: ActionConfig[] = [];
+      processContent.childKeys.forEach((childKey) => {
+        processArgs.push(configFromState<ActionConfig>(contentStore, childKey));
       });
       return {
         type: ConfigType.PROCESS,
         name: processContent.name,
-        arguments: processArgs,
+        actions: processArgs,
       } as T;
     case ContentType.ACTION_LIST:
       const actionListContent = content as ActionListContent;
@@ -395,20 +384,25 @@ function configFromState<T extends LogicForgeConfig | LogicForgeConfig[]>(
       }) as T;
     case ContentType.ACTION:
       const actionContent = content as ActionContent;
-      const actionArgs: { [key: string]: (ActionConfig | InputConfig)[] } = {};
-      Object.entries(actionContent.childKeys).forEach(([name, childKey]) => {
-        actionArgs[name] = configFromState<(ActionConfig | InputConfig)[]>(contentStore, childKey);
+      const actionChildArgs: { [key: string]: ActionConfig[] } = {};
+      const actionInputArgs: { [key: string]: InputConfig[] } = {};
+      Object.entries(actionContent.actionChildKeys).forEach(([name, childKey]) => {
+        actionChildArgs[name] = configFromState<ActionConfig[]>(contentStore, childKey);
+      });
+      Object.entries(actionContent.inputChildKeys).forEach(([name, childKey]) => {
+        actionInputArgs[name] = configFromState<InputConfig[]>(contentStore, childKey);
       });
       return {
         type: ConfigType.ACTION,
         name: actionContent.name,
-        arguments: actionArgs,
+        actionArguments: actionChildArgs,
+        inputArguments: actionInputArgs,
       } as T;
     case ContentType.FUNCTION:
       const functionContent = content as FunctionContent;
       const functionArgs: { [key: string]: InputConfig[] } = {};
       Object.entries(functionContent.childKeys).forEach(([name, childKey]) => {
-        actionArgs[name] = configFromState<InputConfig[]>(contentStore, childKey);
+        functionArgs[name] = configFromState<InputConfig[]>(contentStore, childKey);
       });
       return {
         type: ConfigType.FUNCTION,
@@ -445,7 +439,7 @@ function resolveParameterSpecForInput(
   const parentName = (parentFunctionOrAction as FunctionContent | ActionContent).name;
   return parentFunctionOrAction.type === ContentType.FUNCTION
     ? engineSpec.functions[parentName].parameters[parameterName]
-    : (engineSpec.actions[parentName].parameters[parameterName] as ParameterSpec);
+    : (engineSpec.actions[parentName].inputParameters[parameterName] as ParameterSpec);
 }
 
 export function resolveParameterSpecForKey(
@@ -477,111 +471,7 @@ export function resolveParameterSpec(
   const parentName = (parentFunctionOrAction as FunctionContent | ActionContent).name;
   return parentFunctionOrAction.type === ContentType.FUNCTION
     ? engineSpec.functions[parentName].parameters[parameterName]
-    : (engineSpec.actions[parentName].parameters[parameterName] as ParameterSpec);
-}
-
-function updateEncodedRepresentation(
-  contentStore: ContentStore,
-  content: Content,
-  engineSpec: EngineSpec,
-) {
-  let encoded: string;
-
-  switch (content.type) {
-    case ContentType.PROCESS:
-      const processContent = content as ProcessContent;
-      const processName = processContent.name;
-      const processSpec = engineSpec.processes[processName];
-      const processParameters = processSpec.parameters;
-      const joinedProcessParams = Object.entries(processParameters)
-        .map(([name]) => {
-          const childKey = processContent.childKeys[name];
-          const child = contentStore.data[childKey];
-          if (child.encoded === undefined) {
-            updateEncodedRepresentation(contentStore, child, engineSpec);
-          }
-          return `${name}: ${child.encoded as string}`;
-        })
-        .join(', ');
-      encoded = `${processName}(${joinedProcessParams})`;
-      break;
-    case ContentType.ACTION_LIST:
-      const actionListContent = content as ActionListContent;
-      const joinedActions = actionListContent.childKeys
-        .map((childKey) => {
-          const child = contentStore.data[childKey];
-          if (child.encoded === undefined) {
-            updateEncodedRepresentation(contentStore, child, engineSpec);
-          }
-          return child.encoded as string;
-        })
-        .join(', ');
-      encoded = `[${joinedActions}]`;
-      break;
-    case ContentType.ACTION:
-      const actionContent = content as ActionContent;
-      const actionName = actionContent.name;
-      const actionSpec = engineSpec.actions[actionName];
-      const actionParameters = actionSpec.parameters;
-      const joinedActionParams = Object.entries(actionParameters)
-        .map(([name]) => {
-          const childKey = actionContent.childKeys[name];
-          const child = contentStore.data[childKey];
-          if (child.encoded === undefined) {
-            updateEncodedRepresentation(contentStore, child, engineSpec);
-          }
-          return `${name}: ${child.encoded as string}`;
-        })
-        .join(', ');
-      encoded = `${actionName}(${joinedActionParams})`;
-      break;
-    case ContentType.FUNCTION:
-      const functionContent = content as FunctionContent;
-      const functionName = functionContent.name;
-      const functionSpec = engineSpec.functions[functionName];
-      const functionParameters = functionSpec.parameters;
-      const joinedFunctionParams = Object.entries(functionParameters)
-        .map(([name]) => {
-          const childKey = functionContent.childKeys[name];
-          const child = contentStore.data[childKey];
-          if (child.encoded === undefined) {
-            updateEncodedRepresentation(contentStore, child, engineSpec);
-          }
-          return `${name}: ${child.encoded as string}`;
-        })
-        .join(', ');
-      encoded = `${functionName}(${joinedFunctionParams})`;
-      break;
-    case ContentType.INPUT_LIST:
-      const inputsContent = content as InputsContent;
-      const joinedValues = inputsContent.childKeys
-        .map((childKey) => {
-          const child = contentStore.data[childKey];
-          if (child.encoded === undefined) {
-            updateEncodedRepresentation(contentStore, child, engineSpec);
-          }
-          return child.encoded as string;
-        })
-        .join(', ');
-      encoded = `[${joinedValues}]`;
-      break;
-    case ContentType.VALUE:
-      const valueEditorState = content as ValueContent;
-      // TODO different representations for numbers, booleans
-      encoded = `'${valueEditorState.value}'`;
-      break;
-  }
-
-  content.encoded = encoded;
-
-  if (content.parentKey !== undefined) {
-    // since the current node's representation has been updated, we need to update the other representations up the content tree
-    const editorFunction = (contentPointer: Content) => {
-      updateEncodedRepresentation(contentStore, contentPointer, engineSpec);
-      return true;
-    };
-    recurseUp(contentStore, editorFunction, content.parentKey);
-  }
+    : (engineSpec.actions[parentName].inputParameters[parameterName] as ParameterSpec);
 }
 
 /**

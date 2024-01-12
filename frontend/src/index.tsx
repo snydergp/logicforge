@@ -145,59 +145,52 @@ const specification: EngineSpec = {
   processes: {
     EXAMPLE: {
       type: SpecType.PROCESS,
-      parameters: {
-        actions: {
-          type: SpecType.ACTION_LIST,
-          name: 'actions',
-        },
-      },
+      name: 'example',
     },
   },
   actions: {
     'set-variable': {
       type: SpecType.ACTION,
-      parameters: {
+      inputParameters: {
         value: {
           type: SpecType.PARAMETER,
           returnType: 'java.lang.Object',
           multi: false,
-          required: true,
         },
         variableName: {
           type: SpecType.PARAMETER,
           returnType: 'java.lang.String',
           multi: false,
-          required: true,
         },
       },
+      actionParameters: {},
     },
     'delete-variable': {
       type: SpecType.ACTION,
-      parameters: {
+      inputParameters: {
         variableName: {
           type: SpecType.PARAMETER,
           returnType: 'java.lang.String',
           multi: false,
-          required: true,
         },
       },
+      actionParameters: {},
     },
     'increment-counter': {
       type: SpecType.ACTION,
-      parameters: {
+      inputParameters: {
         variableName: {
           type: SpecType.PARAMETER,
           returnType: 'java.lang.String',
           multi: false,
-          required: true,
         },
         count: {
           type: SpecType.PARAMETER,
           returnType: 'java.lang.Integer',
           multi: false,
-          required: false,
         },
       },
+      actionParameters: {},
     },
   },
   functions: {
@@ -208,7 +201,6 @@ const specification: EngineSpec = {
         values: {
           type: SpecType.PARAMETER,
           multi: true,
-          required: true,
           returnType: 'java.lang.String',
           properties: {},
         },
@@ -221,7 +213,6 @@ const specification: EngineSpec = {
         values: {
           type: SpecType.PARAMETER,
           multi: true,
-          required: true,
           returnType: 'java.lang.Number',
           properties: {},
         },
@@ -234,7 +225,6 @@ const specification: EngineSpec = {
         values: {
           type: SpecType.PARAMETER,
           multi: true,
-          required: true,
           returnType: 'java.lang.Boolean',
           properties: {},
         },
@@ -280,78 +270,79 @@ const specification: EngineSpec = {
 const process: ProcessConfig = {
   type: ConfigType.PROCESS,
   name: 'EXAMPLE',
-  arguments: {
-    actions: [
-      {
-        type: ConfigType.ACTION,
-        name: 'set-variable',
-        arguments: {
-          value: [
-            {
-              type: ConfigType.FUNCTION,
-              name: 'concatenate',
-              arguments: {
-                values: [
-                  {
-                    type: ConfigType.VALUE,
-                    value: 'Hello',
+  actions: [
+    {
+      type: ConfigType.ACTION,
+      name: 'set-variable',
+      actionArguments: {},
+      inputArguments: {
+        value: [
+          {
+            type: ConfigType.FUNCTION,
+            name: 'concatenate',
+            arguments: {
+              values: [
+                {
+                  type: ConfigType.VALUE,
+                  value: 'Hello',
+                },
+                {
+                  type: ConfigType.FUNCTION,
+                  name: 'concatenate',
+                  arguments: {
+                    values: [
+                      {
+                        type: ConfigType.VALUE,
+                        value: '!!',
+                      },
+                    ],
                   },
-                  {
-                    type: ConfigType.FUNCTION,
-                    name: 'concatenate',
-                    arguments: {
-                      values: [
-                        {
-                          type: ConfigType.VALUE,
-                          value: '!!',
-                        },
-                      ],
-                    },
-                  },
-                ],
-              },
+                },
+              ],
             },
-          ],
-          variableName: [
-            {
-              type: ConfigType.VALUE,
-              value: 'World',
-            },
-          ],
-        },
+          },
+        ],
+        variableName: [
+          {
+            type: ConfigType.VALUE,
+            value: 'World',
+          },
+        ],
       },
-      {
-        type: ConfigType.ACTION,
-        name: 'delete-variable',
-        arguments: {
-          variableName: [
-            {
-              type: ConfigType.VALUE,
-              value: 'World',
-            },
-          ],
-        },
+    },
+    {
+      type: ConfigType.ACTION,
+      name: 'delete-variable',
+      actionArguments: {},
+      inputArguments: {
+        variableName: [
+          {
+            type: ConfigType.VALUE,
+            value: 'World',
+          },
+        ],
       },
-      {
-        type: ConfigType.ACTION,
-        name: 'increment-counter',
-        arguments: {
-          variableName: [
-            {
-              type: ConfigType.VALUE,
-              value: 'counterVar',
-            },
-          ],
-          count: [
-            {
-              type: ConfigType.VALUE,
-              value: '2',
-            },
-          ],
-        },
+    },
+    {
+      type: ConfigType.ACTION,
+      name: 'increment-counter',
+      actionArguments: {},
+      inputArguments: {
+        variableName: [
+          {
+            type: ConfigType.VALUE,
+            value: 'counterVar',
+          },
+        ],
+        count: [
+          {
+            type: ConfigType.VALUE,
+            value: '2',
+          },
+        ],
       },
-    ],
-  },
+    },
+  ],
 };
 
 const root = ReactDOM.createRoot(document.getElementById('root') as HTMLElement);

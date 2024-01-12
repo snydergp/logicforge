@@ -1,6 +1,7 @@
 package io.logicforge.core.engine.compile;
 
 import io.logicforge.core.annotations.Injectable;
+import io.logicforge.core.common.OneOf;
 import io.logicforge.core.common.Pair;
 import io.logicforge.core.engine.Action;
 import io.logicforge.core.engine.ActionExecutor;
@@ -14,11 +15,8 @@ import io.logicforge.core.injectable.ChildActions;
 import io.logicforge.core.injectable.ExecutionContext;
 import io.logicforge.core.injectable.ModifiableExecutionContext;
 import io.logicforge.core.model.configuration.ActionConfig;
-import io.logicforge.core.model.configuration.ActionListConfig;
-import io.logicforge.core.model.configuration.ArgumentConfig;
 import io.logicforge.core.model.configuration.FunctionConfig;
 import io.logicforge.core.model.configuration.InputConfig;
-import io.logicforge.core.model.configuration.InputListConfig;
 import io.logicforge.core.model.configuration.ProcessConfig;
 import io.logicforge.core.model.configuration.ValueConfig;
 import io.logicforge.core.model.specification.ActionSpec;
@@ -366,13 +364,13 @@ public class CompilationProcessBuilder implements ProcessBuilder {
      * @return the name of the ChildActions instance variable
      * @throws ProcessConstructionException
      */
-    public String addChildActions(final ActionListConfig config, final String path)
+    public String addChildActions(final List<ActionConfig> config, final String path)
         throws ProcessConstructionException {
 
       final List<String> classNames = new ArrayList<>();
 
-      for (int i = 0; i < config.getActions().size(); i++) {
-        final ActionConfig actionConfig = config.getActions().get(i);
+      for (int i = 0; i < config.size(); i++) {
+        final ActionConfig actionConfig = config.get(i);
         final ActionClassContext innerClassWriter =
             new ActionClassContext(innerClassCount.getAndIncrement(), this, path, i, actionConfig);
         final String className = innerClassWriter.getClassName();
@@ -470,7 +468,7 @@ public class CompilationProcessBuilder implements ProcessBuilder {
 
       this.actionName = actionConfig.getName();
       final ActionSpec actionSpec = loadAction(actionName);
-      this.rootActionContext = new MethodWriter(actionSpec, actionConfig.getArguments());
+      this.rootActionContext = new MethodWriter(actionSpec, actionConfig);
     }
 
     public String getInnerClassSource(final ProcessClassInfo outerContext)
@@ -552,7 +550,7 @@ public class CompilationProcessBuilder implements ProcessBuilder {
   private class ArgumentWriter extends ExpressionWriter {
 
     private final ParameterSpec spec;
-    private final ArgumentConfig config;
+    private final OneOf<List<ActionConfig>, List<InputConfig>> config;
 
     @Override
     public void write(final StringBuilder builder, final ProcessClassInfo outer,
@@ -560,8 +558,8 @@ public class CompilationProcessBuilder implements ProcessBuilder {
       final Class<?> type = spec.getType();
       final String name = spec.getName();
       if (spec instanceof ComputedParameterSpec computedParameterSpec) {
-        if (config instanceof InputListConfig inputListConfig) {
-          final List<InputConfig> inputs = inputListConfig.getInputs();
+        if (config.isRight()) {
+          final List<InputConfig> inputs = config.getRight();
           if (computedParameterSpec.isMulti()) {
             final String simpleClassName = outer.ensureImport(type);
             builder.append(simpleClassName).append("[]{");
@@ -585,10 +583,10 @@ public class CompilationProcessBuilder implements ProcessBuilder {
         } else if (type.equals(ExecutionContext.class)) {
           builder.append("readonlyContext");
         } else if (type.equals(ChildActions.class)) {
-          if (config instanceof ActionListConfig actionListConfig) {
+          if (config.isLeft()) {
             final String childPath =
                 String.format("%s[%s]/%s", inner.getPath(), inner.getIndex(), name);
-            final String varName = outer.addChildActions(actionListConfig, childPath);
+            final String varName = outer.addChildActions(config.getLeft(), childPath);
             builder.append(varName);
           }
         } else {
@@ -615,23 +613,34 @@ public class CompilationProcessBuilder implements ProcessBuilder {
       } else if (input instanceof FunctionConfig functionConfig) {
         final String functionName = functionConfig.getName();
         final FunctionSpec functionSpec = loadFunction(functionName);
-        final Map<String, InputListConfig> arguments = functionConfig.getArguments();
-        new MethodWriter(functionSpec, arguments).write(builder, outer, inner);
+        new MethodWriter(functionSpec, functionConfig).write(builder, outer, inner);
       }
     }
   }
+
+
 
   @Getter
   private class MethodWriter extends ExpressionWriter {
 
     private final MethodSpec methodSpec;
-    private final List<Pair<ParameterSpec, ? extends ArgumentConfig>> argumentData;
+    private final List<Pair<ParameterSpec, OneOf<List<ActionConfig>, List<InputConfig>>>> argumentData;
 
-    public MethodWriter(final MethodSpec methodSpec,
-        final Map<String, ? extends ArgumentConfig> arguments) {
+    public MethodWriter(final MethodSpec methodSpec, final ActionConfig actionConfig) {
       this.methodSpec = methodSpec;
       argumentData = methodSpec.getParameters().stream()
-          .map(parameterSpec -> new Pair<>(parameterSpec, arguments.get(parameterSpec.getName())))
+          .map(parameterSpec -> new Pair<>(parameterSpec,
+              OneOf.nullable(actionConfig.getActionArguments().get(parameterSpec.getName()),
+                  actionConfig.getInputArguments().get(parameterSpec.getName()))))
+          .collect(Collectors.toList());
+    }
+
+    public MethodWriter(final MethodSpec methodSpec, final FunctionConfig functionConfig) {
+      this.methodSpec = methodSpec;
+      argumentData = methodSpec.getParameters().stream().map(
+          parameterSpec -> new Pair<ParameterSpec, OneOf<List<ActionConfig>, List<InputConfig>>>(
+              parameterSpec,
+              OneOf.right(functionConfig.getArguments().get(parameterSpec.getName()))))
           .collect(Collectors.toList());
     }
 
@@ -655,9 +664,11 @@ public class CompilationProcessBuilder implements ProcessBuilder {
 
       // write out the comma-separated list of arguments
       for (int i = 0; i < argumentData.size(); i++) {
-        final Pair<ParameterSpec, ? extends ArgumentConfig> data = argumentData.get(i);
+        final Pair<ParameterSpec, OneOf<List<ActionConfig>, List<InputConfig>>> data =
+            argumentData.get(i);
         final ParameterSpec spec = data.getLeft();
-        final ArgumentConfig config = data.getRight();
+        final OneOf<List<ActionConfig>, List<InputConfig>> config = data.getRight();
+
         final boolean isLast = i == parameters.size() - 1;
 
         final ArgumentWriter argumentContext = new ArgumentWriter(spec, config);

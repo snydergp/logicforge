@@ -6,7 +6,9 @@ import lombok.Data;
 
 @Data
 @Builder
-public class ActionListSpecDTO extends ParameterSpecDTO {
+public class ActionListSpecDTO implements SpecDTO {
+
+    private String name;
 
     @Override
     public SpecType getType() {

@@ -1,9 +1,11 @@
 package io.logicforge.core.model.configuration;
 
+import java.util.List;
+
 public interface ProcessConfig {
 
   String getName();
 
-  ActionListConfig getActions();
+  List<ActionConfig> getActions();
 
 }

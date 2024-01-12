@@ -12,7 +12,7 @@ public class FunctionSpecDTO implements SpecDTO {
 
     private String name;
     private String returnType;
-    public Map<String, ComputedParameterSpecDTO> parameters;
+    public Map<String, InputParameterSpecDTO> parameters;
 
     @Override
     public SpecType getType() {

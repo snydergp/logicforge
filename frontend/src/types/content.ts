@@ -24,7 +24,6 @@ export type Content = {
   key: string;
   type: ContentType;
   parentKey?: string;
-  encoded?: string;
 };
 
 export type NodeContent = {
@@ -35,7 +34,7 @@ export type ListContent = {
   childKeys: string[];
 } & Content;
 
-export type ProcessContent = NodeContent & {
+export type ProcessContent = ListContent & {
   type: ContentType.PROCESS;
   name: string;
 };
@@ -44,9 +43,11 @@ export type ActionListContent = ListContent & {
   type: ContentType.ACTION_LIST;
 };
 
-export type ActionContent = NodeContent & {
+export type ActionContent = Content & {
   type: ContentType.ACTION;
   name: string;
+  actionChildKeys: { [key: string]: string };
+  inputChildKeys: { [key: string]: string };
 };
 
 export type FunctionContent = NodeContent & {
