@@ -1,5 +1,5 @@
 import { createSelector, createSlice, PayloadAction } from '@reduxjs/toolkit';
-import { StoreStructure } from '../types';
+import { LOGICFORGE_REDUX_NAMESPACE, StoreStructure } from '../types';
 import {
   ActionConfig,
   ActionSpec,
@@ -39,12 +39,10 @@ export type EditorsState = {
   [editorId: string]: EditorState<any, any>;
 };
 
-export const EDITORS_SLICE_NAME: string = 'LOGICFORGE_EDITORS';
-
 const initialState: EditorsState = {};
 
 const editorsSlice = createSlice({
-  name: EDITORS_SLICE_NAME,
+  name: LOGICFORGE_REDUX_NAMESPACE.toString(),
   initialState,
   reducers: {
     initEditor: {
@@ -224,7 +222,7 @@ const editorsSlice = createSlice({
 });
 
 export const selectEditorSelection = (state: StoreStructure, editorId: string) => {
-  return state['LOGICFORGE_EDITORS']?.[editorId]?.selection;
+  return state[LOGICFORGE_REDUX_NAMESPACE]?.[editorId]?.selection;
 };
 
 /**
@@ -232,7 +230,7 @@ export const selectEditorSelection = (state: StoreStructure, editorId: string) =
  * @param editorId
  */
 const selectContentStore = (state: StoreStructure, editorId: string) => {
-  return state['LOGICFORGE_EDITORS']?.[editorId]?.contentStore;
+  return state[LOGICFORGE_REDUX_NAMESPACE]?.[editorId]?.contentStore;
 };
 
 export const selectSelectedSubtree = createSelector(
@@ -245,7 +243,7 @@ export const selectSelectedSubtree = createSelector(
 );
 
 export const selectIsKeySelected = (editorId: string, key: string) => (state: StoreStructure) => {
-  const editorState = state.LOGICFORGE_EDITORS?.[editorId];
+  const editorState = state[LOGICFORGE_REDUX_NAMESPACE]?.[editorId];
   if (editorState !== undefined) {
     const contentStore = editorState.contentStore;
     const selectedContent = getContentAndAncestors(contentStore, editorState.selection);
@@ -255,7 +253,7 @@ export const selectIsKeySelected = (editorId: string, key: string) => (state: St
 };
 
 export const selectContentByKey = (editorId: string, key: string) => (state: StoreStructure) => {
-  const editorStateStore = state.LOGICFORGE_EDITORS?.[editorId]?.contentStore;
+  const editorStateStore = state[LOGICFORGE_REDUX_NAMESPACE]?.[editorId]?.contentStore;
   if (editorStateStore !== undefined) {
     return editorStateStore.data[key];
   }
@@ -264,8 +262,8 @@ export const selectContentByKey = (editorId: string, key: string) => (state: Sto
 export const selectParameterSpecificationForKey =
   (editorId: string, key?: string) => (state: StoreStructure) => {
     if (key !== undefined) {
-      const editorStateStore = state.LOGICFORGE_EDITORS?.[editorId]?.contentStore;
-      const engineSpecification = state.LOGICFORGE_EDITORS?.[editorId]?.engineSpec;
+      const editorStateStore = state[LOGICFORGE_REDUX_NAMESPACE]?.[editorId]?.contentStore;
+      const engineSpecification = state[LOGICFORGE_REDUX_NAMESPACE]?.[editorId]?.engineSpec;
       if (editorStateStore !== undefined && engineSpecification !== undefined) {
         const state = editorStateStore.data[key];
         if (

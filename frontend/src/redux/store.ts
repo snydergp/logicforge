@@ -1,6 +1,6 @@
-import processReducer, { EDITORS_SLICE_NAME } from './slices/editors';
+import editorsReducer from './slices/editors';
 import { combineReducers, configureStore, Store } from '@reduxjs/toolkit';
-import { ReducerMap, StoreStructure } from './types';
+import { LOGICFORGE_REDUX_NAMESPACE, ReducerMap, StoreStructure } from './types';
 
 /*
  * As it is intended for these components to be used as a library to be integrated against instead of a standalone
@@ -19,13 +19,13 @@ export function initializeStore(newStore?: Store) {
   if (newStore == undefined) {
     store = configureStore({
       reducer: {
-        [EDITORS_SLICE_NAME]: processReducer,
+        [LOGICFORGE_REDUX_NAMESPACE]: editorsReducer,
       },
     });
   } else {
     store = newStore;
     registerReducer({
-      [EDITORS_SLICE_NAME]: processReducer,
+      [LOGICFORGE_REDUX_NAMESPACE]: editorsReducer,
     });
   }
 }

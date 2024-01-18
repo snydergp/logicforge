@@ -1,0 +1,13 @@
+export declare function processTitlePath(processName: string): string;
+export declare function processDescriptionPath(processName: string): string;
+export declare function processParameterTitlePath(processName: string, parameterName: string): string;
+export declare function processParameterDescriptionPath(processName: string, parameterName: string): string;
+export declare function actionTitlePath(actionName: string): string;
+export declare function actionDescriptionPath(actionName: string): string;
+export declare function actionParameterTitlePath(actionName: string, parameterName: string): string;
+export declare function actionParameterDescriptionPath(actionName: string, parameterName: string): string;
+export declare function functionTitlePath(functionName: string): string;
+export declare function functionDescriptionPath(functionName: string): string;
+export declare function functionParameterTitlePath(functionName: string, parameterName: string): string;
+export declare function functionParameterDescriptionPath(functionName: string, parameterName: string): string;
+export declare function typeTitlePath(typeId: string): string;

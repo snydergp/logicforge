@@ -1,5 +1,10 @@
 package io.logicforge.core.annotations;
 
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+
 /**
  * A Converter is a method that takes in a single value of one type and outputs a value of another type, with the
  * intention that the output value is a canonical, consistent representation of the input value in the output type
@@ -11,6 +16,8 @@ package io.logicforge.core.annotations;
  * and not all type pairings allow conversion, and even conversions between supported types can fail (e.g., trying to
  * convert the text "abc" to an integer).
  */
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.METHOD)
 public @interface Converter {
 
 }

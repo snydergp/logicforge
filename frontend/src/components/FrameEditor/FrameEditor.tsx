@@ -45,11 +45,11 @@ enum FrameType {
  */
 type FrameContent = ProcessContent | ActionContent | FunctionContent;
 
-interface FrameEditorProps {
+export type FrameEditorProps = {
   editorId: string;
   config: LogicForgeConfig;
   engineSpec: EngineSpec;
-}
+};
 
 export function FrameEditor({ editorId, config, engineSpec }: FrameEditorProps) {
   const dispatch = useDispatch();

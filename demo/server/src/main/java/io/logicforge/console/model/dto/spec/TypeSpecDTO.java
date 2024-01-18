@@ -11,7 +11,7 @@ import java.util.List;
 public class TypeSpecDTO implements SpecDTO {
 
   private String id;
-  private List<String> parentIds;
+  private List<String> supertypes;
   private List<String> values;
 
   @Override

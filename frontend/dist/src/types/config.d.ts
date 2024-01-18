@@ -1,0 +1,37 @@
+export declare enum ConfigType {
+    PROCESS = "process",
+    ACTION = "action",
+    VALUE = "value",
+    VARIABLE = "variable",
+    FUNCTION = "function"
+}
+export type ValueConfig = {
+    type: ConfigType.VALUE;
+    value: string;
+};
+export type FunctionConfig = {
+    type: ConfigType.FUNCTION;
+    name: string;
+    arguments: {
+        [key: string]: InputConfig[];
+    };
+};
+export type ActionConfig = {
+    type: ConfigType.ACTION;
+    name: string;
+    actionArguments: {
+        [key: string]: ActionConfig[];
+    };
+    inputArguments: {
+        [key: string]: InputConfig[];
+    };
+};
+export type ProcessConfig = {
+    type: ConfigType.PROCESS;
+    name: string;
+    actions: ActionConfig[];
+};
+export type InputConfig = ValueConfig | FunctionConfig;
+export type ArgumentConfig = InputConfig | ActionConfig;
+export type ParentConfig = ProcessConfig | ActionConfig | FunctionConfig;
+export type LogicForgeConfig = ProcessConfig | ActionConfig | FunctionConfig | ValueConfig;

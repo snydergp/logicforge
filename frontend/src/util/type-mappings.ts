@@ -16,10 +16,10 @@ export function generateTypeMappings(types: { [key: string]: TypeSpec }): {
   Object.entries(types).forEach(([key, value]) => {
     out[key] = {
       typeId: key,
-      supertypes: [...value.parentIds],
+      supertypes: [...value.supertypes],
       subtypes: [],
     };
-    value.parentIds.forEach((parentId) => {
+    value.supertypes.forEach((parentId) => {
       let children = parentMap[parentId];
       if (children === undefined) {
         children = [];

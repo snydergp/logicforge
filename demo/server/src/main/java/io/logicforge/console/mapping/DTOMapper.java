@@ -23,7 +23,6 @@ import io.logicforge.core.model.configuration.impl.DefaultFunctionConfig;
 import io.logicforge.core.model.configuration.impl.DefaultValueConfig;
 import io.logicforge.core.model.specification.ActionSpec;
 import io.logicforge.core.model.specification.ComputedParameterSpec;
-import io.logicforge.core.model.specification.ConverterSpec;
 import io.logicforge.core.model.specification.EngineSpec;
 import io.logicforge.core.model.specification.FunctionSpec;
 import io.logicforge.core.model.specification.ParameterSpec;
@@ -52,11 +51,9 @@ public class DTOMapper {
     final Map<String, TypeSpec> types = engineSpec.getTypes();
     final Map<Class<?>, String> typesByClass = types.entrySet().stream()
         .collect(Collectors.toMap(e -> e.getValue().getRuntimeClass(), Entry::getKey));
-    final Map<String, List<String>> parentTypeMappings = buildParentTypeMappings(typesByClass);
-    this.cachedDTO =
-        EngineSpecDTO.builder().types(externalizeTypes(engineSpec.getTypes(), parentTypeMappings))
-            .actions(externalizeActions(engineSpec.getActions(), typesByClass))
-            .functions(externalizeFunctions(engineSpec.getFunctions(), typesByClass)).build();
+    this.cachedDTO = EngineSpecDTO.builder().types(externalizeTypes(engineSpec.getTypes()))
+        .actions(externalizeActions(engineSpec.getActions(), typesByClass))
+        .functions(externalizeFunctions(engineSpec.getFunctions(), typesByClass)).build();
   }
 
   public ExtendedProcessConfig internal(final ProcessConfigDTO external) {
@@ -156,65 +153,15 @@ public class DTOMapper {
     return ValueConfigDTO.builder().value(internal.getValue()).type(matchingType).build();
   }
 
+  private Map<String, TypeSpecDTO> externalizeTypes(final Map<String, TypeSpec> internal) {
 
-  private Map<String, List<String>> buildParentTypeMappings(
-      final Map<Class<?>, String> typesByClass) {
-    final Map<String, List<String>> parentMapping = new HashMap<>();
-
-    // Find inheritance relationships. Runs in N*N time -- expensive, so should be cached
-    for (final Entry<Class<?>, String> subtypeEntry : typesByClass.entrySet()) {
-      final Class<?> subtypeClass = subtypeEntry.getKey();
-      final String subtypeId = subtypeEntry.getValue();
-      for (final Entry<Class<?>, String> supertypeEntry : typesByClass.entrySet()) {
-        final Class<?> supertypeClass = supertypeEntry.getKey();
-        final String supertypeId = supertypeEntry.getValue();
-
-        if (subtypeId.equals(supertypeId)) {
-          continue;
-        }
-
-        final List<String> supertypes =
-            parentMapping.computeIfAbsent(subtypeId, (k) -> new ArrayList<>());
-
-        if (supertypeClass.isAssignableFrom(subtypeClass)) {
-          supertypes.add(supertypeId);
-        }
-      }
-    }
-
-    // Find conversion relationships. To simplify the frontend, we will consider types to which there exists a
-    // conversion to be "supertypes", meaning the "input" type can be used in its place
-    for (final ConverterSpec converter : engineSpec.getConverters()) {
-      final Class<?> inputType = converter.getInputType();
-      final Class<?> outputType = converter.getOutputType();
-
-      if (typesByClass.containsKey(inputType) && typesByClass.containsKey(outputType)) {
-        // We would expect this to always be true, since there's no point in a converter existing otherwise
-        // consider error/warning
-        final String subtypeId = typesByClass.get(inputType);
-        final String supertypeId = typesByClass.get(outputType);
-        final List<String> supertypes =
-            parentMapping.computeIfAbsent(subtypeId, (k) -> new ArrayList<>());
-        supertypes.add(supertypeId);
-      }
-    }
-
-
-    return parentMapping;
-  }
-
-  private Map<String, TypeSpecDTO> externalizeTypes(final Map<String, TypeSpec> internal,
-      final Map<String, List<String>> parentTypeMappings) {
-
-    return internal.entrySet().stream()
-        .map(e -> this.externalizeType(e, parentTypeMappings.get(e.getKey())))
+    return internal.entrySet().stream().map(this::externalizeType)
         .collect(Collectors.toMap(TypeSpecDTO::getId, Function.identity()));
   }
 
-  private TypeSpecDTO externalizeType(final Entry<String, TypeSpec> internal,
-      final List<String> parentTypeIds) {
+  private TypeSpecDTO externalizeType(final Entry<String, TypeSpec> internal) {
     return TypeSpecDTO.builder().id(internal.getKey()).values(internal.getValue().getValues())
-        .parentIds(parentTypeIds).build();
+        .supertypes(new ArrayList<>(internal.getValue().getSupertypes())).build();
   }
 
   private Map<String, ActionSpecDTO> externalizeActions(final Map<String, ActionSpec> internal,

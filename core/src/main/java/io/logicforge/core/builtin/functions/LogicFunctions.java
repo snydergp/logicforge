@@ -1,32 +1,32 @@
 package io.logicforge.core.builtin.functions;
 
 import io.logicforge.core.annotations.Function;
-import io.logicforge.core.annotations.Input;
-import io.logicforge.core.annotations.Property;
-
-import java.util.Arrays;
 
 public class LogicFunctions {
 
   @Function
-  public static Boolean and(final Boolean... values) {
-    return Arrays.stream(values).allMatch(value -> value);
+  public static boolean and(final boolean... values) {
+    for (final boolean value : values) {
+      if (!value) {
+        return false;
+      }
+    }
+    return true;
   }
 
   @Function
-  public static Boolean or(final Boolean... values) {
-    return Arrays.stream(values).anyMatch(value -> value);
+  public static boolean or(final boolean... values) {
+    for (final boolean value : values) {
+      if (value) {
+        return true;
+      }
+    }
+    return false;
   }
 
   @Function
-  public static Boolean not(final Boolean value) {
+  public static boolean not(final boolean value) {
     return !value;
-  }
-
-  @Function
-  public static Boolean staticBoolean(
-      @Input(properties = @Property(name = "editor", value = "boolean")) final Boolean value) {
-    return value;
   }
 
 }

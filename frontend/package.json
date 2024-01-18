@@ -1,8 +1,15 @@
 {
-  "name": "logicforge-frontend",
+  "name": "logicforge",
   "version": "0.1.0",
   "private": false,
-  "main": "src/exports.ts",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "license": "MIT",
+  "files": ["src/**", "dist/**", "package.json", "package-lock.json"],
+  "exports": {
+    ".": "./dist/index.js",
+    "./*": "./dist/"
+  },
   "dependencies": {
     "@emotion/react": "^11.11.1",
     "@emotion/styled": "^11.11.0",
@@ -33,7 +40,7 @@
     "watch:css": "npm run build:css && node-sass src/ -o src/ -w -r",
     "start:js": "react-scripts start",
     "start": "npm-run-all -p watch:css start:js",
-    "build:js": "react-scripts build",
+    "build:js": "tsc --project tsconfig.json; react-scripts build",
     "build": "npm-run-all build:*",
     "test": "react-scripts test --env=jsdom",
     "eject": "react-scripts eject"

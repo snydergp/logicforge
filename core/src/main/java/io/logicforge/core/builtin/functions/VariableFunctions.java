@@ -6,7 +6,7 @@ import io.logicforge.core.injectable.ExecutionContext;
 public class VariableFunctions {
 
   @Function
-  public static Boolean isSet(final String name, final ExecutionContext context) {
+  public static boolean isSet(final String name, final ExecutionContext context) {
     return context.contains(name);
   }
 

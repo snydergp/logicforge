@@ -234,32 +234,32 @@ const specification: EngineSpec = {
   types: {
     'java.lang.String': {
       type: SpecType.TYPE,
-      parentIds: ['java.lang.Object'],
+      supertypes: ['java.lang.Object'],
       id: 'java.lang.String',
     },
     'java.lang.Object': {
       type: SpecType.TYPE,
-      parentIds: [],
+      supertypes: [],
       id: 'java.lang.Object',
     },
     'java.lang.Number': {
       type: SpecType.TYPE,
-      parentIds: ['java.lang.Object'],
+      supertypes: ['java.lang.Object'],
       id: 'java.lang.Number',
     },
     'java.lang.Integer': {
       type: SpecType.TYPE,
-      parentIds: ['java.lang.Number'],
+      supertypes: ['java.lang.Number'],
       id: 'java.lang.Integer',
     },
     'java.lang.Float': {
       type: SpecType.TYPE,
-      parentIds: ['java.lang.Number'],
+      supertypes: ['java.lang.Number'],
       id: 'java.lang.Float',
     },
     'java.lang.Boolean': {
       type: SpecType.TYPE,
-      parentIds: ['java.lang.Object'],
+      supertypes: ['java.lang.Object'],
       id: 'java.lang.Boolean',
     },
   },

@@ -22,14 +22,20 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 public class EngineSpecBuilder {
 
-  private final Map<String, TypeSpec> types = new HashMap<>();
+  private static java.util.function.Function<Class<?>, String> TYPE_ID_NAMING_STRATEGY =
+      Class::getName;
+
+  private final Set<Class<?>> types = new HashSet<>();
   private final Map<String, ActionSpec> actions = new HashMap<>();
   private final Map<String, FunctionSpec> functions = new HashMap<>();
   private final List<ConverterSpec> converters = new ArrayList<>();
@@ -87,7 +93,7 @@ public class EngineSpecBuilder {
   }
 
   public EngineSpec build() {
-    return new EngineSpecImpl(types, actions, functions, converters);
+    return new EngineSpecImpl(processTypes(), actions, functions, converters);
   }
 
   private void processMethod(final Method method, final Object instanceOrClass) {
@@ -108,23 +114,84 @@ public class EngineSpecBuilder {
     }
   }
 
-  /*
-   * FUTURE: Convert primitive wrappers to canonical type
-   */
-  private void processType(final Class<?> type) {
+  private void registerType(final Class<?> type) {
     final Class<?> typeToProcess = type.isArray() ? type.getComponentType() : type;
-    final String className = type.getName();
-    if (!types.containsKey(className)) {
-      final boolean primitive = typeToProcess.isPrimitive();
+    types.add(typeToProcess);
+  }
+
+  /**
+   * Processes all types found as actions/functions/converters were added. Processing is deferred until all types are
+   * registered because we need to determine relationships between all types in the set.
+   *
+   * @return a collection of type specifications mapped by their IDs
+   */
+  private Map<String, TypeSpec> processTypes() {
+
+    /* a mapping from runtime classes to the external type ID used to represent each class */
+    final Map<Class<?>, String> typesByClass = types.stream()
+        .collect(Collectors.toMap(java.util.function.Function.identity(), TYPE_ID_NAMING_STRATEGY));
+    /* a mapping from type ID to a list of IDs for parent types */
+    final Map<String, Set<String>> parentTypeIdMappings = buildParentTypeMappings(typesByClass);
+
+    return types.stream().map(type -> {
+      final String id = typesByClass.get(type);
+      final boolean primitive = type.isPrimitive();
+      final Set<String> supertypes =
+          parentTypeIdMappings.computeIfAbsent(id, (i) -> new HashSet<>());
       final List<String> values;
-      if (typeToProcess.isEnum()) {
-        values = Arrays.stream((Enum[]) typeToProcess.getEnumConstants()).map(Enum::name)
+      if (type.isEnum()) {
+        values = Arrays.stream((Enum[]) type.getEnumConstants()).map(Enum::name)
             .collect(Collectors.toList());
       } else {
         values = null;
       }
-      types.put(className, new TypeSpecImpl(type, primitive, values));
+      return new TypeSpecImpl(type, primitive, new HashSet<>(supertypes), values);
+    }).collect(Collectors.toMap(typeSpec -> typesByClass.get(typeSpec.getRuntimeClass()),
+        java.util.function.Function.identity()));
+  }
+
+
+  private Map<String, Set<String>> buildParentTypeMappings(
+      final Map<Class<?>, String> typesByClass) {
+    final Map<String, Set<String>> parentMapping = new HashMap<>();
+
+    // Find inheritance relationships. Runs in N*N time -- expensive, so should be cached
+    for (final Entry<Class<?>, String> subtypeEntry : typesByClass.entrySet()) {
+      final Class<?> subtypeClass = subtypeEntry.getKey();
+      final String subtypeId = subtypeEntry.getValue();
+      for (final Entry<Class<?>, String> supertypeEntry : typesByClass.entrySet()) {
+        final Class<?> supertypeClass = supertypeEntry.getKey();
+        final String supertypeId = supertypeEntry.getValue();
+
+        if (subtypeId.equals(supertypeId)) {
+          continue;
+        }
+
+        final Set<String> supertypes =
+            parentMapping.computeIfAbsent(subtypeId, (k) -> new HashSet<>());
+
+        if (supertypeClass.isAssignableFrom(subtypeClass)) {
+          supertypes.add(supertypeId);
+        }
+      }
     }
+
+    // Find conversion relationships. To simplify the frontend, we will consider types to which there exists a
+    // conversion to be "supertypes", meaning the "input" type can be used in its place
+    for (final ConverterSpec converter : converters) {
+      final Class<?> inputType = converter.getInputType();
+      final Class<?> outputType = converter.getOutputType();
+
+      if (typesByClass.containsKey(inputType) && typesByClass.containsKey(outputType)) {
+        final String subtypeId = typesByClass.get(inputType);
+        final String supertypeId = typesByClass.get(outputType);
+        final Set<String> supertypes =
+            parentMapping.computeIfAbsent(subtypeId, (k) -> new HashSet<>());
+        supertypes.add(supertypeId);
+      }
+    }
+
+    return parentMapping;
   }
 
   private void processAction(final Method method, final Object provider, final Action annotation) {
@@ -151,12 +218,34 @@ public class EngineSpecBuilder {
     final FunctionSpec functionSpec =
         new FunctionSpecImpl(name, returnType, method, provider, parameterSpecs);
     functions.put(name, functionSpec);
-    processType(returnType);
+    registerType(returnType);
   }
 
-  private void processConverter(final Method method, final Object instanceOrClass,
+  private void processConverter(final Method method, final Object provider,
       final Converter annotation) {
-
+    final Class<?> returnType = method.getReturnType();
+    if (Void.class.equals(returnType)) {
+      throw new IllegalStateException(
+          String.format("Converter-annotated method %s has a void return type", method));
+    }
+    final List<ParameterSpec> parameterSpecs = processParameters(method, annotation);
+    if (parameterSpecs.size() != 1) {
+      throw new IllegalStateException(
+          String.format("Converter-annotated method %s must have a single parameter", method));
+    }
+    final ParameterSpec parameterSpec = parameterSpecs.get(0);
+    if (parameterSpec instanceof ComputedParameterSpec computedParameterSpec) {
+      if (computedParameterSpec.isMulti()) {
+        throw new IllegalStateException(
+            String.format("Converter-annotated method %s must not use multi-parameters", method));
+      }
+      final Class<?> inputType = computedParameterSpec.getType();
+      converters
+          .add(new ConverterSpecImpl(inputType, returnType, method, provider, parameterSpecs));
+    } else {
+      throw new IllegalStateException(String
+          .format("Converter-annotated method %s must not include injected parameters", method));
+    }
   }
 
   private List<ParameterSpec> processParameters(final Method method, final Object annotation) {
@@ -179,6 +268,7 @@ public class EngineSpecBuilder {
     }
     final boolean multi = parameterType.isArray();
     final Class<?> type = multi ? parameterType.getComponentType() : parameterType;
+    registerType(type);
     return new ComputedParameterSpecImpl(name, multi, type);
   }
 
@@ -274,10 +364,22 @@ public class EngineSpecBuilder {
 
   @Getter
   @AllArgsConstructor
+  private static class ConverterSpecImpl implements ConverterSpec {
+
+    private final Class<?> inputType;
+    private final Class<?> outputType;
+    private final Method method;
+    private final Object provider;
+    private final List<ParameterSpec> parameters;
+  }
+
+  @Getter
+  @AllArgsConstructor
   private static class TypeSpecImpl implements TypeSpec {
 
     private final Class<?> runtimeClass;
     private final boolean primitive;
+    private final Set<String> supertypes;
     private final List<String> values;
   }
 

@@ -16,7 +16,7 @@ export enum SpecType {
 export type TypeSpec = {
   type: SpecType.TYPE;
   id: string;
-  parentIds: string[];
+  supertypes: string[];
   values?: string[];
 };
 
