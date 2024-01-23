@@ -1,1 +1,0 @@
-export const LOGICFORGE_REDUX_NAMESPACE = Symbol('LOGICFORGE');

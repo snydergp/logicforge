@@ -2,6 +2,7 @@ logicforge-*.tgz
 
 # dependencies
 /node_modules
+/node
 /.pnp
 .pnp.js
 
@@ -10,6 +11,7 @@ logicforge-*.tgz
 
 # production
 /build
+/dist
 
 # misc
 .DS_Store
