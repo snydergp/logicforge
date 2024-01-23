@@ -9,7 +9,7 @@ import {
   ProcessConfig,
   ProcessContent,
 } from '../../types';
-import { initEditor, selectContentByKey, selectSelectedSubtree } from '../../redux/slices/editors';
+import { initEditor, selectSelectedSubtree } from '../../redux/slices/editors';
 import React, { useContext, useEffect, useState } from 'react';
 import { useTranslate } from 'react-polyglot';
 import {
@@ -17,14 +17,14 @@ import {
   actionTitlePath,
   functionDescriptionPath,
   functionTitlePath,
+  generateTypeMappings,
   processDescriptionPath,
   processTitlePath,
-} from '../../util/translation-paths';
-import './FrameEditor.scss';
+  TypeInfo,
+} from '../../util';
 import { Info } from '../Info/Info';
 import { ActionIcon, FunctionIcon, ProcessIcon } from '../Icons/Icons';
-import { StoreStructure } from '../../redux/types';
-import { generateTypeMappings, TypeInfo } from '../../util';
+import { StoreStructure } from '../../redux';
 import { ActionParameterList } from '../ActionParameterList/ActionParameterList';
 import { InputParameterList } from '../InputParameterList/InputParameterList';
 
@@ -251,13 +251,19 @@ export interface FrameHeadingProps {
 export function FrameHeading({ title, description, subtitle, type }: FrameHeadingProps) {
   return (
     <Stack direction="row">
-      <Box sx={{ mb: 1.5 }} className={'logicforgeFrameHeading'}>
-        <Typography variant={'h4'} className={'logicforgeFrameHeading__title'}>
+      <Box sx={{ mb: 1.5 }}>
+        <Typography variant={'h4'} fontSize={'1.5rem'}>
           {title}
           {description !== undefined && <Info text={description} />}
         </Typography>
         {subtitle !== undefined && (
-          <Typography variant={'h5'} className={'logicforgeFrameHeading__subtitle'}>
+          <Typography
+            variant={'h5'}
+            color={'#37ac8f'}
+            fontSize={'1rem'}
+            fontWeight={500}
+            style={{ fontVariant: 'all-small-caps' }}
+          >
             {FrameIcon({ type })}
             {subtitle}
           </Typography>

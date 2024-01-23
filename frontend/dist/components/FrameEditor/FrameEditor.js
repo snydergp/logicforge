@@ -5,12 +5,11 @@ import { ContentType, } from '../../types';
 import { initEditor, selectSelectedSubtree } from '../../redux/slices/editors';
 import React, { useContext, useEffect, useState } from 'react';
 import { useTranslate } from 'react-polyglot';
-import { actionDescriptionPath, actionTitlePath, functionDescriptionPath, functionTitlePath, processDescriptionPath, processTitlePath, } from '../../util/translation-paths';
-import { ParameterList } from '../ParameterList/ParameterList';
-import './FrameEditor.scss';
+import { actionDescriptionPath, actionTitlePath, functionDescriptionPath, functionTitlePath, generateTypeMappings, processDescriptionPath, processTitlePath, } from '../../util';
 import { Info } from '../Info/Info';
 import { ActionIcon, FunctionIcon, ProcessIcon } from '../Icons/Icons';
-import { generateTypeMappings } from '../../util';
+import { ActionParameterList } from '../ActionParameterList/ActionParameterList';
+import { InputParameterList } from '../InputParameterList/InputParameterList';
 export const EditorContext = React.createContext(undefined);
 var FrameType;
 (function (FrameType) {
@@ -70,7 +69,7 @@ function ProcessFrame({ content }) {
     const translate = useTranslate();
     const title = translate(processTitlePath(processName));
     const description = translate(processDescriptionPath(processName));
-    return (_jsxs(Stack, Object.assign({ spacing: 1, className: 'logicforgeFrameEditor__processFrame' }, { children: [_jsx(FrameHeading, { title: title, description: description, subtitle: 'Process', type: FrameType.PROCESS }), _jsx(Paper, { children: _jsx(ParameterList, { contentKey: content.key, name: 'root', parent: content }) })] })));
+    return (_jsxs(Stack, Object.assign({ spacing: 1, className: 'logicforgeFrameEditor__processFrame' }, { children: [_jsx(FrameHeading, { title: title, description: description, subtitle: 'Process', type: FrameType.PROCESS }), _jsx(Paper, { children: _jsx(ActionParameterList, { contentKey: content.key, name: 'root', parent: content }) })] })));
 }
 function ActionFrame({ content }) {
     var _a, _b;
@@ -81,9 +80,9 @@ function ActionFrame({ content }) {
     const title = translate(actionTitlePath(actionName));
     const description = translate(actionDescriptionPath(actionName));
     return (_jsxs(Stack, Object.assign({ spacing: 1, className: 'logicforgeFrameEditor__actionFrame' }, { children: [_jsx(FrameHeading, { title: title, subtitle: 'Action', description: description, type: FrameType.ACTION }), (_a = Object.entries(specification.actionParameters)) === null || _a === void 0 ? void 0 : _a.map(([name]) => {
-                return (_jsx(Paper, { children: _jsx(ParameterList, { contentKey: content.actionChildKeys[name], name: name, parent: content }) }, name));
+                return (_jsx(Paper, { children: _jsx(ActionParameterList, { contentKey: content.actionChildKeys[name], name: name, parent: content }) }, name));
             }), (_b = Object.entries(specification.inputParameters)) === null || _b === void 0 ? void 0 : _b.map(([name]) => {
-                return (_jsx(Paper, { children: _jsx(ParameterList, { contentKey: content.inputChildKeys[name], name: name, parent: content }) }, name));
+                return (_jsx(Paper, { children: _jsx(InputParameterList, { contentKey: content.inputChildKeys[name], name: name, parent: content }) }, name));
             })] })));
 }
 export function FunctionFrame({ content }) {
@@ -95,11 +94,11 @@ export function FunctionFrame({ content }) {
     const title = translate(functionTitlePath(functionName));
     const description = translate(functionDescriptionPath(functionName));
     return (_jsxs("div", Object.assign({ className: 'logicforgeFrameEditor__functionFrame' }, { children: [_jsx(FrameHeading, { title: title, subtitle: 'Function', description: description, type: FrameType.FUNCTION }), _jsx(Stack, Object.assign({ spacing: 1 }, { children: (_a = Object.entries(specification.parameters)) === null || _a === void 0 ? void 0 : _a.map(([name]) => {
-                    return (_jsx(Paper, { children: _jsx(ParameterList, { contentKey: content.childKeys[name], name: name, parent: content }) }, name));
+                    return (_jsx(Paper, { children: _jsx(InputParameterList, { contentKey: content.childKeys[name], name: name, parent: content }) }, name));
                 }) }))] })));
 }
 export function FrameHeading({ title, description, subtitle, type }) {
-    return (_jsx(Stack, Object.assign({ direction: "row" }, { children: _jsxs(Box, Object.assign({ sx: { mb: 1.5 }, className: 'logicforgeFrameHeading' }, { children: [_jsxs(Typography, Object.assign({ variant: 'h4', className: 'logicforgeFrameHeading__title' }, { children: [title, description !== undefined && _jsx(Info, { text: description })] })), subtitle !== undefined && (_jsxs(Typography, Object.assign({ variant: 'h5', className: 'logicforgeFrameHeading__subtitle' }, { children: [FrameIcon({ type }), subtitle] })))] })) })));
+    return (_jsx(Stack, Object.assign({ direction: "row" }, { children: _jsxs(Box, Object.assign({ sx: { mb: 1.5 } }, { children: [_jsxs(Typography, Object.assign({ variant: 'h4', fontSize: '1.5rem' }, { children: [title, description !== undefined && _jsx(Info, { text: description })] })), subtitle !== undefined && (_jsxs(Typography, Object.assign({ variant: 'h5', color: '#37ac8f', fontSize: '1rem', fontWeight: 500, style: { fontVariant: 'all-small-caps' } }, { children: [FrameIcon({ type }), subtitle] })))] })) })));
 }
 function FrameIcon({ type }) {
     switch (type) {

@@ -1,6 +1,5 @@
 import editorsReducer from './slices/editors';
 import { combineReducers, configureStore } from '@reduxjs/toolkit';
-import { LOGICFORGE_REDUX_NAMESPACE } from './types';
 /*
  * As it is intended for these components to be used as a library to be integrated against instead of a standalone
  * application, we use a passed-in store instead of creating our own store instance. This file allows for an external
@@ -12,17 +11,17 @@ export function initializeStore(newStore) {
     if (store !== undefined) {
         throw new Error('Attempted to re-initialize with a new store');
     }
-    if (newStore == undefined) {
+    if (newStore === undefined) {
         store = configureStore({
             reducer: {
-                [LOGICFORGE_REDUX_NAMESPACE]: editorsReducer,
+                LOGICFORGE: editorsReducer,
             },
         });
     }
     else {
         store = newStore;
         registerReducer({
-            [LOGICFORGE_REDUX_NAMESPACE]: editorsReducer,
+            LOGICFORGE: editorsReducer,
         });
     }
 }

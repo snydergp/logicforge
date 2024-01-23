@@ -1,4 +1,3 @@
-import './ParameterHeading.scss';
 export interface ParameterHeadingProps {
     title: string;
     description?: string;

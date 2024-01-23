@@ -18,6 +18,7 @@
 
     <modules>
         <module>core</module>
+        <module>frontend</module>
         <module>demo</module>
     </modules>
 

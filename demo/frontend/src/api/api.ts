@@ -1,11 +1,13 @@
-import { EngineSpec, ProcessConfig } from "logicforge/dist/types";
-import axios from "axios";
+import { EngineSpec, ProcessConfig } from 'logicforge/dist/types';
+import axios from 'axios';
 
-const DEFAULT_PATH: string = "http://localhost";
+const DEFAULT_PATH: string = '';
 
 export interface Api {
   fetchEngineSpec(): Promise<EngineSpec>;
+
   fetchProcessConfiguration(): Promise<ProcessConfig>;
+
   saveProcessConfiguration(config: ProcessConfig): Promise<void>;
 }
 
@@ -16,12 +18,14 @@ class ApiImpl implements Api {
     this._rootPath = rootPath;
   }
 
-  fetchEngineSpec(): Promise<EngineSpec> {
-    return axios.get(`${this._rootPath}/engine/spec`);
+  async fetchEngineSpec(): Promise<EngineSpec> {
+    const response = await axios.get(`${this._rootPath}/engine/spec`);
+    return response.data as EngineSpec;
   }
 
-  fetchProcessConfiguration(): Promise<ProcessConfig> {
-    return axios.get(`${this._rootPath}/process`);
+  async fetchProcessConfiguration(): Promise<ProcessConfig> {
+    const response = await axios.get(`${this._rootPath}/process`);
+    return response.data as ProcessConfig;
   }
 
   saveProcessConfiguration(config: ProcessConfig): Promise<void> {

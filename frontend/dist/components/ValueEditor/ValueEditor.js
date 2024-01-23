@@ -6,7 +6,7 @@ import { EditorContext } from '../FrameEditor/FrameEditor';
 import { useDispatch } from 'react-redux';
 import { setFunction } from '../../redux/slices/editors';
 import { useTranslate } from 'react-polyglot';
-import { functionTitlePath, typeTitlePath, collectSubtypes } from '../../util';
+import { collectSubtypes, functionTitlePath, typeTitlePath } from '../../util';
 function validatorForSpec(parameterSpec) {
     const returnType = parameterSpec.returnType;
     if (returnType in WellKnownType) {

@@ -1,6 +1,5 @@
 import { ActionContent, EngineSpec, FunctionContent, LogicForgeConfig, ProcessContent } from '../../types';
 import React from 'react';
-import './FrameEditor.scss';
 import { TypeInfo } from '../../util';
 export type EditorInfo = {
     editorId: string;

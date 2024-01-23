@@ -1,4 +1,3 @@
-import './Info.scss';
 export interface InfoProps {
     text: string;
 }

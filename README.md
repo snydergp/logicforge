@@ -262,6 +262,7 @@ This section contains prospective future releases.
   * Write performance test scripts
   * ASM-based class generation
   * Maven Central release
+  * Frontend component theming
 * Capability Plugins
   * Add capability modules that can be included to extend the engine. Plugin modules will include functions and/or actions aligned with a specific problem domain. Potential modules:
     * HTTP (send and/or process HTTP requests)

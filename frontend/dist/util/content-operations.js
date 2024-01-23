@@ -40,9 +40,10 @@ export function replaceInput(editorStateStore, key, newConfig, engineSpec) {
     recursiveDelete(editorStateStore, previousChildKey);
     return newChildContent;
 }
-export function addAction(editorStateStore, parentKey, newConfig, engineSpec) {
+export function addNewAction(editorStateStore, parentKey, newConfig, engineSpec) {
     const resolvedState = editorStateStore.data[parentKey];
-    if (resolvedState.type !== ContentType.ACTION_LIST) {
+    if (resolvedState.type !== ContentType.ACTION_LIST &&
+        resolvedState.type !== ContentType.PROCESS) {
         throw new Error(`Attempted to add a new action on an illegal editor state: ${resolvedState.type}`);
     }
     const parentActionsState = resolvedState;
@@ -52,7 +53,7 @@ export function addAction(editorStateStore, parentKey, newConfig, engineSpec) {
 }
 export function deleteAction(editorStore, key) {
     const resolvedState = editorStore.data[key];
-    if (resolvedState.type !== ContentType.ACTION) {
+    if (resolvedState.type !== ContentType.ACTION && resolvedState.type !== ContentType.PROCESS) {
         throw new Error(`Attempted to delete an action from an illegal editor state: ${resolvedState.type}`);
     }
     const actionEditorState = resolvedState;
@@ -67,7 +68,9 @@ export function deleteListItem(contentStore, key) {
         const parentKey = content.parentKey;
         const parent = contentStore.data[parentKey];
         const parentType = parent.type;
-        if (parentType !== ContentType.ACTION_LIST && parentType !== ContentType.INPUT_LIST) {
+        if (parentType !== ContentType.ACTION_LIST &&
+            parentType !== ContentType.INPUT_LIST &&
+            parentType !== ContentType.PROCESS) {
             throw new Error(`Attempted to delete a list item from an illegal parent content type: ${parentType}`);
         }
         const listContent = parent;
@@ -106,7 +109,9 @@ export function deleteInput(editorStateStore, engineSpec, key) {
 }
 export function reorderList(contentStore, parentKey, oldIndex, newIndex) {
     const content = contentStore.data[parentKey];
-    if (content.type !== ContentType.ACTION_LIST && content.type !== ContentType.INPUT_LIST) {
+    if (content.type !== ContentType.ACTION_LIST &&
+        content.type !== ContentType.INPUT_LIST &&
+        content.type !== ContentType.PROCESS) {
         throw new Error(`Attempted to execute reorder operation on not-list state: ${content.type}`);
     }
     const listContent = content;
@@ -384,14 +389,22 @@ function recurseDown(contentStore, func, initialKey, descendantsFirst = false) {
         func(content);
     }
     switch (content.type) {
-        case ContentType.PROCESS:
-        case ContentType.ACTION:
         case ContentType.FUNCTION:
-            const nodeContent = content;
-            Object.entries(nodeContent.childKeys).forEach(([name, childKey]) => {
+            const functionContent = content;
+            Object.entries(functionContent.childKeys).forEach(([name, childKey]) => {
                 recurseDown(contentStore, func, childKey, descendantsFirst);
             });
             break;
+        case ContentType.ACTION:
+            const actionContent = content;
+            Object.entries(actionContent.actionChildKeys).forEach(([name, childKey]) => {
+                recurseDown(contentStore, func, childKey, descendantsFirst);
+            });
+            Object.entries(actionContent.inputChildKeys).forEach(([name, childKey]) => {
+                recurseDown(contentStore, func, childKey, descendantsFirst);
+            });
+            break;
+        case ContentType.PROCESS:
         case ContentType.ACTION_LIST:
         case ContentType.INPUT_LIST:
             const listContent = content;

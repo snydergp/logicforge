@@ -31,7 +31,7 @@ public class LogicForgeService {
   }
 
   public Optional<ExtendedProcessConfig> loadConfigById(final UUID id) {
-    return processConfigDAO.getById(id);
+    return Optional.empty(); // TODO connect once DB setup is complete
   }
 
 }

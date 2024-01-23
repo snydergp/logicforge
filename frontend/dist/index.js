@@ -36,7 +36,7 @@ const messages = {
             title: 'Example Process',
             description: 'A process used to demonstrate the frontend',
             parameters: {
-                actions: {
+                root: {
                     title: 'Actions',
                     description: 'The primary action list',
                 },

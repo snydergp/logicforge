@@ -19,24 +19,27 @@ export declare const selectSelectedSubtree: ((state: Partial<import("../types").
 export declare const selectIsKeySelected: (editorId: string, key: string) => (state: StoreStructure) => boolean;
 export declare const selectContentByKey: (editorId: string, key: string) => (state: StoreStructure) => import("../../types").Content | undefined;
 export declare const selectParameterSpecificationForKey: (editorId: string, key?: string) => (state: StoreStructure) => import("../../types").ParameterSpec | undefined;
-export declare const initEditor: import("@reduxjs/toolkit").ActionCreatorWithPreparedPayload<[payload: ProcessConfig, engineSpecification: EngineSpec, editorId?: string | undefined], ProcessConfig, `${string}/initEditor`, never, {
+export declare const initEditor: import("@reduxjs/toolkit").ActionCreatorWithPreparedPayload<[payload: ProcessConfig, engineSpecification: EngineSpec, editorId?: string | undefined], ProcessConfig, "LOGICFORGE/initEditor", never, {
     engineSpecification: EngineSpec;
     editorId: string | undefined;
-}>, setSelection: import("@reduxjs/toolkit").ActionCreatorWithPreparedPayload<[payload: string, editorId: string], string, `${string}/setSelection`, never, {
+}>, setSelection: import("@reduxjs/toolkit").ActionCreatorWithPreparedPayload<[payload: string, editorId: string], string, "LOGICFORGE/setSelection", never, {
     editorId: string;
-}>, setFunction: import("@reduxjs/toolkit").ActionCreatorWithPreparedPayload<[payload: string, editorId: string, key: string], string, `${string}/setFunction`, never, {
-    editorId: string;
-    key: string;
-}>, setValue: import("@reduxjs/toolkit").ActionCreatorWithPreparedPayload<[payload: string, editorId: string, key: string], string, `${string}/setValue`, never, {
+}>, setFunction: import("@reduxjs/toolkit").ActionCreatorWithPreparedPayload<[payload: string, editorId: string, key: string], string, "LOGICFORGE/setFunction", never, {
     editorId: string;
     key: string;
-}>, addValue: import("@reduxjs/toolkit").ActionCreatorWithPreparedPayload<[payload: string, editorId: string], string, `${string}/addValue`, never, {
+}>, setValue: import("@reduxjs/toolkit").ActionCreatorWithPreparedPayload<[payload: string, editorId: string, key: string], string, "LOGICFORGE/setValue", never, {
     editorId: string;
-}>, reorderItem: import("@reduxjs/toolkit").ActionCreatorWithPreparedPayload<[payload: string, editorId: string, oldIndex: number, newIndex: number], string, `${string}/reorderItem`, never, {
+    key: string;
+}>, addValue: import("@reduxjs/toolkit").ActionCreatorWithPreparedPayload<[payload: string, editorId: string], string, "LOGICFORGE/addValue", never, {
+    editorId: string;
+}>, addAction: import("@reduxjs/toolkit").ActionCreatorWithPreparedPayload<[payload: string, editorId: string, actionName: string], string, "LOGICFORGE/addAction", never, {
+    editorId: string;
+    actionName: string;
+}>, reorderItem: import("@reduxjs/toolkit").ActionCreatorWithPreparedPayload<[payload: string, editorId: string, oldIndex: number, newIndex: number], string, "LOGICFORGE/reorderItem", never, {
     editorId: string;
     oldIndex: number;
     newIndex: number;
-}>, deleteItem: import("@reduxjs/toolkit").ActionCreatorWithPreparedPayload<[payload: string, editorId: string], string, `${string}/deleteItem`, never, {
+}>, deleteItem: import("@reduxjs/toolkit").ActionCreatorWithPreparedPayload<[payload: string, editorId: string], string, "LOGICFORGE/deleteItem", never, {
     editorId: string;
 }>;
 declare const _default: import("redux").Reducer<EditorsState, import("redux").AnyAction>;

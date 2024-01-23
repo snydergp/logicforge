@@ -1,10 +1,9 @@
 import { createSelector, createSlice } from '@reduxjs/toolkit';
-import { LOGICFORGE_REDUX_NAMESPACE } from '../types';
 import { ConfigType, ContentType, } from '../../types';
-import { addAction, addInput, deleteListItem, getContentAndAncestors, loadRootContent, reorderList, replaceInput, resolveParameterSpecForKey, } from '../../util';
+import { addNewAction, addInput, deleteListItem, getContentAndAncestors, loadRootContent, reorderList, replaceInput, resolveParameterSpecForKey, } from '../../util';
 const initialState = {};
 const editorsSlice = createSlice({
-    name: LOGICFORGE_REDUX_NAMESPACE.toString(),
+    name: 'LOGICFORGE',
     initialState,
     reducers: {
         initEditor: {
@@ -40,7 +39,11 @@ const editorsSlice = createSlice({
                 const editorId = action.meta.editorId;
                 const editorState = state[editorId];
                 const key = action.payload;
-                editorState.selection = key;
+                const contentToSelect = editorState.contentStore.data[key];
+                // verify that the key is valid before changing the selection
+                if (contentToSelect !== undefined) {
+                    editorState.selection = key;
+                }
                 return state;
             },
             prepare(payload, editorId) {
@@ -76,7 +79,7 @@ const editorsSlice = createSlice({
         setValue: {
             reducer(state, action) {
                 const editorId = action.meta.editorId;
-                const { engineSpec: engineSpec, contentStore } = state[editorId];
+                const { engineSpec, contentStore } = state[editorId];
                 const value = action.payload;
                 const valueConfig = {
                     type: ConfigType.VALUE,
@@ -118,7 +121,7 @@ const editorsSlice = createSlice({
                 const editorStateStore = editorState.contentStore;
                 const actionSpec = engineSpec.actions[actionName];
                 const actionConfig = newActionConfigForSpec(actionName, actionSpec);
-                addAction(editorStateStore, parentKey, actionConfig, engineSpec);
+                addNewAction(editorStateStore, parentKey, actionConfig, engineSpec);
                 return state;
             },
             prepare(payload, editorId, actionName) {
@@ -161,7 +164,7 @@ const editorsSlice = createSlice({
 });
 export const selectEditorSelection = (state, editorId) => {
     var _a, _b;
-    return (_b = (_a = state[LOGICFORGE_REDUX_NAMESPACE]) === null || _a === void 0 ? void 0 : _a[editorId]) === null || _b === void 0 ? void 0 : _b.selection;
+    return (_b = (_a = state['LOGICFORGE']) === null || _a === void 0 ? void 0 : _a[editorId]) === null || _b === void 0 ? void 0 : _b.selection;
 };
 /**
  * Internal-only selector used for creating memoizable composite selectors
@@ -169,7 +172,7 @@ export const selectEditorSelection = (state, editorId) => {
  */
 const selectContentStore = (state, editorId) => {
     var _a, _b;
-    return (_b = (_a = state[LOGICFORGE_REDUX_NAMESPACE]) === null || _a === void 0 ? void 0 : _a[editorId]) === null || _b === void 0 ? void 0 : _b.contentStore;
+    return (_b = (_a = state['LOGICFORGE']) === null || _a === void 0 ? void 0 : _a[editorId]) === null || _b === void 0 ? void 0 : _b.contentStore;
 };
 export const selectSelectedSubtree = createSelector([selectEditorSelection, selectContentStore], (selection, contentStore) => {
     if (selection !== undefined && contentStore !== undefined) {
@@ -178,17 +181,17 @@ export const selectSelectedSubtree = createSelector([selectEditorSelection, sele
 });
 export const selectIsKeySelected = (editorId, key) => (state) => {
     var _a;
-    const editorState = (_a = state[LOGICFORGE_REDUX_NAMESPACE]) === null || _a === void 0 ? void 0 : _a[editorId];
+    const editorState = (_a = state['LOGICFORGE']) === null || _a === void 0 ? void 0 : _a[editorId];
     if (editorState !== undefined) {
         const contentStore = editorState.contentStore;
         const selectedContent = getContentAndAncestors(contentStore, editorState.selection);
-        return selectedContent.find((content) => content.key == key) != undefined;
+        return selectedContent.find((content) => content.key === key) !== undefined;
     }
     return false;
 };
 export const selectContentByKey = (editorId, key) => (state) => {
     var _a, _b;
-    const editorStateStore = (_b = (_a = state[LOGICFORGE_REDUX_NAMESPACE]) === null || _a === void 0 ? void 0 : _a[editorId]) === null || _b === void 0 ? void 0 : _b.contentStore;
+    const editorStateStore = (_b = (_a = state['LOGICFORGE']) === null || _a === void 0 ? void 0 : _a[editorId]) === null || _b === void 0 ? void 0 : _b.contentStore;
     if (editorStateStore !== undefined) {
         return editorStateStore.data[key];
     }
@@ -196,8 +199,8 @@ export const selectContentByKey = (editorId, key) => (state) => {
 export const selectParameterSpecificationForKey = (editorId, key) => (state) => {
     var _a, _b, _c, _d;
     if (key !== undefined) {
-        const editorStateStore = (_b = (_a = state[LOGICFORGE_REDUX_NAMESPACE]) === null || _a === void 0 ? void 0 : _a[editorId]) === null || _b === void 0 ? void 0 : _b.contentStore;
-        const engineSpecification = (_d = (_c = state[LOGICFORGE_REDUX_NAMESPACE]) === null || _c === void 0 ? void 0 : _c[editorId]) === null || _d === void 0 ? void 0 : _d.engineSpec;
+        const editorStateStore = (_b = (_a = state['LOGICFORGE']) === null || _a === void 0 ? void 0 : _a[editorId]) === null || _b === void 0 ? void 0 : _b.contentStore;
+        const engineSpecification = (_d = (_c = state['LOGICFORGE']) === null || _c === void 0 ? void 0 : _c[editorId]) === null || _d === void 0 ? void 0 : _d.engineSpec;
         if (editorStateStore !== undefined && engineSpecification !== undefined) {
             const state = editorStateStore.data[key];
             if (state.type === ContentType.VALUE ||
@@ -235,5 +238,5 @@ function newActionConfigForSpec(actionName, spec) {
         actionArguments: actionArgumentConfigs,
     };
 }
-export const { initEditor, setSelection, setFunction, setValue, addValue, reorderItem, deleteItem, } = editorsSlice.actions;
+export const { initEditor, setSelection, setFunction, setValue, addValue, addAction, reorderItem, deleteItem, } = editorsSlice.actions;
 export default editorsSlice.reducer;

@@ -16,6 +16,7 @@
     <name>LogicForge - Demo Parent</name>
 
     <modules>
+        <module>frontend</module>
         <module>server</module>
     </modules>
 

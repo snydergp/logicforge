@@ -36,10 +36,8 @@
     "web-vitals": "^2.1.4"
   },
   "scripts": {
-    "build:css": "node-sass src/ -o src/ ",
-    "watch:css": "npm run build:css && node-sass src/ -o src/ -w -r",
     "start:js": "react-scripts start",
-    "start": "npm-run-all -p watch:css start:js",
+    "start": "npm-run-all -p start:js",
     "build:js": "tsc --project tsconfig.json; react-scripts build",
     "build": "npm-run-all build:*",
     "test": "react-scripts test --env=jsdom",

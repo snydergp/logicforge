@@ -8,6 +8,8 @@ enum State {
   FAILED = 'FAILED',
 }
 
+const EDITOR_ID = 'editor';
+
 export interface AppProps {}
 
 export function App({}: AppProps) {
@@ -44,7 +46,7 @@ export function App({}: AppProps) {
   return state === State.READY ? (
     <div>
       <FrameEditor
-        editorId={''}
+        editorId={EDITOR_ID}
         config={process as ProcessConfig}
         engineSpec={spec as EngineSpec}
       ></FrameEditor>

@@ -9,7 +9,7 @@ export declare function loadRootContent(editorStateStore: ContentStore, config: 
  */
 export declare function recursiveDelete(editorStateStore: ContentStore, stateKeyToDelete: string): void;
 export declare function replaceInput(editorStateStore: ContentStore, key: string, newConfig: FunctionConfig | ValueConfig, engineSpec: EngineSpec): Content;
-export declare function addAction(editorStateStore: ContentStore, parentKey: string, newConfig: ActionConfig, engineSpec: EngineSpec): void;
+export declare function addNewAction(editorStateStore: ContentStore, parentKey: string, newConfig: ActionConfig, engineSpec: EngineSpec): void;
 export declare function deleteAction(editorStore: ContentStore, key: string): void;
 export declare function deleteListItem(contentStore: ContentStore, key: string): void;
 export declare function addInput(editorStateStore: ContentStore, engineSpec: EngineSpec, parentKey: string, newConfig: FunctionConfig | ValueConfig): void;
