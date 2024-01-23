@@ -1,11 +1,9 @@
 import { createSelector, createSlice, PayloadAction } from '@reduxjs/toolkit';
-import { LOGICFORGE_REDUX_NAMESPACE, StoreStructure } from '../types';
+import { StoreStructure } from '../types';
 import {
   ActionConfig,
   ActionSpec,
-  ArgumentConfig,
   ConfigType,
-  ValueConfig,
   ContentStore,
   ContentType,
   EngineSpec,
@@ -14,10 +12,10 @@ import {
   InputConfig,
   LogicForgeConfig,
   ProcessConfig,
-  SpecType,
+  ValueConfig,
 } from '../../types';
 import {
-  addAction,
+  addNewAction,
   addInput,
   deleteListItem,
   getContentAndAncestors,
@@ -42,7 +40,7 @@ export type EditorsState = {
 const initialState: EditorsState = {};
 
 const editorsSlice = createSlice({
-  name: LOGICFORGE_REDUX_NAMESPACE.toString(),
+  name: 'LOGICFORGE',
   initialState,
   reducers: {
     initEditor: {
@@ -85,7 +83,11 @@ const editorsSlice = createSlice({
         const editorId = action.meta.editorId;
         const editorState = state[editorId];
         const key = action.payload;
-        editorState.selection = key;
+        const contentToSelect = editorState.contentStore.data[key];
+        // verify that the key is valid before changing the selection
+        if (contentToSelect !== undefined) {
+          editorState.selection = key;
+        }
         return state;
       },
       prepare(payload: string, editorId: string) {
@@ -124,7 +126,7 @@ const editorsSlice = createSlice({
     setValue: {
       reducer(state, action: PayloadAction<string, string, { editorId: string; key: string }>) {
         const editorId = action.meta.editorId;
-        const { engineSpec: engineSpec, contentStore } = state[editorId];
+        const { engineSpec, contentStore } = state[editorId];
         const value = action.payload;
         const valueConfig: ValueConfig = {
           type: ConfigType.VALUE,
@@ -169,7 +171,7 @@ const editorsSlice = createSlice({
         const editorStateStore = editorState.contentStore;
         const actionSpec = engineSpec.actions[actionName];
         const actionConfig = newActionConfigForSpec(actionName, actionSpec);
-        addAction(editorStateStore, parentKey, actionConfig, engineSpec);
+        addNewAction(editorStateStore, parentKey, actionConfig, engineSpec);
         return state;
       },
       prepare(payload: string, editorId: string, actionName: string) {
@@ -222,7 +224,7 @@ const editorsSlice = createSlice({
 });
 
 export const selectEditorSelection = (state: StoreStructure, editorId: string) => {
-  return state[LOGICFORGE_REDUX_NAMESPACE]?.[editorId]?.selection;
+  return state['LOGICFORGE']?.[editorId]?.selection;
 };
 
 /**
@@ -230,7 +232,7 @@ export const selectEditorSelection = (state: StoreStructure, editorId: string) =
  * @param editorId
  */
 const selectContentStore = (state: StoreStructure, editorId: string) => {
-  return state[LOGICFORGE_REDUX_NAMESPACE]?.[editorId]?.contentStore;
+  return state['LOGICFORGE']?.[editorId]?.contentStore;
 };
 
 export const selectSelectedSubtree = createSelector(
@@ -243,17 +245,17 @@ export const selectSelectedSubtree = createSelector(
 );
 
 export const selectIsKeySelected = (editorId: string, key: string) => (state: StoreStructure) => {
-  const editorState = state[LOGICFORGE_REDUX_NAMESPACE]?.[editorId];
+  const editorState = state['LOGICFORGE']?.[editorId];
   if (editorState !== undefined) {
     const contentStore = editorState.contentStore;
     const selectedContent = getContentAndAncestors(contentStore, editorState.selection);
-    return selectedContent.find((content) => content.key == key) != undefined;
+    return selectedContent.find((content) => content.key === key) !== undefined;
   }
   return false;
 };
 
 export const selectContentByKey = (editorId: string, key: string) => (state: StoreStructure) => {
-  const editorStateStore = state[LOGICFORGE_REDUX_NAMESPACE]?.[editorId]?.contentStore;
+  const editorStateStore = state['LOGICFORGE']?.[editorId]?.contentStore;
   if (editorStateStore !== undefined) {
     return editorStateStore.data[key];
   }
@@ -262,8 +264,8 @@ export const selectContentByKey = (editorId: string, key: string) => (state: Sto
 export const selectParameterSpecificationForKey =
   (editorId: string, key?: string) => (state: StoreStructure) => {
     if (key !== undefined) {
-      const editorStateStore = state[LOGICFORGE_REDUX_NAMESPACE]?.[editorId]?.contentStore;
-      const engineSpecification = state[LOGICFORGE_REDUX_NAMESPACE]?.[editorId]?.engineSpec;
+      const editorStateStore = state['LOGICFORGE']?.[editorId]?.contentStore;
+      const engineSpecification = state['LOGICFORGE']?.[editorId]?.engineSpec;
       if (editorStateStore !== undefined && engineSpecification !== undefined) {
         const state = editorStateStore.data[key];
         if (
@@ -313,6 +315,7 @@ export const {
   setFunction,
   setValue,
   addValue,
+  addAction,
   reorderItem,
   deleteItem,
 } = editorsSlice.actions;

@@ -1,10 +1,8 @@
 import { EditorsState } from './slices/editors';
 import { Reducer } from 'react';
 
-export const LOGICFORGE_REDUX_NAMESPACE: unique symbol = Symbol('LOGICFORGE');
-
 export type FullStoreShape = {
-  [LOGICFORGE_REDUX_NAMESPACE]: EditorsState;
+  ['LOGICFORGE']: EditorsState;
 };
 
 export type StoreStructure = Partial<FullStoreShape>;

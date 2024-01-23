@@ -20,12 +20,13 @@ import {
   processDescriptionPath,
   processTitlePath,
 } from '../../util/translation-paths';
-import { ParameterList } from '../ParameterList/ParameterList';
 import './FrameEditor.scss';
 import { Info } from '../Info/Info';
 import { ActionIcon, FunctionIcon, ProcessIcon } from '../Icons/Icons';
 import { StoreStructure } from '../../redux/types';
 import { generateTypeMappings, TypeInfo } from '../../util';
+import { ActionParameterList } from '../ActionParameterList/ActionParameterList';
+import { InputParameterList } from '../InputParameterList/InputParameterList';
 
 export type EditorInfo = {
   editorId: string;
@@ -147,7 +148,7 @@ function ProcessFrame({ content }: ProcessFrameProps) {
         type={FrameType.PROCESS}
       />
       <Paper>
-        <ParameterList contentKey={content.key} name={'root'} parent={content} />
+        <ActionParameterList contentKey={content.key} name={'root'} parent={content} />
       </Paper>
     </Stack>
   );
@@ -178,7 +179,7 @@ function ActionFrame({ content }: ActionFrameProps) {
       {Object.entries(specification.actionParameters)?.map(([name]) => {
         return (
           <Paper key={name}>
-            <ParameterList
+            <ActionParameterList
               contentKey={content.actionChildKeys[name]}
               name={name}
               parent={content}
@@ -189,7 +190,11 @@ function ActionFrame({ content }: ActionFrameProps) {
       {Object.entries(specification.inputParameters)?.map(([name]) => {
         return (
           <Paper key={name}>
-            <ParameterList contentKey={content.inputChildKeys[name]} name={name} parent={content} />
+            <InputParameterList
+              contentKey={content.inputChildKeys[name]}
+              name={name}
+              parent={content}
+            />
           </Paper>
         );
       })}
@@ -223,7 +228,11 @@ export function FunctionFrame({ content }: FunctionFrameProps) {
         {Object.entries(specification.parameters)?.map(([name]) => {
           return (
             <Paper key={name}>
-              <ParameterList contentKey={content.childKeys[name]} name={name} parent={content} />
+              <InputParameterList
+                contentKey={content.childKeys[name]}
+                name={name}
+                parent={content}
+              />
             </Paper>
           );
         })}

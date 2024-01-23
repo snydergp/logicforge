@@ -1,19 +1,12 @@
-import {
-  ValueConfig,
-  EngineSpec,
-  FunctionSpec,
-  ParameterSpec,
-  TypeSpec,
-  ValueContent,
-} from '../../types';
+import { EngineSpec, FunctionSpec, ParameterSpec, TypeSpec, ValueContent } from '../../types';
 import { WellKnownType } from '../../constant/well-known-type';
 import { Autocomplete, TextField } from '@mui/material';
 import React, { useContext, useEffect, useState } from 'react';
 import { EditorContext, EditorInfo } from '../FrameEditor/FrameEditor';
-import { useDispatch, useSelector } from 'react-redux';
+import { useDispatch } from 'react-redux';
 import { setFunction } from '../../redux/slices/editors';
 import { useTranslate } from 'react-polyglot';
-import { functionTitlePath, typeTitlePath, collectSubtypes, TypeInfo } from '../../util';
+import { collectSubtypes, functionTitlePath, TypeInfo, typeTitlePath } from '../../util';
 
 export interface ValueEditorProps {
   parameterSpec: ParameterSpec;
