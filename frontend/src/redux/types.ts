@@ -1,12 +1,7 @@
-import { EditorsState } from './slices/editors';
-import { Reducer } from 'react';
+import { EditorState } from './slices/editors';
 
 export type FullStoreShape = {
-  ['LOGICFORGE']: EditorsState;
+  ['LOGICFORGE']: EditorState;
 };
 
 export type StoreStructure = Partial<FullStoreShape>;
-
-export type NamespaceKey = keyof StoreStructure;
-
-export type ReducerMap = Partial<{ [k in NamespaceKey]: Reducer<FullStoreShape[k], any> }>;

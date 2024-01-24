@@ -14,7 +14,6 @@ export enum ContentType {
 }
 
 export type ContentStore = {
-  editorId: string;
   count: number;
   data: { [key: string]: Content };
   rootConfigKey?: string;

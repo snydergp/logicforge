@@ -5,14 +5,18 @@ import io.logicforge.core.engine.ActionExecutor;
 import io.logicforge.core.engine.LogicForgeOptions;
 import io.logicforge.core.engine.ProcessBuilder;
 import io.logicforge.core.engine.compile.CompilationProcessBuilder;
+import io.logicforge.core.model.specification.ContextVariableSpec;
 import io.logicforge.core.model.specification.EngineSpec;
 import io.logicforge.core.model.specification.EngineSpecBuilder;
+import io.logicforge.core.model.specification.ProcessSpec;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
+import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -22,9 +26,34 @@ import java.util.concurrent.TimeUnit;
 public class LogicForgeConfig {
 
   @Bean
-  public EngineSpec engineSpec() {
+  public ProcessSpec processSpec() {
+    return new ProcessSpec() {
+      @Override
+      public String getName() {
+        return "example";
+      }
+
+      @Override
+      public List<ContextVariableSpec> getAvailableVariables() {
+        return List.of();
+      }
+
+      @Override
+      public List<ContextVariableSpec> getExpectedOutputVariables() {
+        return List.of();
+      }
+
+      @Override
+      public Optional<ContextVariableSpec> getReturnValue() {
+        return Optional.empty();
+      }
+    };
+  }
+
+  @Bean
+  public EngineSpec engineSpec(final ProcessSpec processSpec) {
     return new EngineSpecBuilder().withProviderClasses(BuiltinProviders.getBuiltinProviders())
-        .build();
+        .withProcess(processSpec).build();
   }
 
   @Bean

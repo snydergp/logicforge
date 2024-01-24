@@ -36,7 +36,7 @@ export function loadRootContent(
 }
 
 function nextKey(editorStore: ContentStore) {
-  return `${editorStore.editorId}-${editorStore.count++}`;
+  return `${editorStore.count++}`;
 }
 
 /**

@@ -42,7 +42,7 @@ export function generateTypeMappings(types: { [key: string]: TypeSpec }): {
 }
 
 export function collectSubtypes(parentTypeId: string, typeMapping: { [key: string]: TypeInfo }) {
-  const subtypes: { [keys: string]: TypeInfo } = {};
+  const subtypes: { [key: string]: TypeInfo } = {};
   let subtypeMappings: { [key: string]: TypeInfo } = {};
   const typeInfo = typeMapping[parentTypeId];
   if (typeInfo !== undefined) {
@@ -51,10 +51,12 @@ export function collectSubtypes(parentTypeId: string, typeMapping: { [key: strin
   while (Object.keys(subtypeMappings).length > 0) {
     const nextGeneration: { [key: string]: TypeInfo } = {};
     Object.entries(subtypeMappings).forEach(([key, value]) => {
-      subtypes[key] = value;
-      value.subtypes.forEach((subtypeId) => {
-        nextGeneration[subtypeId] = typeMapping[subtypeId];
-      });
+      if (!subtypes.hasOwnProperty(key)) {
+        subtypes[key] = value;
+        value.subtypes.forEach((subtypeId) => {
+          nextGeneration[subtypeId] = typeMapping[subtypeId];
+        });
+      }
     });
     subtypeMappings = nextGeneration;
   }

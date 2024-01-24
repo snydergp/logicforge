@@ -1,19 +1,8 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
-import { App } from './components/App/App';
 import { createTheme, CssBaseline, ThemeProvider } from '@mui/material';
-import {
-  ConfigType,
-  EngineSpec,
-  FrameEditor,
-  getStore,
-  initializeStore,
-  ProcessConfig,
-  SpecType,
-} from 'logicforge';
-import { Provider } from 'react-redux';
-import { I18n } from 'react-polyglot';
+import { App } from './components/App/App';
 
 export const themeOptions = createTheme({
   palette: {
@@ -36,9 +25,9 @@ export const themeOptions = createTheme({
 const locale = 'en';
 
 // this would likely be returned from the server or CMS in actual usage
-const messages = {
+const translations = {
   processes: {
-    EXAMPLE: {
+    example: {
       title: 'Example Process',
       description: 'A process used to demonstrate the frontend',
       parameters: {
@@ -50,7 +39,7 @@ const messages = {
     },
   },
   actions: {
-    'set-variable': {
+    setVariable: {
       title: 'Set Variable',
       description: 'Stores a value in the execution context',
       parameters: {
@@ -58,23 +47,23 @@ const messages = {
           title: 'Value',
           description: 'The value to store',
         },
-        variableName: {
+        name: {
           title: 'Variable Name',
           description: 'The name to use for the stored variable',
         },
       },
     },
-    'delete-variable': {
+    deleteVariable: {
       title: 'Delete Variable',
       description: 'Deletes a value from the execution context',
       parameters: {
-        variableName: {
+        name: {
           title: 'Variable Name',
           description: 'The name of the variable to delete',
         },
       },
     },
-    'increment-counter': {
+    incrementCounter: {
       title: 'Increment Counter',
       description: 'Increments a counter stored as a variable.',
       parameters: {
@@ -143,226 +132,13 @@ const messages = {
   },
 };
 
-// This specification struct would likely be provided by the server in actual usage
-const specification: EngineSpec = {
-  type: SpecType.ENGINE,
-  processes: {
-    EXAMPLE: {
-      type: SpecType.PROCESS,
-      name: 'example',
-    },
-  },
-  actions: {
-    'set-variable': {
-      type: SpecType.ACTION,
-      inputParameters: {
-        value: {
-          type: SpecType.PARAMETER,
-          returnType: 'java.lang.Object',
-          multi: false,
-        },
-        variableName: {
-          type: SpecType.PARAMETER,
-          returnType: 'java.lang.String',
-          multi: false,
-        },
-      },
-      actionParameters: {},
-    },
-    'delete-variable': {
-      type: SpecType.ACTION,
-      inputParameters: {
-        variableName: {
-          type: SpecType.PARAMETER,
-          returnType: 'java.lang.String',
-          multi: false,
-        },
-      },
-      actionParameters: {},
-    },
-    'increment-counter': {
-      type: SpecType.ACTION,
-      inputParameters: {
-        variableName: {
-          type: SpecType.PARAMETER,
-          returnType: 'java.lang.String',
-          multi: false,
-        },
-        count: {
-          type: SpecType.PARAMETER,
-          returnType: 'java.lang.Integer',
-          multi: false,
-        },
-      },
-      actionParameters: {},
-    },
-  },
-  functions: {
-    concatenate: {
-      type: SpecType.FUNCTION,
-      returnType: 'java.lang.String',
-      parameters: {
-        values: {
-          type: SpecType.PARAMETER,
-          multi: true,
-          returnType: 'java.lang.String',
-          properties: {},
-        },
-      },
-    },
-    min: {
-      type: SpecType.FUNCTION,
-      returnType: 'java.lang.Number',
-      parameters: {
-        values: {
-          type: SpecType.PARAMETER,
-          multi: true,
-          returnType: 'java.lang.Number',
-          properties: {},
-        },
-      },
-    },
-    and: {
-      type: SpecType.FUNCTION,
-      returnType: 'java.lang.Boolean',
-      parameters: {
-        values: {
-          type: SpecType.PARAMETER,
-          multi: true,
-          returnType: 'java.lang.Boolean',
-          properties: {},
-        },
-      },
-    },
-  },
-  types: {
-    'java.lang.String': {
-      type: SpecType.TYPE,
-      supertypes: ['java.lang.Object'],
-      id: 'java.lang.String',
-    },
-    'java.lang.Object': {
-      type: SpecType.TYPE,
-      supertypes: [],
-      id: 'java.lang.Object',
-    },
-    'java.lang.Number': {
-      type: SpecType.TYPE,
-      supertypes: ['java.lang.Object'],
-      id: 'java.lang.Number',
-    },
-    'java.lang.Integer': {
-      type: SpecType.TYPE,
-      supertypes: ['java.lang.Number'],
-      id: 'java.lang.Integer',
-    },
-    'java.lang.Float': {
-      type: SpecType.TYPE,
-      supertypes: ['java.lang.Number'],
-      id: 'java.lang.Float',
-    },
-    'java.lang.Boolean': {
-      type: SpecType.TYPE,
-      supertypes: ['java.lang.Object'],
-      id: 'java.lang.Boolean',
-    },
-  },
-};
-
-// This configuration would be provided from the server (if editing an existing config) or
-//  created from an empty structure (if creating a new config)
-const process: ProcessConfig = {
-  type: ConfigType.PROCESS,
-  name: 'EXAMPLE',
-  actions: [
-    {
-      type: ConfigType.ACTION,
-      name: 'set-variable',
-      actionArguments: {},
-      inputArguments: {
-        value: [
-          {
-            type: ConfigType.FUNCTION,
-            name: 'concatenate',
-            arguments: {
-              values: [
-                {
-                  type: ConfigType.VALUE,
-                  value: 'Hello',
-                },
-                {
-                  type: ConfigType.FUNCTION,
-                  name: 'concatenate',
-                  arguments: {
-                    values: [
-                      {
-                        type: ConfigType.VALUE,
-                        value: '!!',
-                      },
-                    ],
-                  },
-                },
-              ],
-            },
-          },
-        ],
-        variableName: [
-          {
-            type: ConfigType.VALUE,
-            value: 'World',
-          },
-        ],
-      },
-    },
-    {
-      type: ConfigType.ACTION,
-      name: 'delete-variable',
-      actionArguments: {},
-      inputArguments: {
-        variableName: [
-          {
-            type: ConfigType.VALUE,
-            value: 'World',
-          },
-        ],
-      },
-    },
-    {
-      type: ConfigType.ACTION,
-      name: 'increment-counter',
-      actionArguments: {},
-      inputArguments: {
-        variableName: [
-          {
-            type: ConfigType.VALUE,
-            value: 'counterVar',
-          },
-        ],
-        count: [
-          {
-            type: ConfigType.VALUE,
-            value: '2',
-          },
-        ],
-      },
-    },
-  ],
-};
-
-initializeStore();
-const store = getStore();
-
 const root = ReactDOM.createRoot(document.getElementById('root') as HTMLElement);
 
 root.render(
   <React.StrictMode>
     <ThemeProvider theme={themeOptions}>
       <CssBaseline />
-      <Provider store={store}>
-        <I18n locale={locale} messages={messages}>
-          <FrameEditor editorId={'x'} config={process} engineSpec={specification}></FrameEditor>
-        </I18n>
-      </Provider>
+      <App translations={translations} locale={locale}></App>
     </ThemeProvider>
   </React.StrictMode>,
 );

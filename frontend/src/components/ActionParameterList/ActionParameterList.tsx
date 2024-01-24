@@ -51,12 +51,12 @@ export interface ActionParameterListProps {
 }
 
 export function ActionParameterList({ contentKey, name, parent }: ActionParameterListProps) {
-  const { editorId, engineSpec } = useContext(EditorContext) as EditorInfo;
+  const { engineSpec } = useContext(EditorContext) as EditorInfo;
 
   const [dialogOpen, setDialogOpen] = useState(false);
 
-  const content = useSelector(selectContentByKey(editorId, contentKey));
-  const selection = useSelector((state: StoreStructure) => selectSelectedSubtree(state, editorId));
+  const content = useSelector(selectContentByKey(contentKey));
+  const selection = useSelector((state: StoreStructure) => selectSelectedSubtree(state));
   const selectionDepth =
     selection !== undefined
       ? selection.findIndex((selectedContent) => contentKey === selectedContent.key)
@@ -83,10 +83,10 @@ export function ActionParameterList({ contentKey, name, parent }: ActionParamete
 
   const handleAddItem = useCallback(
     (actionName: string) => {
-      dispatch(addAction(contentKey, editorId, actionName));
+      dispatch(addAction(contentKey, actionName));
       setDialogOpen(false);
     },
-    [dispatch, editorId],
+    [dispatch],
   );
 
   const handleDragEnd = useCallback(
@@ -94,31 +94,19 @@ export function ActionParameterList({ contentKey, name, parent }: ActionParamete
       if (result.destination) {
         const startIndex = result.source.index;
         const endIndex = result.destination.index;
-        dispatch(reorderItem(contentKey, editorId, startIndex, endIndex));
+        dispatch(reorderItem(contentKey, startIndex, endIndex));
       }
     },
-    [dispatch, editorId],
+    [dispatch],
   );
 
-  const handleRenderChildContent = useCallback(
-    (childKey: string) => {
-      return (
-        <ActionButton
-          editorId={editorId}
-          contentKey={childKey}
-          selected={isChildSelected(childKey)}
-        />
-      );
-    },
-    [editorId],
-  );
+  const handleRenderChildContent = useCallback((childKey: string) => {
+    return <ActionButton contentKey={childKey} selected={isChildSelected(childKey)} />;
+  }, []);
 
-  const handleRenderContextMenuButton = useCallback(
-    (childKey: string) => {
-      return <ContextMenuButton editorId={editorId} contentKey={childKey} />;
-    },
-    [editorId],
-  );
+  const handleRenderContextMenuButton = useCallback((childKey: string) => {
+    return <ContextMenuButton contentKey={childKey} />;
+  }, []);
 
   if (content !== undefined && selection !== undefined) {
     if (content.type !== ContentType.PROCESS && content.type !== ContentType.ACTION_LIST) {
@@ -169,11 +157,10 @@ export function ActionParameterList({ contentKey, name, parent }: ActionParamete
 }
 
 interface ContextMenuButtonProps {
-  editorId: string;
   contentKey: string;
 }
 
-function ContextMenuButton({ editorId, contentKey }: ContextMenuButtonProps) {
+function ContextMenuButton({ contentKey }: ContextMenuButtonProps) {
   const dispatch = useDispatch();
 
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
@@ -197,8 +184,8 @@ function ContextMenuButton({ editorId, contentKey }: ContextMenuButtonProps) {
   }, [setOpen, setAnchorEl]);
 
   const handleDelete = useCallback(() => {
-    dispatch(deleteItem(contentKey, editorId));
-  }, [dispatch, editorId, contentKey]);
+    dispatch(deleteItem(contentKey));
+  }, [dispatch, contentKey]);
 
   const actions: ContextMenuAction[] = useMemo(
     () => [
@@ -222,20 +209,19 @@ function ContextMenuButton({ editorId, contentKey }: ContextMenuButtonProps) {
 }
 
 interface ActionButtonProps {
-  editorId: string;
   contentKey: string;
   selected: boolean;
 }
 
-function ActionButton({ editorId, contentKey, selected }: ActionButtonProps) {
+function ActionButton({ contentKey, selected }: ActionButtonProps) {
   const dispatch = useDispatch();
-  const content = useSelector(selectContentByKey(editorId, contentKey));
+  const content = useSelector(selectContentByKey(contentKey));
 
   const translate = useTranslate();
 
   const handleClick = useCallback(() => {
-    dispatch(setSelection(contentKey, editorId));
-  }, [dispatch, editorId, contentKey]);
+    dispatch(setSelection(contentKey));
+  }, [dispatch, contentKey]);
 
   if (content != undefined && content.type === ContentType.ACTION) {
     const action = content as ActionContent;

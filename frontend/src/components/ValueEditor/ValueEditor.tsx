@@ -79,7 +79,7 @@ const USE_LITERAL_OPTION: Option = {
 };
 
 function buildLiteralOptions(parameterSpec: ParameterSpec, typeSpec: TypeSpec): Option[] {
-  if (typeSpec.values !== undefined && typeSpec.values.length > 0) {
+  if (typeSpec.values && typeSpec.values.length > 0) {
     // TODO Enum mode
   } else {
     // TODO Free text mode
@@ -130,13 +130,13 @@ export function ValueEditor({ parameterSpec, content }: ValueEditorProps) {
   const translateFunction = useTranslate() as (key: string) => string;
 
   const [value, setValue] = useState(content.value);
-  const { editorId, engineSpec, typeMappings } = useContext(EditorContext) as EditorInfo;
+  const { engineSpec, typeMappings } = useContext(EditorContext) as EditorInfo;
 
   const [mode, setMode] = useState(Mode.LITERAL);
 
   const returnType = parameterSpec.returnType;
   const typeSpec = engineSpec.types[returnType];
-  const enumerated = typeSpec.values !== undefined && typeSpec.values.length > 0;
+  const enumerated = typeSpec.values && typeSpec.values.length > 0;
 
   const functionSpecs = findFunctionsMatchingTypeId(engineSpec, typeMappings, returnType);
   // TODO select usable variables
@@ -173,7 +173,7 @@ export function ValueEditor({ parameterSpec, content }: ValueEditorProps) {
           setMode(Mode.LITERAL);
         } else {
           // use the selected function
-          dispatch(setFunction(id, editorId, content.key));
+          dispatch(setFunction(id, content.key));
         }
       } else if (mode === Mode.VARIABLE) {
         if (id === LITERAL_OPTION_ID) {

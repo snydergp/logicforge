@@ -5,6 +5,8 @@ import java.util.Map;
 
 public interface EngineSpec {
 
+  Map<String, ProcessSpec> getProcesses();
+
   Map<String, TypeSpec> getTypes();
 
   Map<String, ActionSpec> getActions();

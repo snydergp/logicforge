@@ -35,6 +35,15 @@
                         </goals>
                     </execution>
                     <execution>
+                        <id>npm install local frontend package</id>
+                        <goals>
+                            <goal>npm</goal>
+                        </goals>
+                        <configuration>
+                            <arguments>install ../../frontend/logicforge-${project.version}.tgz</arguments>
+                        </configuration>
+                    </execution>
+                    <execution>
                         <id>npm build</id>
                         <goals>
                             <goal>npm</goal>

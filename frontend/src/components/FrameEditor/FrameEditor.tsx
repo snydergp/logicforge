@@ -1,4 +1,4 @@
-import { useDispatch, useSelector } from 'react-redux';
+import { Provider, useDispatch, useSelector } from 'react-redux';
 import { Box, Container, Divider, Paper, Stack, Typography } from '@mui/material';
 import {
   ActionContent,
@@ -11,7 +11,7 @@ import {
 } from '../../types';
 import { initEditor, selectSelectedSubtree } from '../../redux/slices/editors';
 import React, { useContext, useEffect, useState } from 'react';
-import { useTranslate } from 'react-polyglot';
+import { I18n, useTranslate } from 'react-polyglot';
 import {
   actionDescriptionPath,
   actionTitlePath,
@@ -24,12 +24,11 @@ import {
 } from '../../util';
 import { Info } from '../Info/Info';
 import { ActionIcon, FunctionIcon, ProcessIcon } from '../Icons/Icons';
-import { StoreStructure } from '../../redux';
+import { getStore, StoreStructure } from '../../redux';
 import { ActionParameterList } from '../ActionParameterList/ActionParameterList';
 import { InputParameterList } from '../InputParameterList/InputParameterList';
 
 export type EditorInfo = {
-  editorId: string;
   engineSpec: EngineSpec;
   typeMappings: { [key: string]: TypeInfo };
 };
@@ -47,29 +46,43 @@ enum FrameType {
 type FrameContent = ProcessContent | ActionContent | FunctionContent;
 
 export type FrameEditorProps = {
-  editorId: string;
   config: LogicForgeConfig;
   engineSpec: EngineSpec;
+  translations: object;
+  locale: string;
 };
 
-export function FrameEditor({ editorId, config, engineSpec }: FrameEditorProps) {
-  const dispatch = useDispatch();
+export function FrameEditor({ config, engineSpec, translations, locale }: FrameEditorProps) {
+  const store = getStore();
 
   useEffect(() => {
-    dispatch(initEditor(config as ProcessConfig, engineSpec, editorId));
+    store.dispatch(initEditor(config as ProcessConfig, engineSpec));
   }, []);
-
-  const selection = useSelector((state: StoreStructure) => selectSelectedSubtree(state, editorId));
 
   const [childFrames, setChildFrames] = useState<React.JSX.Element[]>([]);
 
   const typeMappings = generateTypeMappings(engineSpec.types);
 
   const editorInfo: EditorInfo = {
-    editorId,
     engineSpec,
     typeMappings,
   };
+
+  return (
+    <Provider store={store}>
+      <EditorContext.Provider value={editorInfo}>
+        <I18n messages={translations} locale={locale}>
+          <FrameEditorInternal />
+        </I18n>
+      </EditorContext.Provider>
+    </Provider>
+  );
+}
+
+function FrameEditorInternal() {
+  const selection = useSelector((state: StoreStructure) => selectSelectedSubtree(state));
+
+  const [childFrames, setChildFrames] = useState<React.JSX.Element[]>([]);
 
   useEffect(() => {
     const children: React.JSX.Element[] = [];
@@ -90,13 +103,9 @@ export function FrameEditor({ editorId, config, engineSpec }: FrameEditorProps) 
   }, [selection, setChildFrames]);
 
   return (
-    <EditorContext.Provider value={editorInfo}>
-      <div className={'logicforgeProcessEditor'}>
-        <Stack direction="row" spacing={0} divider={<Divider orientation="vertical" flexItem />}>
-          {childFrames}
-        </Stack>
-      </div>
-    </EditorContext.Provider>
+    <Stack direction="row" spacing={0} divider={<Divider orientation="vertical" flexItem />}>
+      {childFrames}
+    </Stack>
   );
 }
 

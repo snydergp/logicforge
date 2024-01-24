@@ -35,6 +35,7 @@ public class EngineSpecBuilder {
   private static java.util.function.Function<Class<?>, String> TYPE_ID_NAMING_STRATEGY =
       Class::getName;
 
+  private final Map<String, ProcessSpec> processes = new HashMap<>();
   private final Set<Class<?>> types = new HashSet<>();
   private final Map<String, ActionSpec> actions = new HashMap<>();
   private final Map<String, FunctionSpec> functions = new HashMap<>();
@@ -82,6 +83,11 @@ public class EngineSpecBuilder {
     return this;
   }
 
+  public EngineSpecBuilder withProcess(final ProcessSpec process) {
+    processes.put(process.getName(), process);
+    return this;
+  }
+
   public EngineSpecBuilder withAction(final ActionSpec actionSpec) {
     actions.put(actionSpec.getName(), actionSpec);
     return this;
@@ -93,7 +99,7 @@ public class EngineSpecBuilder {
   }
 
   public EngineSpec build() {
-    return new EngineSpecImpl(processTypes(), actions, functions, converters);
+    return new EngineSpecImpl(processes, processTypes(), actions, functions, converters);
   }
 
   private void processMethod(final Method method, final Object instanceOrClass) {
@@ -143,7 +149,7 @@ public class EngineSpecBuilder {
         values = Arrays.stream((Enum[]) type.getEnumConstants()).map(Enum::name)
             .collect(Collectors.toList());
       } else {
-        values = null;
+        values = new ArrayList<>();
       }
       return new TypeSpecImpl(type, primitive, new HashSet<>(supertypes), values);
     }).collect(Collectors.toMap(typeSpec -> typesByClass.get(typeSpec.getRuntimeClass()),
@@ -327,13 +333,16 @@ public class EngineSpecBuilder {
   @Getter
   private static class EngineSpecImpl implements EngineSpec {
 
+    private final Map<String, ProcessSpec> processes;
     private final Map<String, TypeSpec> types;
     private final Map<String, ActionSpec> actions;
     private final Map<String, FunctionSpec> functions;
     private final List<ConverterSpec> converters;
 
-    public EngineSpecImpl(final Map<String, TypeSpec> types, final Map<String, ActionSpec> actions,
+    public EngineSpecImpl(final Map<String, ProcessSpec> processes,
+        final Map<String, TypeSpec> types, final Map<String, ActionSpec> actions,
         final Map<String, FunctionSpec> functions, final List<ConverterSpec> converters) {
+      this.processes = Collections.unmodifiableMap(processes);
       this.types = Collections.unmodifiableMap(types);
       this.actions = Collections.unmodifiableMap(actions);
       this.functions = Collections.unmodifiableMap(functions);

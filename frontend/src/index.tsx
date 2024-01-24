@@ -1,11 +1,8 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
-import { getStore, initializeStore } from './redux/store';
-import { Provider } from 'react-redux';
 import { ConfigType, EngineSpec, ProcessConfig, SpecType } from './types';
-import { I18n } from 'react-polyglot';
-import { FrameEditor } from './components/FrameEditor/FrameEditor';
+import { FrameEditor } from './components';
 import { createTheme, CssBaseline, ThemeProvider } from '@mui/material';
 import '@fontsource/roboto';
 
@@ -347,18 +344,16 @@ const process: ProcessConfig = {
 
 const root = ReactDOM.createRoot(document.getElementById('root') as HTMLElement);
 
-initializeStore();
-const store = getStore();
-
 root.render(
   <React.StrictMode>
     <ThemeProvider theme={themeOptions}>
       <CssBaseline />
-      <Provider store={store}>
-        <I18n locale={locale} messages={messages}>
-          <FrameEditor editorId={'x'} config={process} engineSpec={specification} />
-        </I18n>
-      </Provider>
+      <FrameEditor
+        config={process}
+        engineSpec={specification}
+        translations={messages}
+        locale={locale}
+      />
     </ThemeProvider>
   </React.StrictMode>,
 );

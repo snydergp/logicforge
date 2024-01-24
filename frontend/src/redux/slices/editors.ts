@@ -25,80 +25,54 @@ import {
   resolveParameterSpecForKey,
 } from '../../util';
 
-export type EditorState<CONFIG extends LogicForgeConfig, TYPE extends CONFIG['type']> = {
-  type: TYPE;
+export type EditorState = {
   selection: string;
   engineSpec: EngineSpec;
-  canonical?: CONFIG;
   contentStore: ContentStore;
 };
 
-export type EditorsState = {
-  [editorId: string]: EditorState<any, any>;
-};
-
-const initialState: EditorsState = {};
-
 const editorsSlice = createSlice({
   name: 'LOGICFORGE',
-  initialState,
+  initialState: {} as EditorState,
   reducers: {
     initEditor: {
       reducer(
         state,
-        action: PayloadAction<
-          LogicForgeConfig,
-          string,
-          { engineSpecification: EngineSpec; editorId?: string }
-        >,
+        action: PayloadAction<LogicForgeConfig, string, { engineSpecification: EngineSpec }>,
       ) {
-        const editorId = action.meta.editorId || Date.now().toString();
-        let editorState = state[editorId];
-        if (editorState === undefined) {
-          const config = action.payload;
-          const engineSpec = action.meta.engineSpecification;
-          const contentStore: ContentStore = {
-            editorId,
-            count: 0,
-            data: {},
-          };
-          loadRootContent(contentStore, config, engineSpec);
-          editorState = {
-            type: config.type,
-            selection: contentStore.rootConfigKey as string,
-            engineSpec,
-            canonical: config,
-            contentStore,
-          };
-          state[editorId] = editorState;
-          return state;
-        }
+        const config = action.payload;
+        const engineSpec = action.meta.engineSpecification;
+        const contentStore: ContentStore = {
+          count: 0,
+          data: {},
+        };
+        loadRootContent(contentStore, config, engineSpec);
+        state.selection = contentStore.rootConfigKey as string;
+        state.engineSpec = engineSpec;
+        state.contentStore = contentStore;
+        return state;
       },
-      prepare(payload: ProcessConfig, engineSpecification: EngineSpec, editorId?: string) {
-        return { payload, meta: { engineSpecification, editorId } };
+      prepare(payload: ProcessConfig, engineSpecification: EngineSpec) {
+        return { payload, meta: { engineSpecification } };
       },
     },
     setSelection: {
-      reducer(state, action: PayloadAction<string, string, { editorId: string }>) {
-        const editorId = action.meta.editorId;
-        const editorState = state[editorId];
+      reducer(state, action: PayloadAction<string>) {
         const key = action.payload;
-        const contentToSelect = editorState.contentStore.data[key];
+        const contentToSelect = state.contentStore.data[key];
         // verify that the key is valid before changing the selection
         if (contentToSelect !== undefined) {
-          editorState.selection = key;
+          state.selection = key;
         }
         return state;
       },
-      prepare(payload: string, editorId: string) {
-        return { payload, meta: { editorId } };
+      prepare(payload: string) {
+        return { payload };
       },
     },
     setFunction: {
-      reducer(state, action: PayloadAction<string, string, { editorId: string; key: string }>) {
-        const editorId = action.meta.editorId;
-        const editorState = state[editorId];
-        const { engineSpec, contentStore, selection } = editorState;
+      reducer(state, action: PayloadAction<string, string, { key: string }>) {
+        const { engineSpec, contentStore, selection } = state;
         const functionName = action.payload;
         const functionConfig = newFunctionConfigForSpec(
           functionName,
@@ -110,23 +84,22 @@ const editorsSlice = createSlice({
         let nodeWasSelected = false;
         if (selectedContent !== undefined) {
           // If the content being deleted is also currently selected, we move the selection up to its parent node
-          editorState.selection = selectedContent.parentKey as string;
+          state.selection = selectedContent.parentKey as string;
           nodeWasSelected = true;
         }
         const newContent = replaceInput(contentStore, key, functionConfig, engineSpec);
         if (nodeWasSelected) {
-          editorState.selection = newContent.key;
+          state.selection = newContent.key;
         }
         return state;
       },
-      prepare(payload: string, editorId: string, key: string) {
-        return { payload, meta: { editorId, key } };
+      prepare(payload: string, key: string) {
+        return { payload, meta: { key } };
       },
     },
     setValue: {
-      reducer(state, action: PayloadAction<string, string, { editorId: string; key: string }>) {
-        const editorId = action.meta.editorId;
-        const { engineSpec, contentStore } = state[editorId];
+      reducer(state, action: PayloadAction<string, string, { key: string }>) {
+        const { engineSpec, contentStore } = state;
         const value = action.payload;
         const valueConfig: ValueConfig = {
           type: ConfigType.VALUE,
@@ -136,17 +109,15 @@ const editorsSlice = createSlice({
         replaceInput(contentStore, key, valueConfig, engineSpec);
         return state;
       },
-      prepare(payload: string, editorId: string, key: string) {
-        return { payload, meta: { editorId, key } };
+      prepare(payload: string, key: string) {
+        return { payload, meta: { key } };
       },
     },
     addValue: {
-      reducer(state, action: PayloadAction<string, string, { editorId: string }>) {
-        const editorId = action.meta.editorId;
-        const editorState = state[editorId];
+      reducer(state, action: PayloadAction<string>) {
         const parentKey = action.payload;
-        const engineSpec = editorState.engineSpec;
-        const editorStateStore = editorState.contentStore;
+        const engineSpec = state.engineSpec;
+        const editorStateStore = state.contentStore;
         const valueConfig: ValueConfig = {
           type: ConfigType.VALUE,
           value: '',
@@ -154,85 +125,68 @@ const editorsSlice = createSlice({
         addInput(editorStateStore, engineSpec, parentKey, valueConfig);
         return state;
       },
-      prepare(payload: string, editorId: string) {
-        return { payload, meta: { editorId } };
+      prepare(payload: string) {
+        return { payload };
       },
     },
     addAction: {
-      reducer(
-        state,
-        action: PayloadAction<string, string, { editorId: string; actionName: string }>,
-      ) {
-        const editorId = action.meta.editorId;
+      reducer(state, action: PayloadAction<string, string, { actionName: string }>) {
         const actionName = action.meta.actionName;
-        const editorState = state[editorId];
         const parentKey = action.payload;
-        const engineSpec = editorState.engineSpec;
-        const editorStateStore = editorState.contentStore;
+        const engineSpec = state.engineSpec;
+        const editorStateStore = state.contentStore;
         const actionSpec = engineSpec.actions[actionName];
         const actionConfig = newActionConfigForSpec(actionName, actionSpec);
         addNewAction(editorStateStore, parentKey, actionConfig, engineSpec);
         return state;
       },
-      prepare(payload: string, editorId: string, actionName: string) {
-        return { payload, meta: { editorId, actionName } };
+      prepare(payload: string, actionName: string) {
+        return { payload, meta: { actionName } };
       },
     },
     reorderItem: {
       reducer(
         state,
-        action: PayloadAction<
-          string,
-          string,
-          { editorId: string; oldIndex: number; newIndex: number }
-        >,
+        action: PayloadAction<string, string, { oldIndex: number; newIndex: number }>,
       ) {
-        const editorId = action.meta.editorId;
-        const editorState = state[editorId];
         const parentKey = action.payload;
-        const editorStateStore = editorState.contentStore;
+        const editorStateStore = state.contentStore;
         reorderList(editorStateStore, parentKey, action.meta.oldIndex, action.meta.newIndex);
         return state;
       },
-      prepare(payload: string, editorId: string, oldIndex: number, newIndex: number) {
-        return { payload, meta: { editorId, oldIndex, newIndex } };
+      prepare(payload: string, oldIndex: number, newIndex: number) {
+        return { payload, meta: { oldIndex, newIndex } };
       },
     },
     deleteItem: {
-      reducer(state, action: PayloadAction<string, string, { editorId: string }>) {
-        const editorId = action.meta.editorId;
-        const editorState = state[editorId];
-        const selectedSubtree = getContentAndAncestors(
-          editorState.contentStore,
-          editorState.selection,
-        );
+      reducer(state, action: PayloadAction<string>) {
+        const selectedSubtree = getContentAndAncestors(state.contentStore, state.selection);
         const keyToDelete = action.payload;
         const selectedContent = selectedSubtree.find((content) => content.key === keyToDelete);
         if (selectedContent !== undefined) {
           // If the content being deleted is also currently selected, we move the selection up to its parent node
-          editorState.selection = selectedContent.parentKey as string;
+          state.selection = selectedContent.parentKey as string;
         }
-        const contentStore = editorState.contentStore;
+        const contentStore = state.contentStore;
         deleteListItem(contentStore, keyToDelete);
         return state;
       },
-      prepare(payload: string, editorId: string) {
-        return { payload, meta: { editorId } };
+      prepare(payload: string) {
+        return { payload };
       },
     },
   },
 });
 
-export const selectEditorSelection = (state: StoreStructure, editorId: string) => {
-  return state['LOGICFORGE']?.[editorId]?.selection;
+export const selectEditorSelection = (state: StoreStructure) => {
+  return state['LOGICFORGE']?.selection;
 };
 
 /**
  * Internal-only selector used for creating memoizable composite selectors
- * @param editorId
  */
-const selectContentStore = (state: StoreStructure, editorId: string) => {
-  return state['LOGICFORGE']?.[editorId]?.contentStore;
+const selectContentStore = (state: StoreStructure) => {
+  return state['LOGICFORGE']?.contentStore;
 };
 
 export const selectSelectedSubtree = createSelector(
@@ -244,40 +198,29 @@ export const selectSelectedSubtree = createSelector(
   },
 );
 
-export const selectIsKeySelected = (editorId: string, key: string) => (state: StoreStructure) => {
-  const editorState = state['LOGICFORGE']?.[editorId];
-  if (editorState !== undefined) {
-    const contentStore = editorState.contentStore;
-    const selectedContent = getContentAndAncestors(contentStore, editorState.selection);
-    return selectedContent.find((content) => content.key === key) !== undefined;
-  }
-  return false;
-};
-
-export const selectContentByKey = (editorId: string, key: string) => (state: StoreStructure) => {
-  const editorStateStore = state['LOGICFORGE']?.[editorId]?.contentStore;
+export const selectContentByKey = (key: string) => (state: StoreStructure) => {
+  const editorStateStore = state['LOGICFORGE']?.contentStore;
   if (editorStateStore !== undefined) {
     return editorStateStore.data[key];
   }
 };
 
-export const selectParameterSpecificationForKey =
-  (editorId: string, key?: string) => (state: StoreStructure) => {
-    if (key !== undefined) {
-      const editorStateStore = state['LOGICFORGE']?.[editorId]?.contentStore;
-      const engineSpecification = state['LOGICFORGE']?.[editorId]?.engineSpec;
-      if (editorStateStore !== undefined && engineSpecification !== undefined) {
-        const state = editorStateStore.data[key];
-        if (
-          state.type === ContentType.VALUE ||
-          state.type === ContentType.FUNCTION ||
-          state.type === ContentType.INPUT_LIST
-        ) {
-          return resolveParameterSpecForKey(editorStateStore, engineSpecification, key);
-        }
+export const selectParameterSpecificationForKey = (key?: string) => (state: StoreStructure) => {
+  if (key !== undefined) {
+    const editorStateStore = state['LOGICFORGE']?.contentStore;
+    const engineSpecification = state['LOGICFORGE']?.engineSpec;
+    if (editorStateStore !== undefined && engineSpecification !== undefined) {
+      const state = editorStateStore.data[key];
+      if (
+        state.type === ContentType.VALUE ||
+        state.type === ContentType.FUNCTION ||
+        state.type === ContentType.INPUT_LIST
+      ) {
+        return resolveParameterSpecForKey(editorStateStore, engineSpecification, key);
       }
     }
-  };
+  }
+};
 
 function newFunctionConfigForSpec(functionName: string, spec: FunctionSpec): FunctionConfig {
   const argumentConfigs: { [key: string]: InputConfig[] } = {};

@@ -11,6 +11,7 @@ import io.logicforge.console.model.dto.spec.ActionSpecDTO;
 import io.logicforge.console.model.dto.spec.EngineSpecDTO;
 import io.logicforge.console.model.dto.spec.FunctionSpecDTO;
 import io.logicforge.console.model.dto.spec.InputParameterSpecDTO;
+import io.logicforge.console.model.dto.spec.ProcessSpecDTO;
 import io.logicforge.console.model.dto.spec.TypeSpecDTO;
 import io.logicforge.core.common.Pair;
 import io.logicforge.core.injectable.ChildActions;
@@ -26,6 +27,7 @@ import io.logicforge.core.model.specification.ComputedParameterSpec;
 import io.logicforge.core.model.specification.EngineSpec;
 import io.logicforge.core.model.specification.FunctionSpec;
 import io.logicforge.core.model.specification.ParameterSpec;
+import io.logicforge.core.model.specification.ProcessSpec;
 import io.logicforge.core.model.specification.TypeSpec;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -51,9 +53,11 @@ public class DTOMapper {
     final Map<String, TypeSpec> types = engineSpec.getTypes();
     final Map<Class<?>, String> typesByClass = types.entrySet().stream()
         .collect(Collectors.toMap(e -> e.getValue().getRuntimeClass(), Entry::getKey));
-    this.cachedDTO = EngineSpecDTO.builder().types(externalizeTypes(engineSpec.getTypes()))
-        .actions(externalizeActions(engineSpec.getActions(), typesByClass))
-        .functions(externalizeFunctions(engineSpec.getFunctions(), typesByClass)).build();
+    this.cachedDTO =
+        EngineSpecDTO.builder().processes(externalizeProcesses(engineSpec.getProcesses()))
+            .types(externalizeTypes(engineSpec.getTypes()))
+            .actions(externalizeActions(engineSpec.getActions(), typesByClass))
+            .functions(externalizeFunctions(engineSpec.getFunctions(), typesByClass)).build();
   }
 
   public ExtendedProcessConfig internal(final ProcessConfigDTO external) {
@@ -151,6 +155,16 @@ public class DTOMapper {
     final String matchingType = engineSpec.getTypes().keySet().stream()
         .filter(id -> id.equals(internal.getTypeId())).findFirst().orElseThrow();
     return ValueConfigDTO.builder().value(internal.getValue()).type(matchingType).build();
+  }
+
+  private Map<String, ProcessSpecDTO> externalizeProcesses(
+      final Map<String, ProcessSpec> internal) {
+    return internal.values().stream().map(this::externalizeProcess)
+        .collect(Collectors.toMap(ProcessSpecDTO::getName, Function.identity()));
+  }
+
+  private ProcessSpecDTO externalizeProcess(final ProcessSpec internal) {
+    return ProcessSpecDTO.builder().name(internal.getName()).build();
   }
 
   private Map<String, TypeSpecDTO> externalizeTypes(final Map<String, TypeSpec> internal) {

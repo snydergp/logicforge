@@ -46,16 +46,14 @@ export interface InputParameterListProps {
 }
 
 export function InputParameterList({ contentKey, name, parent }: InputParameterListProps) {
-  const { editorId, engineSpec } = useContext(EditorContext) as EditorInfo;
-
-  const content = useSelector(selectContentByKey(editorId, contentKey));
-  const selection = useSelector((state: StoreStructure) => selectSelectedSubtree(state, editorId));
+  const content = useSelector(selectContentByKey(contentKey));
+  const selection = useSelector((state: StoreStructure) => selectSelectedSubtree(state));
   const selectionDepth =
     selection !== undefined
       ? selection.findIndex((selectedContent) => contentKey === selectedContent.key)
       : -1;
   const parameterSpec = useSelector(
-    selectParameterSpecificationForKey(editorId, contentKey),
+    selectParameterSpecificationForKey(contentKey),
   ) as ParameterSpec;
 
   function isChildSelected(contentKey: string) {
@@ -70,39 +68,27 @@ export function InputParameterList({ contentKey, name, parent }: InputParameterL
   const translate = useTranslate();
 
   const handleAddItem = useCallback(() => {
-    dispatch(addValue(contentKey, editorId));
-  }, [dispatch, editorId]);
+    dispatch(addValue(contentKey));
+  }, [dispatch]);
 
   const handleDragEnd = useCallback(
     (result: DropResult) => {
       if (result.destination) {
         const startIndex = result.source.index;
         const endIndex = result.destination.index;
-        dispatch(reorderItem(contentKey, editorId, startIndex, endIndex));
+        dispatch(reorderItem(contentKey, startIndex, endIndex));
       }
     },
-    [dispatch, editorId],
+    [dispatch],
   );
 
-  const handleRenderChildContent = useCallback(
-    (childKey: string) => {
-      return (
-        <InputButton
-          editorId={editorId}
-          contentKey={childKey}
-          selected={isChildSelected(childKey)}
-        />
-      );
-    },
-    [editorId],
-  );
+  const handleRenderChildContent = useCallback((childKey: string) => {
+    return <InputButton contentKey={childKey} selected={isChildSelected(childKey)} />;
+  }, []);
 
-  const handleRenderContextMenuButton = useCallback(
-    (childKey: string) => {
-      return <ContextMenuButton editorId={editorId} contentKey={childKey} />;
-    },
-    [editorId],
-  );
+  const handleRenderContextMenuButton = useCallback((childKey: string) => {
+    return <ContextMenuButton contentKey={childKey} />;
+  }, []);
 
   if (content !== undefined && selection !== undefined) {
     if (content.type !== ContentType.INPUT_LIST) {
@@ -147,14 +133,13 @@ export function InputParameterList({ contentKey, name, parent }: InputParameterL
 }
 
 interface ContextMenuButtonProps {
-  editorId: string;
   contentKey: string;
 }
 
-function ContextMenuButton({ editorId, contentKey }: ContextMenuButtonProps) {
+function ContextMenuButton({ contentKey }: ContextMenuButtonProps) {
   const dispatch = useDispatch();
 
-  const parameterSpec = useSelector(selectParameterSpecificationForKey(editorId, contentKey));
+  const parameterSpec = useSelector(selectParameterSpecificationForKey(contentKey));
 
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
   const [open, setOpen] = useState(false);
@@ -178,11 +163,11 @@ function ContextMenuButton({ editorId, contentKey }: ContextMenuButtonProps) {
 
   const handleDelete = useCallback(() => {
     if (parameterSpec !== undefined && !parameterSpec.multi) {
-      dispatch(setValue('', editorId, contentKey));
+      dispatch(setValue('', contentKey));
     } else {
-      dispatch(deleteItem(contentKey, editorId));
+      dispatch(deleteItem(contentKey));
     }
-  }, [dispatch, editorId, contentKey]);
+  }, [dispatch, contentKey]);
 
   const actions: ContextMenuAction[] = useMemo(
     () => [
@@ -206,19 +191,18 @@ function ContextMenuButton({ editorId, contentKey }: ContextMenuButtonProps) {
 }
 
 interface InputButtonProps {
-  editorId: string;
   contentKey: string;
   selected: boolean;
 }
 
-function InputButton({ editorId, contentKey, selected }: InputButtonProps) {
+function InputButton({ contentKey, selected }: InputButtonProps) {
   const dispatch = useDispatch();
-  const content = useSelector(selectContentByKey(editorId, contentKey));
-  const parameterSpec = useSelector(selectParameterSpecificationForKey(editorId, contentKey));
+  const content = useSelector(selectContentByKey(contentKey));
+  const parameterSpec = useSelector(selectParameterSpecificationForKey(contentKey));
 
   const handleClick = useCallback(() => {
-    dispatch(setSelection(contentKey, editorId));
-  }, [dispatch, editorId, contentKey]);
+    dispatch(setSelection(contentKey));
+  }, [dispatch, contentKey]);
 
   const translate = useTranslate();
 

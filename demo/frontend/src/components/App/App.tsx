@@ -8,11 +8,12 @@ enum State {
   FAILED = 'FAILED',
 }
 
-const EDITOR_ID = 'editor';
+export interface AppProps {
+  translations: object;
+  locale: string;
+}
 
-export interface AppProps {}
-
-export function App({}: AppProps) {
+export function App({ translations, locale }: AppProps) {
   const [spec, setSpec] = useState<EngineSpec | undefined>();
   const [process, setProcess] = useState<ProcessConfig | undefined>();
   const [state, setState] = useState<State>(State.LOADING);
@@ -46,9 +47,10 @@ export function App({}: AppProps) {
   return state === State.READY ? (
     <div>
       <FrameEditor
-        editorId={EDITOR_ID}
         config={process as ProcessConfig}
         engineSpec={spec as EngineSpec}
+        translations={translations}
+        locale={locale}
       ></FrameEditor>
     </div>
   ) : state === State.LOADING ? (
