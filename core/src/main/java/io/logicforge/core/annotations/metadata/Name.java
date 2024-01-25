@@ -1,4 +1,4 @@
-package io.logicforge.core.annotations;
+package io.logicforge.core.annotations.metadata;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;

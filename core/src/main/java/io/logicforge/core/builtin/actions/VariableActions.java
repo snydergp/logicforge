@@ -1,6 +1,6 @@
 package io.logicforge.core.builtin.actions;
 
-import io.logicforge.core.annotations.Action;
+import io.logicforge.core.annotations.elements.Action;
 import io.logicforge.core.injectable.ModifiableExecutionContext;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;

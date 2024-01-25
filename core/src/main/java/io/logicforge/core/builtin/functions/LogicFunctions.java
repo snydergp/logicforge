@@ -1,6 +1,6 @@
 package io.logicforge.core.builtin.functions;
 
-import io.logicforge.core.annotations.Function;
+import io.logicforge.core.annotations.elements.Function;
 
 public class LogicFunctions {
 

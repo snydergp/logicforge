@@ -1,10 +1,10 @@
 package io.logicforge.core.model.specification;
 
-import io.logicforge.core.annotations.Action;
-import io.logicforge.core.annotations.Converter;
-import io.logicforge.core.annotations.Function;
-import io.logicforge.core.annotations.Injectable;
-import io.logicforge.core.annotations.Name;
+import io.logicforge.core.annotations.elements.Action;
+import io.logicforge.core.annotations.elements.Converter;
+import io.logicforge.core.annotations.elements.Function;
+import io.logicforge.core.annotations.runtime.Injectable;
+import io.logicforge.core.annotations.metadata.Name;
 import io.logicforge.core.common.Pair;
 import io.logicforge.core.constant.EngineMethodType;
 import io.logicforge.core.util.EngineMethodUtil;
@@ -46,8 +46,8 @@ public class EngineSpecBuilder {
 
   /**
    * Adds methods annotated on the provider object's class to this builder. Only methods annotated with
-   * {@link io.logicforge.core.annotations.Action}, {@link io.logicforge.core.annotations.Function}, or
-   * {@link io.logicforge.core.annotations.Converter} will be processed. Instance methods, and optionally static methods,
+   * {@link Action}, {@link Function}, or
+   * {@link Converter} will be processed. Instance methods, and optionally static methods,
    * will be processed. Any instance method calls will be executed against the provided instance.<br>
    * <br>
    *

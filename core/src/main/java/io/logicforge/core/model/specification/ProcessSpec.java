@@ -9,8 +9,6 @@ public interface ProcessSpec {
 
   List<ContextVariableSpec> getAvailableVariables();
 
-  List<ContextVariableSpec> getExpectedOutputVariables();
-
   Optional<ContextVariableSpec> getReturnValue();
 
 }

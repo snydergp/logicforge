@@ -1,7 +1,7 @@
 package io.logicforge.core.injectable;
 
-import io.logicforge.core.annotations.Action;
-import io.logicforge.core.annotations.Injectable;
+import io.logicforge.core.annotations.elements.Action;
+import io.logicforge.core.annotations.runtime.Injectable;
 import io.logicforge.core.constant.EngineMethodType;
 
 /**

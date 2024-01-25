@@ -1,8 +1,8 @@
 package io.logicforge.core.constant;
 
-import io.logicforge.core.annotations.Action;
-import io.logicforge.core.annotations.Converter;
-import io.logicforge.core.annotations.Function;
+import io.logicforge.core.annotations.elements.Action;
+import io.logicforge.core.annotations.elements.Converter;
+import io.logicforge.core.annotations.elements.Function;
 import lombok.Getter;
 
 public enum EngineMethodType {

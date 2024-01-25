@@ -1,6 +1,6 @@
 package io.logicforge.core.engine.compile;
 
-import io.logicforge.core.annotations.Injectable;
+import io.logicforge.core.annotations.runtime.Injectable;
 import io.logicforge.core.common.OneOf;
 import io.logicforge.core.common.Pair;
 import io.logicforge.core.engine.Action;

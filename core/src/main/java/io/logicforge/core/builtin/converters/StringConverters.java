@@ -1,6 +1,6 @@
 package io.logicforge.core.builtin.converters;
 
-import io.logicforge.core.annotations.Converter;
+import io.logicforge.core.annotations.elements.Converter;
 
 /**
  * Text conversion methods

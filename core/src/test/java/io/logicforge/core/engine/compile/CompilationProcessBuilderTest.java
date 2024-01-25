@@ -1,7 +1,7 @@
 package io.logicforge.core.engine.compile;
 
-import io.logicforge.core.annotations.Action;
-import io.logicforge.core.annotations.Function;
+import io.logicforge.core.annotations.elements.Action;
+import io.logicforge.core.annotations.elements.Function;
 import io.logicforge.core.common.Pair;
 import io.logicforge.core.engine.ActionExecutor;
 import io.logicforge.core.engine.LogicForgeOptions;

@@ -1,4 +1,4 @@
-package io.logicforge.core.annotations;
+package io.logicforge.core.annotations.runtime;
 
 import io.logicforge.core.constant.EngineMethodType;
 import io.logicforge.core.engine.InjectableFactory;
