@@ -100,6 +100,7 @@ export function addNewAction(
   const newChildState = constructContent(editorStateStore, newConfig, engineSpec);
   newChildState.parentKey = parentActionsState.key;
   parentActionsState.childKeys.push(newChildState.key);
+  return newChildState.key;
 }
 
 export function deleteAction(editorStore: ContentStore, key: string) {

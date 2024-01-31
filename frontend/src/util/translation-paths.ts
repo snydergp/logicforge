@@ -38,3 +38,15 @@ export function functionParameterDescriptionPath(functionName: string, parameter
 export function typeTitlePath(typeId: string) {
   return `types.${typeId}.title`;
 }
+
+export function typeDescriptionPath(typeId: string) {
+  return `types.${typeId}.description`;
+}
+
+export function typeEnumValueTitlePath(typeId: string, value: string) {
+  return `types.${typeId}.values.${value}.title`;
+}
+
+export function typeEnumValueDescriptionPath(typeId: string, value: string) {
+  return `types.${typeId}.values.${value}.description`;
+}

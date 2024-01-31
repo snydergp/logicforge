@@ -45,10 +45,9 @@ public class EngineSpecBuilder {
       new HashMap<>();
 
   /**
-   * Adds methods annotated on the provider object's class to this builder. Only methods annotated with
-   * {@link Action}, {@link Function}, or
-   * {@link Converter} will be processed. Instance methods, and optionally static methods,
-   * will be processed. Any instance method calls will be executed against the provided instance.<br>
+   * Adds methods annotated on the provider object's class to this builder. Only methods annotated with {@link Action},
+   * {@link Function}, or {@link Converter} will be processed. Instance methods, and optionally static methods, will be
+   * processed. Any instance method calls will be executed against the provided instance.<br>
    * <br>
    *
    * All annotated methods will be checked for validity. An exception will be thrown if errors are found.
@@ -147,7 +146,9 @@ public class EngineSpecBuilder {
       final List<String> values;
       if (type.isEnum()) {
         values = Arrays.stream((Enum[]) type.getEnumConstants()).map(Enum::name)
-            .collect(Collectors.toList());
+                .collect(Collectors.toList());
+      } else if (type.equals(boolean.class) || type.equals(Boolean.class)) {
+        values = List.of(Boolean.TRUE.toString(), Boolean.FALSE.toString());
       } else {
         values = new ArrayList<>();
       }

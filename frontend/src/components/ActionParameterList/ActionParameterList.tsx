@@ -21,12 +21,19 @@ import { ParameterHeading } from '../ParameterHeading/ParameterHeading';
 import {
   Box,
   Button,
+  Container,
   Dialog,
+  DialogActions,
+  DialogTitle,
   IconButton,
+  Input,
+  InputAdornment,
   List,
   ListItem,
   ListItemButton,
   ListItemText,
+  Paper,
+  Stack,
 } from '@mui/material';
 import { useTranslate } from 'react-polyglot';
 import {
@@ -43,6 +50,7 @@ import { StoreStructure } from '../../redux';
 import { ContextMenu, ContextMenuAction } from '../ContextMenu/ContentMenu';
 import { DropResult } from '@hello-pangea/dnd';
 import { ReorderableContentList } from '../ReorderableContentList/ReorderableContentList';
+import { Search } from '@mui/icons-material';
 
 export interface ActionParameterListProps {
   contentKey: string;
@@ -73,9 +81,13 @@ export function ActionParameterList({ contentKey, name, parent }: ActionParamete
   const dispatch = useDispatch();
   const translate = useTranslate();
 
-  const openDialog = useCallback(() => {
-    setDialogOpen(true);
-  }, [setDialogOpen]);
+  const openDialog = useCallback(
+    (event: React.MouseEvent<HTMLButtonElement>) => {
+      setDialogOpen(true);
+      event.currentTarget.blur();
+    },
+    [setDialogOpen],
+  );
 
   const closeDialog = useCallback(() => {
     setDialogOpen(false);
@@ -86,7 +98,7 @@ export function ActionParameterList({ contentKey, name, parent }: ActionParamete
       dispatch(addAction(contentKey, actionName));
       setDialogOpen(false);
     },
-    [dispatch],
+    [dispatch, setDialogOpen],
   );
 
   const handleDragEnd = useCallback(
@@ -148,7 +160,7 @@ export function ActionParameterList({ contentKey, name, parent }: ActionParamete
           open={dialogOpen}
           cancel={closeDialog}
           select={handleAddItem}
-          actions={engineSpec.actions}
+          actions={Object.keys(engineSpec.actions)}
         />
       </Box>
     );
@@ -243,29 +255,109 @@ interface ActionSelectionDialogProps {
   open: boolean;
   cancel: () => void;
   select: (actionName: string) => void;
-  actions: { [key: string]: ActionSpec };
+  actions: string[];
 }
 
 function ActionSelectionDialog({ open, cancel, select, actions }: ActionSelectionDialogProps) {
   const translate = useTranslate();
+
+  const [searchText, setSearchText] = useState('');
+  const [filteredActions, setFilteredActions] = useState(actions);
+  const [selectedIndex, setSelectedIndex] = useState(0);
+
+  const handleSearchTextUpdate = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      setSearchText(event.target.value);
+    },
+    [setSearchText],
+  );
+
+  const handleSelect = useCallback(() => {
+    select(filteredActions[selectedIndex]);
+  }, [select, selectedIndex, filteredActions]);
+
+  const handleSearchKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLInputElement>) => {
+      switch (event.code) {
+        case 'ArrowUp':
+          setSelectedIndex(Math.max(selectedIndex - 1, 0));
+          break;
+        case 'ArrowDown':
+          setSelectedIndex(Math.min(selectedIndex + 1, filteredActions.length - 1));
+          break;
+        case 'Enter':
+          select(filteredActions[selectedIndex]);
+          break;
+      }
+    },
+    [selectedIndex, setSelectedIndex, filteredActions, select],
+  );
+
+  useEffect(() => {
+    setSelectedIndex(0);
+    const filtered: string[] = [];
+    actions.forEach((actionName) => {
+      if (matches(searchText, actionName, translate)) {
+        filtered.push(actionName);
+      }
+    });
+    setFilteredActions(filtered);
+  }, [searchText, actions, setSelectedIndex, setFilteredActions]);
+
   return (
-    <Dialog open={open}>
-      <List>
-        {Object.entries(actions).map(([name]) => {
-          const title = translate(actionTitlePath(name));
-          const description = translate(actionDescriptionPath(name));
-          return (
-            <ListItem key={name}>
-              <ListItemButton onClick={() => select(name)}>
-                <ListItemText primary={title} secondary={<span>{description}</span>} />
-              </ListItemButton>
-            </ListItem>
-          );
-        })}
-      </List>
-      <Box sx={{ display: 'flex', flexDirection: 'row-reverse', width: '100%' }}>
-        <Button onClick={cancel}>Cancel</Button>
-      </Box>
+    <Dialog open={open} title={'Add Action'} sx={{ p: 2 }}>
+      <DialogTitle>Add Action</DialogTitle>
+      <Stack>
+        <Input
+          placeholder={'Filter Actions'}
+          value={searchText}
+          onChange={handleSearchTextUpdate}
+          onKeyDown={handleSearchKeyDown}
+          autoFocus={true}
+          endAdornment={
+            <InputAdornment position="end">
+              <IconButton edge="end">
+                <Search></Search>
+              </IconButton>
+            </InputAdornment>
+          }
+          sx={{ mx: 2 }}
+        />
+        <List sx={{ mt: 1, minWidth: '400px', minHeight: '500px' }}>
+          {filteredActions.map((name, index) => {
+            const title = translate(actionTitlePath(name));
+            const description = translate(actionDescriptionPath(name));
+            return (
+              <ListItem key={name}>
+                <ListItemButton onClick={() => select(name)} selected={index === selectedIndex}>
+                  <ListItemText primary={title} secondary={<span>{description}</span>} />
+                </ListItemButton>
+              </ListItem>
+            );
+          })}
+        </List>
+      </Stack>
+      <DialogActions>
+        <Button onClick={cancel} variant={'outlined'}>
+          Cancel
+        </Button>
+        <Button onClick={handleSelect} variant={'contained'} color={'primary'}>
+          Add
+        </Button>
+      </DialogActions>
     </Dialog>
+  );
+}
+
+function matches(
+  searchString: string,
+  actionName: string,
+  translate: (key: string) => string,
+): boolean {
+  const searchStringUppercase = searchString.toUpperCase();
+  return (
+    actionName.toUpperCase().includes(searchStringUppercase) ||
+    translate(actionTitlePath(actionName)).toUpperCase().includes(searchStringUppercase) ||
+    translate(actionDescriptionPath(actionName)).toUpperCase().includes(searchStringUppercase)
   );
 }

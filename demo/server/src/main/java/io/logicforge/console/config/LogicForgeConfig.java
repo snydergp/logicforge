@@ -39,11 +39,6 @@ public class LogicForgeConfig {
       }
 
       @Override
-      public List<ContextVariableSpec> getExpectedOutputVariables() {
-        return List.of();
-      }
-
-      @Override
       public Optional<ContextVariableSpec> getReturnValue() {
         return Optional.empty();
       }

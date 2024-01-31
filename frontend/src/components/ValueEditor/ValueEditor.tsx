@@ -1,39 +1,56 @@
-import { EngineSpec, FunctionSpec, ParameterSpec, TypeSpec, ValueContent } from '../../types';
+import {
+  ALWAYS_VALID,
+  BOOLEAN_STRING,
+  DECIMAL_STRING,
+  EngineSpec,
+  FunctionSpec,
+  INTEGER_STRING,
+  LONG_STRING,
+  ParameterSpec,
+  TypeSpec,
+  Validator,
+  ValueContent,
+} from '../../types';
 import { WellKnownType } from '../../constant/well-known-type';
 import { Autocomplete, TextField } from '@mui/material';
-import React, { useContext, useEffect, useState } from 'react';
+import React, { useCallback, useContext, useEffect, useState } from 'react';
 import { EditorContext, EditorInfo } from '../FrameEditor/FrameEditor';
 import { useDispatch } from 'react-redux';
 import { setFunction } from '../../redux/slices/editors';
 import { useTranslate } from 'react-polyglot';
-import { collectSubtypes, functionTitlePath, TypeInfo, typeTitlePath } from '../../util';
+import {
+  collectSubtypes,
+  functionTitlePath,
+  typeEnumValueTitlePath,
+  TypeInfo,
+  typeTitlePath,
+} from '../../util';
+import { Simulate } from 'react-dom/test-utils';
+import error = Simulate.error;
 
 export interface ValueEditorProps {
   parameterSpec: ParameterSpec;
   content: ValueContent;
 }
 
-function validatorForSpec(parameterSpec: ParameterSpec) {
+function validatorForSpec(parameterSpec: ParameterSpec): Validator {
   const returnType = parameterSpec.returnType;
-  if (returnType in WellKnownType) {
-    const wellKnownType = returnType as WellKnownType;
+  const wellKnownType = returnType as WellKnownType;
+  if (Object.values(WellKnownType).includes(wellKnownType)) {
     switch (wellKnownType) {
-      case WellKnownType.OBJECT:
-        break;
-      case WellKnownType.STRING:
-        break;
       case WellKnownType.BOOLEAN:
-        break;
+        return BOOLEAN_STRING;
       case WellKnownType.INTEGER:
-        break;
+        return INTEGER_STRING;
       case WellKnownType.LONG:
-        break;
+        return LONG_STRING;
       case WellKnownType.FLOAT:
-        break;
-      case WellKnownType.DECIMAL:
-        break;
+      case WellKnownType.DOUBLE:
+        // all decimal values can be inputted, but precision will ultimately be limited by the underlying datatype
+        return DECIMAL_STRING;
     }
   }
+  return ALWAYS_VALID;
 }
 
 interface Option {
@@ -78,13 +95,22 @@ const USE_LITERAL_OPTION: Option = {
   groupId: NON_LITERAL_GROUP_ID,
 };
 
-function buildLiteralOptions(parameterSpec: ParameterSpec, typeSpec: TypeSpec): Option[] {
+function buildLiteralOptions(typeSpec: TypeSpec, translate: (keyof: string) => string): Option[] {
+  const defaultLiteralSelections = [USE_FUNCTION_OPTION, USE_VARIABLE_OPTION];
   if (typeSpec.values && typeSpec.values.length > 0) {
-    // TODO Enum mode
+    return [
+      ...typeSpec.values.map((value) => {
+        return {
+          id: value,
+          label: translate(typeEnumValueTitlePath(typeSpec.id, value)),
+          groupId: ENUM_GROUP_ID,
+        } as Option;
+      }),
+      ...defaultLiteralSelections,
+    ];
   } else {
-    // TODO Free text mode
+    return [USE_FUNCTION_OPTION, USE_VARIABLE_OPTION];
   }
-  return [USE_FUNCTION_OPTION, USE_VARIABLE_OPTION];
 }
 
 function buildFunctionOptions(
@@ -129,10 +155,14 @@ export function ValueEditor({ parameterSpec, content }: ValueEditorProps) {
 
   const translateFunction = useTranslate() as (key: string) => string;
 
+  const [validator, setValidator] = useState<Validator>(ALWAYS_VALID);
+
   const [value, setValue] = useState(content.value);
   const { engineSpec, typeMappings } = useContext(EditorContext) as EditorInfo;
 
   const [mode, setMode] = useState(Mode.LITERAL);
+
+  const [errors, setErrors] = useState<string[] | undefined>();
 
   const returnType = parameterSpec.returnType;
   const typeSpec = engineSpec.types[returnType];
@@ -142,7 +172,7 @@ export function ValueEditor({ parameterSpec, content }: ValueEditorProps) {
   // TODO select usable variables
 
   const optionsMap = {
-    [Mode.LITERAL]: buildLiteralOptions(parameterSpec, typeSpec),
+    [Mode.LITERAL]: buildLiteralOptions(typeSpec, translateFunction),
     [Mode.FUNCTION]: buildFunctionOptions(functionSpecs, translateFunction),
     [Mode.VARIABLE]: buildVariableOptions(),
   };
@@ -158,93 +188,110 @@ export function ValueEditor({ parameterSpec, content }: ValueEditorProps) {
 
   const [shortcutMode, setShortcutMode] = useState(false);
 
-  function handleChange(value: string | Option | null) {
-    if (typeof value !== 'string' && value !== null) {
-      const option: Option = value;
-      const id = option.id;
-      if (mode === Mode.LITERAL) {
-        if (id === FUNCTION_OPTION_ID) {
+  const handleChange = useCallback(
+    (value: string | Option | null) => {
+      if (typeof value !== 'string' && value !== null) {
+        const option: Option = value;
+        const id = option.id;
+        if (mode === Mode.LITERAL) {
+          if (id === FUNCTION_OPTION_ID) {
+            setMode(Mode.FUNCTION);
+          } else if (id === VARIABLE_OPTION_ID) {
+            setMode(Mode.VARIABLE);
+          }
+        } else if (mode === Mode.FUNCTION) {
+          if (id === LITERAL_OPTION_ID) {
+            setMode(Mode.LITERAL);
+          } else {
+            // use the selected function
+            dispatch(setFunction(id, content.key));
+          }
+        } else if (mode === Mode.VARIABLE) {
+          if (id === LITERAL_OPTION_ID) {
+            setMode(Mode.LITERAL);
+          }
+        }
+        setShortcutMode(false);
+        setInputValue('');
+      }
+    },
+    [mode, setMode, setShortcutMode, setInputValue, dispatch],
+  );
+
+  const handleInputChange = useCallback(
+    (value: string) => {
+      let updatedShortcutMode = false;
+
+      // enter shortcut modes
+      if (mode === Mode.LITERAL && !shortcutMode) {
+        if (value === '=') {
           setMode(Mode.FUNCTION);
-        } else if (id === VARIABLE_OPTION_ID) {
+          setShortcutMode(true);
+          updatedShortcutMode = true;
+        } else if (value === '$') {
           setMode(Mode.VARIABLE);
-        }
-      } else if (mode === Mode.FUNCTION) {
-        if (id === LITERAL_OPTION_ID) {
-          setMode(Mode.LITERAL);
-        } else {
-          // use the selected function
-          dispatch(setFunction(id, content.key));
-        }
-      } else if (mode === Mode.VARIABLE) {
-        if (id === LITERAL_OPTION_ID) {
-          setMode(Mode.LITERAL);
+          setShortcutMode(true);
+          updatedShortcutMode = true;
         }
       }
-      setShortcutMode(false);
-      setInputValue('');
-    }
-  }
-
-  function handleInputChange(value: string) {
-    // FUTURE: the shortcut characters currently remain in the input literal. consider shifting them out of the actual
-    //  input text into a UI display to the immediate left of the input. This would also require handling a backspace
-    //  key press when the input is empty to cancel shortcut mode
-
-    let updatedShortcutMode = false;
-
-    // enter shortcut modes
-    if (mode === Mode.LITERAL && !shortcutMode) {
-      if (value === '=') {
-        setMode(Mode.FUNCTION);
-        setShortcutMode(true);
-        updatedShortcutMode = true;
-      } else if (value === '$') {
-        setMode(Mode.VARIABLE);
-        setShortcutMode(true);
+      // exit shortcut modes
+      if (shortcutMode && value === '') {
+        setMode(Mode.LITERAL);
+        setShortcutMode(false);
         updatedShortcutMode = true;
       }
-    }
-    // exit shortcut modes
-    if (shortcutMode && value === '') {
-      setMode(Mode.LITERAL);
-      setShortcutMode(false);
-      updatedShortcutMode = true;
-    }
 
-    if (!updatedShortcutMode) {
-      // update input value
-      setInputValue(value);
-    }
-  }
+      if (!updatedShortcutMode) {
+        // update input value
+        setInputValue(value);
+        setErrors(validator.validate(value));
+      }
+    },
+    [mode, setMode, shortcutMode, setShortcutMode, setInputValue, setErrors, validator],
+  );
 
-  function handleKeyDown(key: string) {
-    if (
-      mode !== Mode.LITERAL &&
-      shortcutMode &&
-      inputValue === '' &&
-      (key === 'Backspace' || key === 'Escape')
-    ) {
-      setMode(Mode.LITERAL);
-      setShortcutMode(false);
-      setInputValue('');
-    }
-  }
+  const handleInputBlur = useCallback(() => {
+    setErrors(validator.validate(inputValue));
+  }, [inputValue, setErrors, validator]);
+
+  const handleKeyDown = useCallback(
+    (key: string) => {
+      if (
+        mode !== Mode.LITERAL &&
+        shortcutMode &&
+        inputValue === '' &&
+        (key === 'Backspace' || key === 'Escape')
+      ) {
+        setMode(Mode.LITERAL);
+        setShortcutMode(false);
+        setInputValue('');
+      }
+    },
+    [mode, setMode, shortcutMode, setShortcutMode, inputValue, setInputValue],
+  );
 
   const [freeSolo, setFreeSolo] = useState(!enumerated);
   const [label, setLabel] = useState(mode as string);
+
   useEffect(() => {
     setLabel(mode);
     setOptions(optionsMap[mode]);
-    // TODO set/remove validators
-  }, [mode]);
+  }, [mode, setLabel, setOptions]);
+
+  useEffect(() => {
+    setValidator(validatorForSpec(parameterSpec));
+  }, [parameterSpec, setValidator]);
 
   return (
     <Autocomplete
       renderInput={(params) => (
         <TextField
           {...params}
-          label={translateFunction(typeTitlePath(returnType))}
+          label={label}
           variant={'standard'}
+          error={errors !== undefined && errors.length > 0}
+          helperText={errors !== undefined && errors.length > 0 ? errors.join(', ') : null}
+          onBlur={handleInputBlur}
           InputProps={{
             ...params.InputProps,
             type: 'search',

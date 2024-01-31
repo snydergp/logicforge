@@ -137,7 +137,8 @@ const editorsSlice = createSlice({
         const editorStateStore = state.contentStore;
         const actionSpec = engineSpec.actions[actionName];
         const actionConfig = newActionConfigForSpec(actionName, actionSpec);
-        addNewAction(editorStateStore, parentKey, actionConfig, engineSpec);
+        const newKey = addNewAction(editorStateStore, parentKey, actionConfig, engineSpec);
+        state.selection = newKey;
         return state;
       },
       prepare(payload: string, actionName: string) {
@@ -160,15 +161,27 @@ const editorsSlice = createSlice({
     },
     deleteItem: {
       reducer(state, action: PayloadAction<string>) {
-        const selectedSubtree = getContentAndAncestors(state.contentStore, state.selection);
+        const { contentStore, selection, engineSpec } = state;
+        const selectedSubtree = getContentAndAncestors(contentStore, selection);
         const keyToDelete = action.payload;
         const selectedContent = selectedSubtree.find((content) => content.key === keyToDelete);
-        if (selectedContent !== undefined) {
+        const parentKey = selectedContent?.parentKey;
+        if (selectedContent !== undefined && parentKey !== undefined) {
           // If the content being deleted is also currently selected, we move the selection up to its parent node
-          state.selection = selectedContent.parentKey as string;
+          state.selection = parentKey;
         }
-        const contentStore = state.contentStore;
+        const contentToDelete = contentStore.data[keyToDelete];
         deleteListItem(contentStore, keyToDelete);
+        if (contentToDelete.type !== ContentType.ACTION) {
+          const parameterSpec = resolveParameterSpecForKey(contentStore, engineSpec, keyToDelete);
+          if (parameterSpec.multi && parentKey !== undefined) {
+            const valueConfig: ValueConfig = {
+              type: ConfigType.VALUE,
+              value: '',
+            };
+            addInput(contentStore, engineSpec, parentKey, valueConfig);
+          }
+        }
         return state;
       },
       prepare(payload: string) {
@@ -212,9 +225,10 @@ export const selectParameterSpecificationForKey = (key?: string) => (state: Stor
     if (editorStateStore !== undefined && engineSpecification !== undefined) {
       const state = editorStateStore.data[key];
       if (
-        state.type === ContentType.VALUE ||
-        state.type === ContentType.FUNCTION ||
-        state.type === ContentType.INPUT_LIST
+        state !== undefined &&
+        (state.type === ContentType.VALUE ||
+          state.type === ContentType.FUNCTION ||
+          state.type === ContentType.INPUT_LIST)
       ) {
         return resolveParameterSpecForKey(editorStateStore, engineSpecification, key);
       }

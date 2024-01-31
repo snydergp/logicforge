@@ -5,12 +5,15 @@
   "main": "./dist/exports.js",
   "types": "./dist/exports.d.ts",
   "license": "MIT",
-  "files": ["src/**", "dist/**", "package.json", "package-lock.json"],
+  "files": [
+    "src/**",
+    "dist/**",
+    "package.json",
+    "package-lock.json"
+  ],
   "exports": {
     ".": "./dist/exports.js",
     "./*": "./dist/"
-  },
-  "dependencies": {
   },
   "peerDependencies": {
     "@emotion/react": "^11.0.0",
@@ -39,8 +42,7 @@
   "scripts": {
     "start:js": "react-scripts start",
     "start": "npm-run-all -p start:js",
-    "build:js": "tsc --project tsconfig.json; react-scripts build",
-    "build": "npm-run-all build:*",
+    "build": "tsc --project tsconfig.json; react-scripts build",
     "test": "react-scripts test --env=jsdom",
     "eject": "react-scripts eject"
   },
@@ -66,16 +68,6 @@
   "devDependencies": {
     "@babel/preset-env": "^7.23.2",
     "@babel/preset-react": "^7.22.15",
-    "@types/lodash": "^4.14.199",
-    "@types/node-sass": "^4.11.7",
-    "eslint-config-prettier": "^9.0.0",
-    "eslint-plugin-prettier": "^5.0.1",
-    "node-sass": "^7.0.3",
-    "npm-run-all": "^4.1.5",
-    "prettier": "^3.0.3",
-    "@testing-library/jest-dom": "^5.17.0",
-    "@testing-library/react": "^13.4.0",
-    "@testing-library/user-event": "^13.5.0",
     "@emotion/react": "^11.11.1",
     "@emotion/styled": "^11.11.0",
     "@fontsource/roboto": "^5.0.8",
@@ -83,12 +75,22 @@
     "@mui/icons-material": "^5.14.15",
     "@mui/material": "^5.14.15",
     "@reduxjs/toolkit": "^1.9.7",
+    "@testing-library/jest-dom": "^5.17.0",
+    "@testing-library/react": "^13.4.0",
+    "@testing-library/user-event": "^13.5.0",
     "@types/jest": "^27.5.2",
+    "@types/lodash": "^4.14.199",
     "@types/node": "^16.18.58",
+    "@types/node-sass": "^4.11.7",
     "@types/react": "^18.2.28",
     "@types/react-dom": "^18.2.13",
     "@types/react-redux": "^7.1.28",
+    "eslint-config-prettier": "^9.0.0",
+    "eslint-plugin-prettier": "^5.0.1",
     "lodash": "^4.17.21",
+    "node-sass": "^7.0.3",
+    "npm-run-all": "^4.1.5",
+    "prettier": "^3.0.3",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-polyglot": "^0.7.2",
