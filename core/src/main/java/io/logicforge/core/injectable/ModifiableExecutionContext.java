@@ -6,9 +6,7 @@ import io.logicforge.core.constant.EngineMethodType;
 @Injectable(methodTypes = EngineMethodType.ACTION)
 public interface ModifiableExecutionContext extends ExecutionContext {
 
-  void set(final String name, final Object value);
-
-  void delete(final String name);
+  void set(final int index, final Object value);
 
   ExecutionContext getReadonlyView();
 

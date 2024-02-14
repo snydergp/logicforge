@@ -1,33 +1,36 @@
 package io.logicforge.core.injectable.impl;
 
+import io.logicforge.core.exception.MissingVariableException;
 import io.logicforge.core.injectable.ExecutionContext;
 import io.logicforge.core.injectable.ModifiableExecutionContext;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 public class DefaultModifiableExecutionContext implements ModifiableExecutionContext {
 
-  private final Map<String, Object> variables = new HashMap<>();
+  private final List<Optional<Object>> variables = new ArrayList<>();
   private ReadonlyView readonlyView;
 
   public DefaultModifiableExecutionContext() {
     this(new HashMap<>());
   }
 
-  public DefaultModifiableExecutionContext(final Map<String, Object> initialState) {
-    variables.putAll(initialState);
+  public DefaultModifiableExecutionContext(final List<Optional<Object>> initialState) {
+    variables.addAll(initialState);
     readonlyView = new ReadonlyView();
   }
 
   @Override
-  public boolean contains(final String name) {
-    return variables.containsKey(name);
+  public boolean isSet(final int index, final String ... pathSegments) {
+    if (variables.size() > index && variables.get(index).isPresent()) {
+
+    }
+    return false;
   }
 
   @Override
-  public Object get(final String name, final Object defaultValue) {
-    return contains(name) ? get(name) : defaultValue;
+  public Object get(final int index, final String ... pathSegments) throws MissingVariableException {
+    return
   }
 
   @Override

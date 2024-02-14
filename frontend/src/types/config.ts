@@ -21,6 +21,12 @@ export type FunctionConfig = {
   arguments: { [key: string]: InputConfig[] };
 };
 
+export type VariableConfig = {
+  type: ConfigType.VARIABLE;
+  index: number;
+  path: string[];
+};
+
 export type ActionConfig = {
   type: ConfigType.ACTION;
   name: string;
@@ -34,7 +40,7 @@ export type ProcessConfig = {
   actions: ActionConfig[];
 };
 
-export type InputConfig = ValueConfig | FunctionConfig;
+export type InputConfig = ValueConfig | FunctionConfig | VariableConfig;
 
 export type ArgumentConfig = InputConfig | ActionConfig;
 

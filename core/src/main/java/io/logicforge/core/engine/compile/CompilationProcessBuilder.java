@@ -306,7 +306,7 @@ public class CompilationProcessBuilder implements ProcessBuilder {
     private final String className;
     private final Set<Class<?>> imports = new HashSet<>(DEFAULT_INCLUDES);
     private final Map<Object, String> varNames = new LinkedHashMap<>();
-    private final List<ActionClassContext> innerClasses = new ArrayList<>();
+    private final List<ActionClassInfo> innerClasses = new ArrayList<>();
     private final Map<String, List<String>> childActionsToConstruct = new HashMap<>();
     private final String rootActionsVarName;
 
@@ -371,8 +371,8 @@ public class CompilationProcessBuilder implements ProcessBuilder {
 
       for (int i = 0; i < config.size(); i++) {
         final ActionConfig actionConfig = config.get(i);
-        final ActionClassContext innerClassWriter =
-            new ActionClassContext(innerClassCount.getAndIncrement(), this, path, i, actionConfig);
+        final ActionClassInfo innerClassWriter =
+            new ActionClassInfo(innerClassCount.getAndIncrement(), this, path, i, actionConfig);
         final String className = innerClassWriter.getClassName();
         classNames.add(className);
         innerClasses.add(innerClassWriter);
@@ -393,7 +393,7 @@ public class CompilationProcessBuilder implements ProcessBuilder {
 
     private String prepareInnerClasses() throws ProcessConstructionException {
       final StringBuilder builder = new StringBuilder();
-      for (final ActionClassContext innerClass : innerClasses) {
+      for (final ActionClassInfo innerClass : innerClasses) {
         builder.append(innerClass.getInnerClassSource(this));
       }
       return builder.toString();
@@ -441,11 +441,11 @@ public class CompilationProcessBuilder implements ProcessBuilder {
   private abstract class JavaWriter {
 
     public abstract void write(final StringBuilder builder, final ProcessClassInfo outerContext,
-        final ActionClassContext innerContext) throws ProcessConstructionException;
+        final ActionClassInfo innerContext) throws ProcessConstructionException;
   }
 
   @Getter
-  private class ActionClassContext {
+  private class ActionClassInfo {
 
     private final int indexInProcess; // the global action count, used for unique inner class naming
     private final ProcessClassInfo parent;
@@ -456,8 +456,8 @@ public class CompilationProcessBuilder implements ProcessBuilder {
     private final String className;
     private final MethodWriter rootActionContext;
 
-    private ActionClassContext(final int indexInProcess, final ProcessClassInfo parent,
-        final String path, final int index, final ActionConfig actionConfig)
+    private ActionClassInfo(final int indexInProcess, final ProcessClassInfo parent,
+                            final String path, final int index, final ActionConfig actionConfig)
         throws ProcessConstructionException {
       this.indexInProcess = indexInProcess;
       this.parent = parent;
@@ -514,7 +514,7 @@ public class CompilationProcessBuilder implements ProcessBuilder {
 
     @Override
     public void write(final StringBuilder builder, final ProcessClassInfo processClassInfo,
-        final ActionClassContext inner) throws ProcessConstructionException {
+        final ActionClassInfo inner) throws ProcessConstructionException {
 
       final String value = valueConfig.getValue();
       final Class<?> type = parameterSpec.getType();
@@ -554,7 +554,7 @@ public class CompilationProcessBuilder implements ProcessBuilder {
 
     @Override
     public void write(final StringBuilder builder, final ProcessClassInfo outer,
-        final ActionClassContext inner) throws ProcessConstructionException {
+        final ActionClassInfo inner) throws ProcessConstructionException {
       final Class<?> type = spec.getType();
       final String name = spec.getName();
       if (spec instanceof ComputedParameterSpec computedParameterSpec) {
@@ -606,7 +606,7 @@ public class CompilationProcessBuilder implements ProcessBuilder {
     }
 
     private void writeInput(final InputConfig input, final StringBuilder builder,
-        final ProcessClassInfo outer, final ActionClassContext inner)
+        final ProcessClassInfo outer, final ActionClassInfo inner)
         throws ProcessConstructionException {
       if (input instanceof ValueConfig valueConfig) {
         new StaticValueWriter(spec, valueConfig).write(builder, outer, inner);
@@ -646,7 +646,7 @@ public class CompilationProcessBuilder implements ProcessBuilder {
 
     @Override
     public void write(final StringBuilder builder, final ProcessClassInfo outer,
-        final ActionClassContext inner) throws ProcessConstructionException {
+        final ActionClassInfo inner) throws ProcessConstructionException {
 
       final Object provider = methodSpec.getProvider();
       final Method method = methodSpec.getMethod();
@@ -681,5 +681,19 @@ public class CompilationProcessBuilder implements ProcessBuilder {
       builder.append(')');
     }
   }
+
+  @RequiredArgsConstructor
+  private class VariableDeferenceWriter extends ExpressionWriter {
+
+    private final int index;
+    private final String[] pathSegments;
+
+    @Override
+    public void write(final StringBuilder builder, final ProcessClassInfo outerContext, final ActionClassInfo innerContext) throws ProcessConstructionException {
+
+    }
+  }
+
+
 
 }

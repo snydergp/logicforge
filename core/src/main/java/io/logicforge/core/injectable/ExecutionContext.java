@@ -6,10 +6,8 @@ import io.logicforge.core.constant.EngineMethodType;
 @Injectable(methodTypes = {EngineMethodType.FUNCTION, EngineMethodType.ACTION})
 public interface ExecutionContext {
 
-  boolean contains(final String name);
+  boolean isSet(final int index);
 
-  Object get(final String name, final Object defaultValue);
-
-  Object get(final String name);
+  Object get(final int index);
 
 }

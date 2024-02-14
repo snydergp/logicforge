@@ -10,6 +10,7 @@ export enum SpecType {
   ACTION_LIST = 'ACTION_LIST',
   ACTION = 'ACTION',
   FUNCTION = 'FUNCTION',
+  VARIABLE = 'VARIABLE',
   PARAMETER = 'PARAMETER',
 }
 
@@ -24,6 +25,12 @@ export type FunctionSpec = {
   type: SpecType.FUNCTION;
   returnType: string;
   parameters: { [key: string]: ParameterSpec };
+};
+
+export type VariableSpec = {
+  type: SpecType.VARIABLE;
+  typeId: string;
+  optional: boolean;
 };
 
 export type ParameterSpec = {
@@ -46,6 +53,8 @@ export type ActionSpec = {
 export type ProcessSpec = {
   type: SpecType.PROCESS;
   name: string;
+  variables: VariableSpec[];
+  returnValue: VariableSpec;
 };
 
 export type EngineSpec = {

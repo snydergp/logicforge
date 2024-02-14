@@ -11,6 +11,7 @@ export enum ContentType {
   FUNCTION = 'function',
   INPUT_LIST = 'inputs',
   VALUE = 'value',
+  VARIABLE = 'variable',
 }
 
 export type ContentStore = {
@@ -62,4 +63,10 @@ export type InputsContent = ListContent & {
 export type ValueContent = Content & {
   type: ContentType.VALUE;
   value: string;
+};
+
+export type VariableContent = Content & {
+  type: ContentType.VARIABLE;
+  index: number;
+  path: string[];
 };

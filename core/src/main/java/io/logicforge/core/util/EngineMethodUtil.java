@@ -39,4 +39,5 @@ public class EngineMethodUtil {
     return Arrays.stream(EngineMethodType.values())
         .filter(type -> type.getAnnotationType().isAssignableFrom(annotationType)).findFirst();
   }
+
 }

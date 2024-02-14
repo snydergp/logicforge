@@ -1,8 +1,10 @@
 package io.logicforge.core.model.specification;
 
 import io.logicforge.core.annotations.elements.Action;
+import io.logicforge.core.annotations.elements.CompoundType;
 import io.logicforge.core.annotations.elements.Converter;
 import io.logicforge.core.annotations.elements.Function;
+import io.logicforge.core.annotations.elements.Property;
 import io.logicforge.core.annotations.runtime.Injectable;
 import io.logicforge.core.annotations.metadata.Name;
 import io.logicforge.core.common.Pair;
@@ -10,14 +12,17 @@ import io.logicforge.core.constant.EngineMethodType;
 import io.logicforge.core.util.EngineMethodUtil;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
 import java.lang.invoke.MethodType;
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.Parameter;
+import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -37,6 +42,7 @@ public class EngineSpecBuilder {
 
   private final Map<String, ProcessSpec> processes = new HashMap<>();
   private final Set<Class<?>> types = new HashSet<>();
+  private final Map<Class<?>, Map<String, PropertyInfo>> compoundTypes = new HashMap<>();
   private final Map<String, ActionSpec> actions = new HashMap<>();
   private final Map<String, FunctionSpec> functions = new HashMap<>();
   private final List<ConverterSpec> converters = new ArrayList<>();
@@ -122,6 +128,11 @@ public class EngineSpecBuilder {
   private void registerType(final Class<?> type) {
     final Class<?> typeToProcess = type.isArray() ? type.getComponentType() : type;
     types.add(typeToProcess);
+    if (type.getAnnotation(CompoundType.class) != null && !compoundTypes.containsKey(typeToProcess)) {
+      final Map<String, PropertyInfo> propertyInfos = analyzeCompoundType(type);
+      compoundTypes.put(typeToProcess, propertyInfos);
+      propertyInfos.values().forEach(propertyInfo -> types.add(propertyInfo.getType()));
+    }
   }
 
   /**
@@ -152,7 +163,20 @@ public class EngineSpecBuilder {
       } else {
         values = new ArrayList<>();
       }
-      return new TypeSpecImpl(type, primitive, new HashSet<>(supertypes), values);
+      final Map<String, TypePropertySpec> properties = new HashMap<>();
+      if (compoundTypes.containsKey(type)) {
+        final Map<String, PropertyInfo> propertyInfos = compoundTypes.get(type);
+        propertyInfos.values().stream().map(propertyInfo -> new TypePropertySpecImpl(
+                propertyInfo.getName(),
+                typesByClass.get(propertyInfo.getType()),
+                propertyInfo.isOptional(),
+                propertyInfo.getGetter(),
+                propertyInfo.getSetter()
+
+        )).forEach(propertyInfo -> properties.put(propertyInfo.getName(), propertyInfo));
+
+      }
+      return new TypeSpecImpl(type, primitive, new HashSet<>(supertypes), values, properties);
     }).collect(Collectors.toMap(typeSpec -> typesByClass.get(typeSpec.getRuntimeClass()),
         java.util.function.Function.identity()));
   }
@@ -331,6 +355,73 @@ public class EngineSpecBuilder {
     return name != null ? name.value() : parameter.getName();
   }
 
+  private static Map<String, PropertyInfo> analyzeCompoundType(final Class<?> type) {
+    return Arrays.stream(type.getDeclaredFields())
+            .map(EngineSpecBuilder::analyzeCompoundTypeField)
+            .filter(Optional::isPresent)
+            .map(Optional::get)
+            .collect(Collectors.toMap(PropertyInfo::getName, java.util.function.Function.identity()));
+  }
+
+  private static Optional<PropertyInfo> analyzeCompoundTypeField(final Field field) {
+    final Property propertyAnnotation = field.getAnnotation(Property.class);
+    if (propertyAnnotation == null) {
+      return Optional.empty();
+    }
+    final Name nameAnnotation = field.getAnnotation(Name.class);
+    final String name = nameAnnotation != null ? nameAnnotation.value() : field.getName();
+    final Class<?> type = field.getType();
+    final Class<?> compoundType = field.getDeclaringClass();
+    final Optional<Method> getter = getGetter(compoundType, name, type);
+    final Optional<Method> setter = getSetter(compoundType, name, type);
+    if (getter.isPresent() || setter.isPresent()) {
+      return Optional.of(new PropertyInfo(name, type, propertyAnnotation.optional(), getter.orElse(null), setter.orElse(null)));
+    }
+    return Optional.empty();
+  }
+
+  private static Optional<Method> getGetter(final Class<?> containingClass, final String name, final Class<?> type) {
+    final String beanName = name.substring(0, 1).toUpperCase() + name.substring(1);
+    Method getter;
+    try {
+      getter = containingClass.getMethod("get" + beanName);
+    } catch (NoSuchMethodException e) {
+      getter = null;
+    }
+    if (getter == null && (type.equals(Boolean.class) || type.equals(boolean.class))) {
+      try {
+        getter = containingClass.getMethod("is" + beanName);
+      } catch (NoSuchMethodException e) { }
+    }
+    if (getter != null && getter.getReturnType().equals(type)) {
+      return Optional.of(getter);
+    }
+    return Optional.empty();
+  }
+
+  private static Optional<Method> getSetter(final Class<?> containingClass, final String name, final Class<?> type) {
+    final String beanName = name.substring(0, 1).toUpperCase() + name.substring(1);
+    Method setter;
+    try {
+      setter = containingClass.getMethod("set" + beanName, type);
+    } catch (NoSuchMethodException e) {
+      setter = null;
+    }
+    return Optional.ofNullable(setter);
+  }
+
+  @RequiredArgsConstructor
+  @Getter
+  private static class PropertyInfo {
+
+    private final String name;
+    private final Class<?> type;
+    private final boolean optional;
+    private final Method getter;
+    private final Method setter;
+
+  }
+
   @Getter
   private static class EngineSpecImpl implements EngineSpec {
 
@@ -391,6 +482,7 @@ public class EngineSpecBuilder {
     private final boolean primitive;
     private final Set<String> supertypes;
     private final List<String> values;
+    private final Map<String, TypePropertySpec> properties;
   }
 
   @Getter
@@ -409,5 +501,18 @@ public class EngineSpecBuilder {
     private final Class<?> type;
     private final String name;
   }
+
+  @Getter
+  @AllArgsConstructor
+  private static class TypePropertySpecImpl implements TypePropertySpec {
+
+    private final String name;
+    private final String typeId;
+    private boolean optional;
+    private Method getter;
+    private Method setter;
+  }
+
+
 
 }
