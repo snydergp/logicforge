@@ -1,699 +1,599 @@
 package io.logicforge.core.engine.compile;
 
-import io.logicforge.core.annotations.runtime.Injectable;
-import io.logicforge.core.common.OneOf;
 import io.logicforge.core.common.Pair;
+import io.logicforge.core.common.CoordinateTrie;
 import io.logicforge.core.engine.Action;
-import io.logicforge.core.engine.ActionExecutor;
-import io.logicforge.core.engine.ChildActionsImpl;
-import io.logicforge.core.engine.InjectableFactory;
 import io.logicforge.core.engine.Process;
 import io.logicforge.core.engine.ProcessBuilder;
 import io.logicforge.core.exception.ProcessConstructionException;
 import io.logicforge.core.exception.ProcessExecutionException;
-import io.logicforge.core.injectable.ChildActions;
-import io.logicforge.core.injectable.ExecutionContext;
-import io.logicforge.core.injectable.ModifiableExecutionContext;
+import io.logicforge.core.engine.ExecutionContext;
 import io.logicforge.core.model.configuration.ActionConfig;
+import io.logicforge.core.model.configuration.BlockConfig;
+import io.logicforge.core.model.configuration.ConditionalConfig;
+import io.logicforge.core.model.configuration.ControlStatementConfig;
+import io.logicforge.core.model.configuration.ExecutableConfig;
+import io.logicforge.core.model.configuration.ExpressionConfig;
 import io.logicforge.core.model.configuration.FunctionConfig;
-import io.logicforge.core.model.configuration.InputConfig;
 import io.logicforge.core.model.configuration.ProcessConfig;
 import io.logicforge.core.model.configuration.ValueConfig;
+import io.logicforge.core.model.configuration.ReferenceConfig;
 import io.logicforge.core.model.specification.ActionSpec;
-import io.logicforge.core.model.specification.ComputedParameterSpec;
 import io.logicforge.core.model.specification.EngineSpec;
 import io.logicforge.core.model.specification.FunctionSpec;
-import io.logicforge.core.model.specification.MethodSpec;
-import io.logicforge.core.model.specification.ParameterSpec;
-import lombok.AllArgsConstructor;
+import io.logicforge.core.model.specification.InputSpec;
+import io.logicforge.core.model.specification.TypeSpec;
+import io.logicforge.core.util.CoordinateUtils;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
-import javax.tools.DiagnosticCollector;
-import javax.tools.FileObject;
-import javax.tools.ForwardingJavaFileManager;
-import javax.tools.JavaCompiler;
-import javax.tools.JavaCompiler.CompilationTask;
-import javax.tools.JavaFileManager;
-import javax.tools.JavaFileObject;
-import javax.tools.JavaFileObject.Kind;
-import javax.tools.SimpleJavaFileObject;
-import javax.tools.StandardJavaFileManager;
-import javax.tools.ToolProvider;
-import java.io.ByteArrayOutputStream;
-import java.io.OutputStream;
-import java.io.StringWriter;
-import java.lang.reflect.Constructor;
-import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.net.URI;
-import java.security.SecureClassLoader;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
 @RequiredArgsConstructor
 public class CompilationProcessBuilder implements ProcessBuilder {
 
-  private static final String PROCESS_CLASS_FILE_TPL =
-      """
-          package %s;
+    private static final String PACKAGE_TPL = "io.logicforge.generated.%s";
 
-          %s
+    /**
+     * The top-level template used for rendering process source files for compilation. This template requires the following
+     * parameters:
+     *
+     * <ol>
+     * <li>The package name to for the generated class</li>
+     * <li>A string containing a list of formatted import statements</li>
+     * <li>A string containing a formatted list of fields and a constructor injecting those fields</li>
+     * <li>The Process's unique ID string</li>
+     * <li>A formatted list of the Process's executables, defined as inner classes</li>
+     * </ol>
+     */
+    private static final String CLASS_FILE_TPL = """
+      package %s;
 
-          public class %s implements Process {
+      %s
 
-          \tprivate final AtomicLong executionCount = new AtomicLong(0L);
+      public class CompiledProcess implements Process {
 
-          %s
+      \tprivate final AtomicLong executionCount = new AtomicLong(0L);
+      \tprivate final CoordinateTrie<Action> trie = new CoordinateTrie<>();
 
-          \tpublic void execute(final ModifiableExecutionContext context, final ActionExecutor executor) {
+      %s
+      \tpublic void execute(final ExecutionContext context) {
 
-          \t\tfinal long executionNumber = executionCount.getAndIncrement();
-          \t\tfinal ChildActions rootActions = new ChildActionsImpl(executor, %s);
-          \t\trootActions.executeSync(context);
-          \t}
+      \t\tfinal long executionNumber = executionCount.getAndIncrement();
+      \t\tfinal Action rootAction = trie.get(new int[0]);
+      \t\tcontext.enqueue(rootAction);
+      \t}
 
-          \tpublic String getProcessId() {
-            return "%s";
-          \t}
+      \tpublic String getProcessId() {
+      \t\treturn "%s";
+      \t}
 
-          \tpublic long getExecutionCount() {
-            return executionCount.get();
-          \t}
-
-          %s
-
-          }
-          """;
-
-  private static final String PACKAGE_TPL = "io.metalmind.generated.action.%s";
-
-  private static final Set<Class<?>> DEFAULT_INCLUDES =
-      Set.of(Process.class, Action.class, ActionExecutor.class, ModifiableExecutionContext.class,
-          ExecutionContext.class, ChildActions.class, ChildActionsImpl.class, AtomicLong.class,
-          ProcessExecutionException.class);
-
-  private static final String ACTION_INNER_CLASS_TPL =
-      """
-          \tprivate class %s implements Action {
-
-          \t\tpublic void execute(final ModifiableExecutionContext context) throws ProcessExecutionException {
-          \t\t\tfinal ExecutionContext readonlyContext = context.getReadonlyView();
-
-          \t\t\t%s;
-          \t\t}
-
-          \t\tpublic String getName() {
-          \t\t\treturn "%s";
-          \t\t}
-
-          \t\tpublic String getProcessId() {
-          \t\t\treturn "%s";
-          \t\t}
-
-          \t\tpublic String getPath() {
-          \t\t\treturn "%s";
-          \t\t}
-
-          \t\tpublic int getIndex() {
-          \t\t\treturn %s;
-          \t\t}
-
-          \t\tpublic String toString() {
-          \t\t\treturn "%s";
-          \t\t}
-          \t}
-
-          """;
-
-  private final EngineSpec engineSpec;
-
-  private final AtomicLong processCounter = new AtomicLong(0);
-  private final Map<Class<? extends InjectableFactory>, InjectableFactory> factoryCache =
-      new HashMap<>();
-
-  public Process buildProcess(final ProcessConfig processConfig)
-      throws ProcessConstructionException {
-    final long index = processCounter.getAndIncrement();
-    final String processId = Long.toString(index);
-
-    final ProcessClassInfo processClassInfo = new ProcessClassInfo(processId, processConfig, index);
-    final String code = processClassInfo.getFileContents();
-    final InMemorySource source =
-        new InMemorySource(processClassInfo.getFullyQualifiedName(), code);
-
-    final JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
-    final InMemoryFileManager fileManager =
-        new InMemoryFileManager(compiler.getStandardFileManager(null, null, null));
-    final DiagnosticCollector<JavaFileObject> diagnostics = new DiagnosticCollector<>();
-
-    final StringWriter javacLog = new StringWriter();
-    final List<InMemorySource> toCompile = List.of(source);
-    final CompilationTask task =
-        compiler.getTask(javacLog, fileManager, diagnostics, null, null, toCompile);
-
-    boolean success = task.call();
-    // TODO log diagnostic info
-
-    if (success) {
-      return loadClassInstance(fileManager, processClassInfo);
-    } else {
-      throw new ProcessConstructionException("Error compiling process actions: " + diagnostics
-          .getDiagnostics().stream().map(diagnostic -> diagnostic.getMessage(Locale.ENGLISH))
-          .collect(Collectors.joining("\n")));
-    }
-  }
-
-  private Process loadClassInstance(final InMemoryFileManager fileManager,
-      final ProcessClassInfo classInfo) throws ProcessConstructionException {
-
-    try {
-      final Class<?> loaded =
-          fileManager.getClassLoader(null).loadClass(classInfo.getFullyQualifiedName());
-      if (!Process.class.isAssignableFrom(loaded)) {
-        throw new ProcessConstructionException("Compiled process does not represent expected type");
+      \tpublic long getExecutionCount() {
+      \t\treturn executionCount.get();
+      \t}
+      %s
       }
-      final Class<? extends Process> actionClass = (Class<? extends Process>) loaded;
-      final Constructor<? extends Process> constructor =
-          actionClass.getConstructor(classInfo.getConstructorParameterTypes());
-      return constructor.newInstance(classInfo.getConstructorArgs());
-    } catch (ClassNotFoundException | NoSuchMethodException | InstantiationException
-        | IllegalAccessException | InvocationTargetException e) {
-      throw new ProcessConstructionException("Error loading generated process class", e);
-    }
-  }
+      """;
 
-  private InjectableFactory getInjectableFactory(
-      final Class<? extends InjectableFactory> factoryClass) {
-    InjectableFactory factory = factoryCache.get(factoryClass);
-    if (factory == null) {
-      try {
-        final Constructor<? extends InjectableFactory> constructor = factoryClass.getConstructor();
-        factory = constructor.newInstance();
-        factoryCache.put(factoryClass, factory);
-      } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException
-          | InstantiationException e) {
-        throw new RuntimeException(
-            "Error instantiating injectable factory for class: " + factoryClass, e);
-      }
-    }
-    return factory;
-  }
+    /**
+     * A template usd to generate the top-level class instance var definitions and constructor. This template requires the
+     * following parameters:
+     *
+     * <ol>
+     * <li>A formatted list of instance variable declarations (indented one tab)</li>
+     * <li>A formatted list of instance variable constructor parameters (comma separated)</li>
+     * <li>A formatted list of instance variable initializations (indented two tabs)</li>
+     * </ol>
+     */
+    private static final String PROCESS_CONSTRUCTOR_TPL = """
+      %s
 
-  private ActionSpec loadAction(final String name) throws ProcessConstructionException {
-    final ActionSpec actionSpec = engineSpec.getActions().get(name);
-    if (actionSpec == null) {
-      throw new ProcessConstructionException("Process references missing action: " + name);
-    }
-    return actionSpec;
-  }
+      \tpublic CompiledProcess(%s) {
+      \t\t// initialize instance variables
+      %s
 
-  private FunctionSpec loadFunction(final String name) throws ProcessConstructionException {
-    final FunctionSpec functionSpec = engineSpec.getFunctions().get(name);
-    if (functionSpec == null) {
-      throw new ProcessConstructionException("Process references missing function: " + name);
-    }
-    return functionSpec;
-  }
+      \t\t// initialize singleton actions and load action trie
+      %s
+      \t}
+         """;
 
-  private static class InMemorySource extends SimpleJavaFileObject {
+    /**
+     * A template representing an action defined as an inner class. This template takes the following arguments:
+     *
+     * <ol>
+     * <li>The class name</li>
+     * <li>The executable coordinates, formatted as an array initializer</li>
+     * <li>The executable dependency coordinates, formatted as a list of array initializers</li>
+     * <li>The execution logic</li>
+     * <li>The execution logic (to be outputted as a string for debugging)</li>
+     * </ol>
+     */
+    private static final String ACTION_CLASS_TEMPLATE =
+            """
+                \tprivate class %s implements Action {
+      
+                \t\tprivate final int[] coordinates = %s;
+                \t\tprivate final List<int[]> dependencyCoordinates = List.of(%s);
+      
+                \t\tpublic Object execute(final ExecutionContext context) throws ProcessExecutionException {
+      
+                \t\t\t%s;
+                \t\t}
+                          
+                \t\tpublic int[] getCoordinates() {
+                \t\t\treturn coordinates;
+                \t\t}
+                          
+                \t\tpublic List<int[]> getDependencyCoordinates() {
+                \t\t\treturn dependencyCoordinates;
+                \t\t}
+      
+                \t\tpublic String toString() {
+                \t\t\treturn "%s";
+                \t\t}
+                \t}""";
 
-    @Getter
-    private String name;
-    private String code;
+    private static final Set<Class<?>> DEFAULT_IMPORTS =
+            Set.of(Process.class, Action.class, ExecutionContext.class, AtomicLong.class,
+                    CoordinateTrie.class, ProcessExecutionException.class, List.class);
 
-    private final ByteArrayOutputStream compiled = new ByteArrayOutputStream();
+    private final EngineSpec engineSpec;
+    private final ProcessCompiler compiler;
 
-    public InMemorySource(final String className, final String code) {
-      super(URI.create("string:///" + className.replace('.', '/') + Kind.SOURCE.extension),
-          Kind.SOURCE);
-      this.name = className;
-      this.code = code;
-    }
-
-    public InMemorySource(final String className, final Kind kind) {
-      super(URI.create("string:///" + className.replace('.', '/') + kind.extension), kind);
-    }
-
-    @Override
-    public CharSequence getCharContent(boolean ignoreEncodingErrors) {
-      return code;
-    }
-
-    @Override
-    public OutputStream openOutputStream() {
-      return compiled;
-    }
-
-    public byte[] getCompiledBytes() {
-      return compiled.toByteArray();
-    }
-  }
-
-  public static class InMemoryFileManager extends ForwardingJavaFileManager<JavaFileManager> {
-    private final HashMap<String, InMemorySource> classes = new HashMap<>();
-
-    public InMemoryFileManager(final StandardJavaFileManager standardManager) {
-      super(standardManager);
-    }
+    private final AtomicLong processCounter = new AtomicLong(0);
 
     @Override
-    public ClassLoader getClassLoader(final Location location) {
-      return new SecureClassLoader() {
-        @Override
-        protected Class<?> findClass(final String className) throws ClassNotFoundException {
-          if (classes.containsKey(className)) {
-            byte[] classFile = classes.get(className).getCompiledBytes();
-            Class<?> definedClass = super.defineClass(className, classFile, 0, classFile.length);
-            resolveClass(definedClass);
-            return definedClass;
-          } else {
-            throw new ClassNotFoundException();
-          }
+    public Process buildProcess(final ProcessConfig processConfig)
+            throws ProcessConstructionException {
+        final ClassFileData classFileData = new ClassFileData(processConfig);
+        final String className = classFileData.getClassName();
+        final String code = classFileData.getContents();
+        final Object[] args = classFileData.getInstanceVariables();
+        return compiler.compileAndInstantiate(className, code, args);
+    }
+
+    public interface SourceSegment {
+        String getContents();
+    }
+
+    private class ClassFileData {
+
+        private final Map<Class<?>, Pair<String, String>> toImport = new HashMap<>();
+        private final Map<Object, String> instanceVars = new LinkedHashMap<>();
+        private final CoordinateTrie<ExecutableInnerClassData> executableCoordinateTrie =
+                new CoordinateTrie<>();
+
+        private final boolean allowConcurrency;
+
+        private final long processId;
+        @Getter
+        private final String contents;
+
+        private ClassFileData(final ProcessConfig config) {
+            this.allowConcurrency = config.isAllowConcurrency();
+            this.processId = processCounter.getAndIncrement();
+
+            DEFAULT_IMPORTS.forEach(this::ensureImport);
+
+            final int[] rootCoordinates = new int[0];
+            final BlockConfig rootBlock = config.getRootBlock();
+            final int[][] rootDependencies = new int[0][];
+            constructInnerClass(rootCoordinates, rootBlock, rootDependencies);
+            this.contents = generateContents();
         }
-      };
-    }
 
-    @Override
-    public InMemorySource getJavaFileForOutput(Location location, String className, Kind kind,
-        FileObject sibling) {
-      if (classes.containsKey(className)) {
-        return classes.get(className);
-      } else {
-        final InMemorySource inMemorySource = new InMemorySource(className, kind);
-        classes.put(className, inMemorySource);
-        return inMemorySource;
-      }
-    }
-  }
-
-  private class ProcessClassInfo {
-
-    @Getter
-    private final String processId;
-    private final String packageName;
-    private final String className;
-    private final Set<Class<?>> imports = new HashSet<>(DEFAULT_INCLUDES);
-    private final Map<Object, String> varNames = new LinkedHashMap<>();
-    private final List<ActionClassInfo> innerClasses = new ArrayList<>();
-    private final Map<String, List<String>> childActionsToConstruct = new HashMap<>();
-    private final String rootActionsVarName;
-
-    private final AtomicInteger innerClassCount = new AtomicInteger(0);
-
-    public ProcessClassInfo(final String processId, final ProcessConfig processConfig,
-        final long index) throws ProcessConstructionException {
-
-      this.processId = processId;
-      this.packageName = String.format(PACKAGE_TPL, "pid_" + index);
-      this.className = "Process" + index;
-
-      this.rootActionsVarName = addChildActions(processConfig.getActions(), "root");
-    }
-
-    public String getFullyQualifiedName() {
-      return packageName + "." + className;
-    }
-
-    public Class<?>[] getConstructorParameterTypes() {
-      return varNames.keySet().stream().map(Object::getClass).toArray(size -> new Class<?>[size]);
-    }
-
-    public Object[] getConstructorArgs() {
-      return varNames.keySet().toArray(Object[]::new);
-    }
-
-    /**
-     * Ensures that an import is included for the provided class
-     *
-     * @param toImport the class to import
-     * @return the unqualified name to use for the imported class
-     */
-    public String ensureImport(final Class<?> toImport) {
-      imports.add(toImport.getEnclosingClass() == null ? toImport : toImport.getEnclosingClass());
-      final String className = toImport.getName();
-      final int finalDotIndex = className.lastIndexOf('.');
-      final String simpleName =
-          finalDotIndex >= 0 ? className.substring(finalDotIndex + 1) : className;
-      return simpleName.replace('$', '.');
-    }
-
-    public String ensureInstanceVar(final Object var) {
-      ensureImport(var.getClass());
-      String varName = varNames.computeIfAbsent(var, k -> "var" + varNames.size());
-      return varName;
-    }
-
-    /**
-     * Adds a list of child actions. A ChildActions object representing the list will be added as an instance variable, and
-     * the variable name to reference will be returned;
-     *
-     * @param config the actions
-     * @param path the path of the actions
-     * @return the name of the ChildActions instance variable
-     * @throws ProcessConstructionException
-     */
-    public String addChildActions(final List<ActionConfig> config, final String path)
-        throws ProcessConstructionException {
-
-      final List<String> classNames = new ArrayList<>();
-
-      for (int i = 0; i < config.size(); i++) {
-        final ActionConfig actionConfig = config.get(i);
-        final ActionClassInfo innerClassWriter =
-            new ActionClassInfo(innerClassCount.getAndIncrement(), this, path, i, actionConfig);
-        final String className = innerClassWriter.getClassName();
-        classNames.add(className);
-        innerClasses.add(innerClassWriter);
-      }
-
-      final String varName = "children" + childActionsToConstruct.size();
-      childActionsToConstruct.put(varName, classNames);
-      return varName;
-    }
-
-    public String getFileContents() throws ProcessConstructionException {
-
-      final String innerClasses = prepareInnerClasses();
-
-      return String.format(PROCESS_CLASS_FILE_TPL, packageName, prepareImports(), className,
-          prepareInstanceVarsAndConstructor(), rootActionsVarName, processId, innerClasses);
-    }
-
-    private String prepareInnerClasses() throws ProcessConstructionException {
-      final StringBuilder builder = new StringBuilder();
-      for (final ActionClassInfo innerClass : innerClasses) {
-        builder.append(innerClass.getInnerClassSource(this));
-      }
-      return builder.toString();
-    }
-
-    private String prepareImports() {
-      return imports.stream().map(Class::getName).sorted()
-          .map(className -> String.format("import %s;", className))
-          .collect(Collectors.joining("\n"));
-    }
-
-    private String prepareInstanceVarsAndConstructor() {
-      final StringBuilder variableDeclarations = new StringBuilder();
-      final StringBuilder constructorParams = new StringBuilder();
-      final StringBuilder variableInitializations = new StringBuilder();
-      final Iterator<Entry<Object, String>> varIterator = varNames.entrySet().iterator();
-      while (varIterator.hasNext()) {
-        final Entry<Object, String> next = varIterator.next();
-        final boolean nonFinal = varIterator.hasNext();
-        final Class<?> variableClass = next.getKey().getClass();
-        final String simpleClassName = ensureImport(variableClass);
-        final String varName = next.getValue();
-        variableDeclarations
-            .append(String.format("\tprivate final %s %s;\n", simpleClassName, varName));
-        constructorParams.append(String.format("final %s %s", simpleClassName, varName));
-        if (nonFinal) {
-          constructorParams.append(", ");
+        public String ensureInstanceVar(final Object object) {
+            ensureImport(object.getClass());
+            return instanceVars.computeIfAbsent(object, obj -> "var" + instanceVars.size());
         }
-        variableInitializations.append(String.format("\t\tthis.%s = %s;\n", varName, varName));
-      }
-      childActionsToConstruct.forEach((varName, actionClassNames) -> {
-        final String arguments =
-            actionClassNames.stream().map(className -> String.format("new %s()", className))
-                .collect(Collectors.joining(", "));
-        variableDeclarations.append(String.format("\tprivate final Action[] %s;\n", varName));
-        variableInitializations
-            .append(String.format("\t\tthis.%s = new Action[]{%s};\n", varName, arguments));
-      });
-      return String.format("%s\n\tpublic %s(%s) {\n%s\t}\n", variableDeclarations, className,
-          constructorParams, variableInitializations);
-    }
 
-  }
+        public String ensureImport(final Class<?> classToImport) {
+            return toImport.computeIfAbsent(classToImport, c -> {
+                final List<String> nestedSegmentNames = new ArrayList<>();
+                Class<?> pointer = c;
+                final Class<?> root;
+                while (true) {
+                    nestedSegmentNames.add(0, pointer.getSimpleName());
+                    if (pointer.getEnclosingClass() == null) {
+                        root = pointer;
+                        break;
+                    }
+                    pointer = pointer.getEnclosingClass();
+                }
+                return new Pair<>(root.getName(), String.join(".", nestedSegmentNames));
+            }).getRight();
+        }
 
-  private abstract class JavaWriter {
+        public String getClassName() {
+            return formatPackageName() + ".Process";
+        }
 
-    public abstract void write(final StringBuilder builder, final ProcessClassInfo outerContext,
-        final ActionClassInfo innerContext) throws ProcessConstructionException;
-  }
+        public String generateContents() {
+            return CLASS_FILE_TPL.formatted(formatPackageName(), formatImports(),
+                    formatFieldsAndConstructor(), processId, formatInnerClasses());
+        }
 
-  @Getter
-  private class ActionClassInfo {
+        private void constructInnerClass(final int[] coordinates, final ExecutableConfig config,
+                                         final int[][] dependencyCoordinates) {
+            final ExecutableInnerClassData innerClass =
+                    new ExecutableInnerClassData(this, config, coordinates, dependencyCoordinates);
+            executableCoordinateTrie.put(coordinates, innerClass);
 
-    private final int indexInProcess; // the global action count, used for unique inner class naming
-    private final ProcessClassInfo parent;
-    private final String path;
-    private final int index; // the index of this action in the containing list, used for logging/metrics
-    private final String actionName;
-
-    private final String className;
-    private final MethodWriter rootActionContext;
-
-    private ActionClassInfo(final int indexInProcess, final ProcessClassInfo parent,
-                            final String path, final int index, final ActionConfig actionConfig)
-        throws ProcessConstructionException {
-      this.indexInProcess = indexInProcess;
-      this.parent = parent;
-      this.path = path;
-      this.index = index;
-
-      this.className = "Action" + indexInProcess;
-
-      this.actionName = actionConfig.getName();
-      final ActionSpec actionSpec = loadAction(actionName);
-      this.rootActionContext = new MethodWriter(actionSpec, actionConfig);
-    }
-
-    public String getInnerClassSource(final ProcessClassInfo outerContext)
-        throws ProcessConstructionException {
-
-      final String actionImpl = prepareActionImpl(outerContext);
-      final String toString = escape(actionImpl);
-
-      return String.format(ACTION_INNER_CLASS_TPL, className, actionImpl, actionName,
-          parent.getProcessId(), path, index, toString);
-    }
-
-    private String prepareActionImpl(final ProcessClassInfo processClassInfo)
-        throws ProcessConstructionException {
-
-      final StringBuilder builder = new StringBuilder();
-
-      rootActionContext.write(builder, processClassInfo, this);
-      return builder.toString();
-    }
-
-    /**
-     * Basic string escape implementation Java source code for the purpose of displaying the code as a toString displaying
-     * the compiled logic for debug purposes.
-     *
-     * @param string the input string
-     * @return
-     */
-    private String escape(String string) {
-      return string.replace("\\", "\\\\").replace("\t", "\\t").replace("\b", "\\b")
-          .replace("\n", "\\n").replace("\r", "\\r").replace("\f", "\\f").replace("\"", "\\\"");
-    }
-  }
-
-  private abstract class ExpressionWriter extends JavaWriter {
-  }
-
-  @AllArgsConstructor
-  private class StaticValueWriter extends ExpressionWriter {
-
-    private final ParameterSpec parameterSpec;
-    private final ValueConfig valueConfig;
-
-    @Override
-    public void write(final StringBuilder builder, final ProcessClassInfo processClassInfo,
-        final ActionClassInfo inner) throws ProcessConstructionException {
-
-      final String value = valueConfig.getValue();
-      final Class<?> type = parameterSpec.getType();
-      if (String.class.equals(type)) {
-        builder.append('"').append(value).append('"');
-      } else if (boolean.class.equals(type)) {
-        builder.append(Boolean.parseBoolean(value));
-      } else if (Boolean.class.equals(type)) {
-        builder.append("Boolean.").append(Boolean.parseBoolean(value) ? "TRUE" : "FALSE");
-      } else if (int.class.equals(type)) {
-        builder.append(Integer.parseInt(value));
-      } else if (Integer.class.equals(type)) {
-        builder.append("Integer.valueOf(\"").append(Integer.parseInt(value)).append("\")");
-      } else if (long.class.equals(type)) {
-        builder.append(Long.parseLong(value)).append('L');
-      } else if (Long.class.equals(type)) {
-        builder.append("Long.valueOf(\"").append(Long.parseLong(value)).append("\")");
-      } else if (float.class.equals(type)) {
-        builder.append(Float.parseFloat(value));
-      } else if (Float.class.equals(type)) {
-        builder.append("Float.valueOf(\"").append(Float.parseFloat(value)).append("\")");
-      } else if (double.class.equals(type)) {
-        builder.append(Double.parseDouble(value)).append('D');
-      } else if (Double.class.equals(type)) {
-        builder.append("Double.valueOf(\"").append(Double.parseDouble(value)).append("\")");
-      } else {
-        throw new ProcessConstructionException("Illegal value type: " + type);
-      }
-    }
-  }
-
-  @AllArgsConstructor
-  private class ArgumentWriter extends ExpressionWriter {
-
-    private final ParameterSpec spec;
-    private final OneOf<List<ActionConfig>, List<InputConfig>> config;
-
-    @Override
-    public void write(final StringBuilder builder, final ProcessClassInfo outer,
-        final ActionClassInfo inner) throws ProcessConstructionException {
-      final Class<?> type = spec.getType();
-      final String name = spec.getName();
-      if (spec instanceof ComputedParameterSpec computedParameterSpec) {
-        if (config.isRight()) {
-          final List<InputConfig> inputs = config.getRight();
-          if (computedParameterSpec.isMulti()) {
-            final String simpleClassName = outer.ensureImport(type);
-            builder.append(simpleClassName).append("[]{");
-            for (final InputConfig input : inputs) {
-              writeInput(input, builder, outer, inner);
+            // Recursively construct any child executable classes nested in control statements
+            if (config instanceof BlockConfig blockConfig) {
+                final List<ExecutableConfig> executables = blockConfig.getExecutables();
+                for (int childIndex = 0; childIndex < executables.size(); childIndex++) {
+                    final int[] childCoordinates = CoordinateUtils.getNthChild(coordinates, childIndex);
+                    final ExecutableConfig child = executables.get(childIndex);
+                    final int[][] childDependencyCoordinates;
+                    if (allowConcurrency || childIndex == 0) {
+                        childDependencyCoordinates = new int[0][];
+                    } else {
+                        childDependencyCoordinates =
+                                new int[][] {CoordinateUtils.getAncestor(childCoordinates)};
+                    }
+                    constructInnerClass(childCoordinates, child, childDependencyCoordinates);
+                }
+            } else if (config instanceof ControlStatementConfig controlConfig) {
+                for (int blockIndex = 0; blockIndex < controlConfig.getBlocks().size(); blockIndex++) {
+                    final int[] blockCoordinates = CoordinateUtils.getNthChild(coordinates, blockIndex);
+                    final BlockConfig block = controlConfig.getBlocks().get(blockIndex);
+                    final int[][] blockDependencyCoordinates = new int[0][]; // control blocks are always independent
+                    constructInnerClass(blockCoordinates, block, blockDependencyCoordinates);
+                }
             }
-            builder.append("}");
-          } else if (!inputs.isEmpty()) {
-            writeInput(inputs.get(0), builder, outer, inner);
-          } else if (!type.isPrimitive()) {
-            builder.append("null");
-          } else {
-            throw new ProcessConstructionException("Config is missing a required property value");
-          }
-        } else {
-          throw new ProcessConstructionException("");
         }
-      } else {
-        if (type.equals(ModifiableExecutionContext.class)) {
-          builder.append("context");
-        } else if (type.equals(ExecutionContext.class)) {
-          builder.append("readonlyContext");
-        } else if (type.equals(ChildActions.class)) {
-          if (config.isLeft()) {
-            final String childPath =
-                String.format("%s[%s]/%s", inner.getPath(), inner.getIndex(), name);
-            final String varName = outer.addChildActions(config.getLeft(), childPath);
-            builder.append(varName);
-          }
-        } else {
-          final Injectable injectable = type.getAnnotation(Injectable.class);
-          if (injectable != null) {
-            final Class<? extends InjectableFactory> factoryClass = injectable.factory();
-            final InjectableFactory injectableFactory = getInjectableFactory(factoryClass);
-            final String varName = outer.ensureInstanceVar(injectableFactory);
-            final String simpleClassName = outer.ensureImport(type);
-            builder.append(varName).append(".getInjectable(").append(simpleClassName)
-                .append(", context)");
-          } else {
-            throw new ProcessConstructionException("Unable to inject unknown type: " + type);
-          }
+
+        private String formatPackageName() {
+            return PACKAGE_TPL.formatted("process_" + processId);
         }
-      }
-    }
 
-    private void writeInput(final InputConfig input, final StringBuilder builder,
-        final ProcessClassInfo outer, final ActionClassInfo inner)
-        throws ProcessConstructionException {
-      if (input instanceof ValueConfig valueConfig) {
-        new StaticValueWriter(spec, valueConfig).write(builder, outer, inner);
-      } else if (input instanceof FunctionConfig functionConfig) {
-        final String functionName = functionConfig.getName();
-        final FunctionSpec functionSpec = loadFunction(functionName);
-        new MethodWriter(functionSpec, functionConfig).write(builder, outer, inner);
-      }
-    }
-  }
-
-
-
-  @Getter
-  private class MethodWriter extends ExpressionWriter {
-
-    private final MethodSpec methodSpec;
-    private final List<Pair<ParameterSpec, OneOf<List<ActionConfig>, List<InputConfig>>>> argumentData;
-
-    public MethodWriter(final MethodSpec methodSpec, final ActionConfig actionConfig) {
-      this.methodSpec = methodSpec;
-      argumentData = methodSpec.getParameters().stream()
-          .map(parameterSpec -> new Pair<>(parameterSpec,
-              OneOf.nullable(actionConfig.getActionArguments().get(parameterSpec.getName()),
-                  actionConfig.getInputArguments().get(parameterSpec.getName()))))
-          .collect(Collectors.toList());
-    }
-
-    public MethodWriter(final MethodSpec methodSpec, final FunctionConfig functionConfig) {
-      this.methodSpec = methodSpec;
-      argumentData = methodSpec.getParameters().stream().map(
-          parameterSpec -> new Pair<ParameterSpec, OneOf<List<ActionConfig>, List<InputConfig>>>(
-              parameterSpec,
-              OneOf.right(functionConfig.getArguments().get(parameterSpec.getName()))))
-          .collect(Collectors.toList());
-    }
-
-    @Override
-    public void write(final StringBuilder builder, final ProcessClassInfo outer,
-        final ActionClassInfo inner) throws ProcessConstructionException {
-
-      final Object provider = methodSpec.getProvider();
-      final Method method = methodSpec.getMethod();
-
-      final List<ParameterSpec> parameters = methodSpec.getParameters();
-      if (provider instanceof Class<?>) {
-        // static method call
-        builder.append(((Class<?>) provider).getName()).append('.');
-      } else {
-        // instance method call
-        String instanceVarName = outer.ensureInstanceVar(provider);
-        builder.append(instanceVarName).append('.');
-      }
-      builder.append(method.getName()).append('(');
-
-      // write out the comma-separated list of arguments
-      for (int i = 0; i < argumentData.size(); i++) {
-        final Pair<ParameterSpec, OneOf<List<ActionConfig>, List<InputConfig>>> data =
-            argumentData.get(i);
-        final ParameterSpec spec = data.getLeft();
-        final OneOf<List<ActionConfig>, List<InputConfig>> config = data.getRight();
-
-        final boolean isLast = i == parameters.size() - 1;
-
-        final ArgumentWriter argumentContext = new ArgumentWriter(spec, config);
-        argumentContext.write(builder, outer, inner);
-
-        if (!isLast) {
-          builder.append(", ");
+        private String formatImports() {
+            return toImport.values().stream().map(Pair::getLeft).sorted().map("import %s;"::formatted)
+                    .collect(Collectors.joining("\n"));
         }
-      }
-      builder.append(')');
+
+        private String formatFieldsAndConstructor() {
+            final String fieldDeclarations = instanceVars.entrySet().stream().map(e -> {
+                final Class<?> type = e.getKey().getClass();
+                final String typeRef = toImport.get(type).getRight();
+                final String instanceVarName = e.getValue();
+                return "\tfinal %s %s;".formatted(typeRef, instanceVarName);
+            }).collect(Collectors.joining("\n"));
+            final String constructorArgs = instanceVars.entrySet().stream().map(e -> {
+                final Class<?> type = e.getKey().getClass();
+                final String typeRef = toImport.get(type).getRight();
+                final String instanceVarName = e.getValue();
+                return "final %s %s".formatted(typeRef, instanceVarName);
+            }).collect(Collectors.joining(", "));
+            final String fieldInitializations = instanceVars.values().stream()
+                    .map(instanceVarName -> "\t\tthis.%s = %s;".formatted(instanceVarName, instanceVarName))
+                    .collect(Collectors.joining("\n"));
+            final String trieLoading =
+                    executableCoordinateTrie.values().stream().map(innerClass -> {
+                        final int[] coordinates = innerClass.getCoordinates();
+                        final String varName =
+                                "exec" + CoordinateUtils.formatCoordinatesAsVariableFragment(coordinates);
+                        final String className = innerClass.getClassName();
+                        return """
+                \t\tfinal Action %s = new %s();
+                \t\ttrie.put(%s.getCoordinates(), %s);
+                """.formatted(varName, className, varName, varName);
+                    }).collect(Collectors.joining("\n"));
+
+            return PROCESS_CONSTRUCTOR_TPL.formatted(fieldDeclarations, constructorArgs,
+                    fieldInitializations, trieLoading);
+        }
+
+        private String formatInnerClasses() {
+            return executableCoordinateTrie.values().stream()
+                    .map(ExecutableInnerClassData::getContents).collect(Collectors.joining("\n\n"));
+        }
+
+        public Object[] getInstanceVariables() {
+            return instanceVars.keySet().toArray(new Object[0]);
+        }
     }
-  }
 
-  @RequiredArgsConstructor
-  private class VariableDeferenceWriter extends ExpressionWriter {
+    public class ExecutableInnerClassData implements SourceSegment {
 
-    private final int index;
-    private final String[] pathSegments;
 
-    @Override
-    public void write(final StringBuilder builder, final ProcessClassInfo outerContext, final ActionClassInfo innerContext) throws ProcessConstructionException {
+        @Getter
+        private final ClassFileData containingClass;
+        private final ExecutableConfig config;
+        @Getter
+        private final int[] coordinates;
+        @Getter
+        private final List<int[]> dependencyCoordinates = new ArrayList<>();
+
+        private final String contents;
+
+        private ExecutableInnerClassData(final ClassFileData containingClass,
+                                         final ExecutableConfig config, final int[] coordinates,
+                                         final int[]... dependencyCoordinates) {
+            this.containingClass = containingClass;
+            this.config = config;
+            this.coordinates = coordinates;
+            this.dependencyCoordinates.addAll(Arrays.asList(dependencyCoordinates));
+            this.contents = generateContents();
+        }
+
+        @Override
+        public String getContents() {
+            return ACTION_CLASS_TEMPLATE.formatted(getClassName(),
+                    CoordinateUtils.formatCoordinatesAsArrayInitializer(coordinates),
+                    formatDependencies(), contents,
+                    escapeSource(contents));
+        }
+
+        private String getClassName() {
+            return "Executable"
+                    + Arrays.stream(coordinates).mapToObj(Integer::toString).collect(Collectors.joining("_"));
+        }
+
+        private String formatDependencies() {
+            return dependencyCoordinates.stream()
+                    .map(CoordinateUtils::formatCoordinatesAsArrayInitializer)
+                    .collect(Collectors.joining(", "));
+        }
+
+        private String generateContents() {
+            final StringBuilder builder = new StringBuilder();
+            if (config instanceof ActionConfig actionConfig) {
+                final ActionSpec actionSpec = engineSpec.getActions().get(actionConfig.getName());
+                final Object provider = actionSpec.getProvider();
+                final String providerName = containingClass.ensureInstanceVar(provider);
+                final Method method = actionSpec.getMethod();
+                final Class<?> outputType = actionSpec.getOutputType();
+                if (!Void.class.equals(outputType)) {
+                    builder.append("return ");
+                }
+                final String args = actionSpec.getInputs().stream().map(input -> {
+                    final String name = input.getName();
+                    final Class<?> type = input.getType();
+                    final List<ExpressionConfig> expressionConfigs = actionConfig.getInputs().get(name);
+                    if (input.isMulti()) {
+                        return new ArrayExpressionData(ExecutableInnerClassData.this, expressionConfigs,
+                                type);
+                    } else {
+                        return mapExpression(ExecutableInnerClassData.this, expressionConfigs.get(0));
+                    }
+                }).map(ExpressionData::getContents).collect(Collectors.joining(", "));
+                builder.append(providerName).append('.').append(method.getName()).append('(').append(args)
+                        .append(")");
+                if (Void.class.equals(outputType)) {
+                    builder.append(";\n\t\t\treturn null");
+                }
+            } else if (config instanceof BlockConfig) {
+                builder.append("context.enqueue(trie.listChildValues(")
+                        .append(CoordinateUtils.formatCoordinatesAsArrayInitializer(coordinates))
+                        .append(", 1));\n");
+                builder.append("\t\t\treturn null");
+            } else if (config instanceof ConditionalConfig conditionalConfig) {
+                final ExpressionConfig condition = conditionalConfig.getCondition();
+                final ExpressionData conditionalExpression = mapExpression(this, condition);
+                final int[] thenCoordinates = CoordinateUtils.getNthChild(coordinates, 0);
+                final int[] elseCoordinates = CoordinateUtils.getNthChild(coordinates, 1);
+                builder.append("if (").append(conditionalExpression.getContents()).append(") {\n")
+                        .append("\t\t\t\tcontext.enqueue(trie.get(")
+                        .append(CoordinateUtils.formatCoordinatesAsArrayInitializer(thenCoordinates))
+                        .append(");\n").append("\t\t\t} else {\n").append("\t\t\t\tcontext.enqueue(trie.get(")
+                        .append(");\n")
+                        .append(CoordinateUtils.formatCoordinatesAsArrayInitializer(elseCoordinates))
+                        .append("\t\t\t}\n");
+                builder.append(";\n\t\t\treturn null");
+            }
+
+            return builder.toString();
+        }
 
     }
-  }
+
+    @Getter
+    private static abstract class ExpressionData implements SourceSegment {
+
+        private final ExecutableInnerClassData containingClass;
+
+        private ExpressionData(final ExecutableInnerClassData containingClass) {
+            this.containingClass = containingClass;
+        }
+
+        public ClassFileData getSourceFile() {
+            return containingClass.getContainingClass();
+        }
+    }
+
+    private class FunctionExpressionData extends ExpressionData {
+
+        private final FunctionConfig config;
+        private final FunctionSpec spec;
+
+        private final List<ExpressionData> args;
+
+        @Getter
+        private final String contents;
+
+        public FunctionExpressionData(final ExecutableInnerClassData containingClass,
+                                      final FunctionConfig config) {
+            super(containingClass);
+            this.config = config;
+            this.spec = engineSpec.getFunctions().get(config.getName());
+            this.args =
+                    this.spec.getInputs().stream().map(this::getArgument).collect(Collectors.toList());
+            this.contents = generateContents();
+        }
+
+        public String generateContents() {
+            final Object provider = spec.getProvider();
+            final String providerVar = this.getSourceFile().ensureInstanceVar(provider);
+            final String functionName = spec.getMethod().getName();
+            return providerVar + "." + functionName + "("
+                    + args.stream().map(ExpressionData::getContents).collect(Collectors.joining(", ")) + ")";
+        }
+
+        public ExpressionData getArgument(final InputSpec inputSpec) {
+            final String name = inputSpec.getName();
+            final Class<?> type = inputSpec.getType();
+            final boolean multi = inputSpec.isMulti();
+            final List<ExpressionConfig> expressionConfigs = config.getArguments().get(name);
+            if (multi) {
+                return new ArrayExpressionData(getContainingClass(), expressionConfigs, type);
+            } else {
+                final ExpressionConfig expressionConfig = expressionConfigs.get(0);
+                return mapExpression(getContainingClass(), expressionConfig);
+            }
+        }
+    }
+
+    private class ValueExpressionData extends ExpressionData {
+
+        private final ValueConfig config;
+        private final TypeSpec typeSpec;
+        @Getter
+        private final String contents;
+
+        private ValueExpressionData(final ExecutableInnerClassData containingClass,
+                                    final ValueConfig config) {
+            super(containingClass);
+            this.config = config;
+            this.typeSpec = engineSpec.getTypes().get(config.getTypeId());
+            this.contents = generateContents();
+        }
+
+        public String generateContents() {
+            final Class<?> type = typeSpec.getRuntimeClass();
+            final String value = config.getValue();
+            if (type.equals(int.class) || type.equals(Integer.class) || type.equals(float.class)
+                    || type.equals(Float.class) || type.equals(boolean.class) || type.equals(Boolean.class)) {
+                // code representation is equivalent to string representation
+                return value;
+            } else if (type.equals(String.class)) {
+                // strings require quotes
+                return "\"" + value + "\"";
+            } else if (type.equals(long.class) || type == Long.class) {
+                // longs require "L" suffix
+                return value + "L";
+            } else if (type.equals(double.class) || type == Double.class) {
+                // doubles require "D" suffix
+                return value + "D";
+            }
+            throw new IllegalStateException("Type cannot be represented as value: " + typeSpec);
+        }
+    }
+
+    private class VariableReferenceData extends ExpressionData {
+
+        private final ReferenceConfig config;
+        @Getter
+        private final String contents;
+
+        private VariableReferenceData(final ExecutableInnerClassData containingClass,
+                                      final ReferenceConfig config) {
+            super(containingClass);
+            this.config = config;
+            this.contents = generateContents();
+        }
+
+        public String generateContents() {
+            final StringBuilder writer = new StringBuilder();
+
+            for (final ReferenceConfig.Reference reference : config.getReferences()) {
+                final int[] coordinates = reference.getCoordinates();
+                final String[] path = reference.getPath();
+                final boolean nested = path != null && path.length > 0;
+                if (nested) {
+                    writer.append("context.isNestedVariableSet(")
+                            .append(CoordinateUtils.formatCoordinatesAsArrayInitializer(coordinates));
+                    for (final String p : path) {
+                        writer.append(", \"").append(p).append("\"");
+                    }
+                    writer.append(")");
+                } else {
+                    writer.append("context.isVariableSet(")
+                            .append(CoordinateUtils.formatCoordinatesAsArrayInitializer(coordinates)).append(")");
+                }
+                writer.append(" ? ");
+                if (nested) {
+                    writer.append("context.getNestedVariable(")
+                            .append(CoordinateUtils.formatCoordinatesAsArrayInitializer(coordinates));
+                    for (final String p : path) {
+                        writer.append(", \"").append(p).append("\"");
+                    }
+                    writer.append(")");
+                } else {
+                    writer.append("context.getVariable(")
+                            .append(CoordinateUtils.formatCoordinatesAsArrayInitializer(coordinates)).append(")");
+                }
+                writer.append(" : ");
+            }
+            if (config.getFallback() != null) {
+                writer.append(mapExpression(this.getContainingClass(), config.getFallback()).getContents());
+            } else {
+                writer.append("null");
+            }
+            writer.append(" ");
+            return writer.toString();
+        }
+    }
+    private class ArrayExpressionData extends ExpressionData {
+
+        private final Class<?> type;
+        private final List<ExpressionData> args;
+        @Getter
+        private final String contents;
+
+        private ArrayExpressionData(final ExecutableInnerClassData containingClass,
+                                    final List<ExpressionConfig> configs, final Class<?> type) {
+            super(containingClass);
+            this.type = type;
+            args = configs.stream().map(config -> mapExpression(containingClass, config))
+                    .collect(Collectors.toList());
+            getSourceFile().ensureImport(type);
+            this.contents = generateContents();
+        }
+
+        public String generateContents() {
+            final StringBuilder builder = new StringBuilder();
+            final String typeName = getSourceFile().ensureImport(type);
+
+            // output all expressions as an array
+            builder.append("new ").append(typeName).append("[]{")
+                    .append(args.stream().map(ExpressionData::getContents).collect(Collectors.joining(", ")))
+                    .append("}");
+            return builder.toString();
+        }
+    }
 
 
+    private ExpressionData mapExpression(final ExecutableInnerClassData containingClass,
+                                         final ExpressionConfig config) {
+        if (config instanceof FunctionConfig functionConfig) {
+            return new FunctionExpressionData(containingClass, functionConfig);
+        } else if (config instanceof ValueConfig valueConfig) {
+            return new ValueExpressionData(containingClass, valueConfig);
+        } else if (config instanceof ReferenceConfig referenceConfig) {
+            return new VariableReferenceData(containingClass, referenceConfig);
+        }
+        throw new IllegalStateException("Unknown expression config type: " + config.getClass());
+    }
 
+    /**
+     * Very simple escape logic. Only intended to expose logic as toString(), not intended to be unescaped or escaped multiple times
+     * @param source source code
+     * @return source code that can be printed as a Java string
+     */
+    private static String escapeSource(final String source) {
+        return source.replace("\\", "\\\\")
+                .replace("\"", "\\\"")
+                .replace("\n", "\\n");
+    }
 }

@@ -11,8 +11,8 @@ import java.util.Map;
 public class FunctionSpecDTO implements SpecDTO {
 
   private String name;
-  private String returnType;
-  public Map<String, InputParameterSpecDTO> parameters;
+  private String outputType;
+  public Map<String, InputSpecDTO> inputs;
 
   @Override
   public SpecType getType() {

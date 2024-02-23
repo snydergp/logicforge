@@ -4,20 +4,15 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 
-import java.lang.reflect.Method;
-import java.util.Optional;
+import java.util.List;
 
 @Data
 @Builder
 @RequiredArgsConstructor
-public class TypePropertySpec {
+public class VariableSpec {
 
-  private final String name;
-
-  private final String typeId;
+  private final Class<?> type;
 
   private final boolean optional;
-
-  private final Method getter;
 
 }

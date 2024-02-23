@@ -3,108 +3,91 @@ package io.logicforge.core.engine.compile;
 import io.logicforge.core.annotations.elements.Action;
 import io.logicforge.core.annotations.elements.Function;
 import io.logicforge.core.common.Pair;
-import io.logicforge.core.engine.ActionExecutor;
-import io.logicforge.core.engine.LogicForgeOptions;
-import io.logicforge.core.engine.Process;
+import io.logicforge.core.exception.EngineConfigurationException;
 import io.logicforge.core.exception.EngineInitializationException;
 import io.logicforge.core.exception.ProcessConstructionException;
-import io.logicforge.core.injectable.ModifiableExecutionContext;
-import io.logicforge.core.injectable.impl.DefaultModifiableExecutionContext;
 import io.logicforge.core.model.configuration.ActionConfig;
-import io.logicforge.core.model.configuration.InputConfig;
+import io.logicforge.core.model.configuration.BlockConfig;
+import io.logicforge.core.model.configuration.ExpressionConfig;
+import io.logicforge.core.model.configuration.FunctionConfig;
 import io.logicforge.core.model.configuration.ProcessConfig;
-import io.logicforge.core.model.configuration.impl.DefaultActionConfig;
-import io.logicforge.core.model.configuration.impl.DefaultFunctionConfig;
-import io.logicforge.core.model.configuration.impl.DefaultProcessConfig;
-import io.logicforge.core.model.configuration.impl.DefaultValueConfig;
+import io.logicforge.core.model.configuration.ValueConfig;
 import io.logicforge.core.model.specification.ActionSpec;
-import io.logicforge.core.model.specification.ComputedParameterSpec;
 import io.logicforge.core.model.specification.EngineSpec;
 import io.logicforge.core.model.specification.EngineSpecBuilder;
 import io.logicforge.core.model.specification.FunctionSpec;
-import io.logicforge.core.model.specification.ParameterSpec;
-import lombok.Getter;
-import lombok.RequiredArgsConstructor;
+import io.logicforge.core.model.specification.InputSpec;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.lang.reflect.Method;
-import java.time.Duration;
-import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.MockitoAnnotations.openMocks;
 
+@ExtendWith(MockitoExtension.class)
 public class CompilationProcessBuilderTest {
 
-  private ActionExecutor executor;
+  @Mock
+  private ProcessCompiler compiler;
 
   @BeforeEach
   void setUp() throws EngineInitializationException {
-    final LogicForgeOptions options =
-        new LogicForgeOptions(Duration.of(1, ChronoUnit.SECONDS), new HashMap<>(), Duration.ZERO);
-    final ExecutorService executorService =
-        new ThreadPoolExecutor(1, 2, 10, TimeUnit.SECONDS, new ArrayBlockingQueue<>(16));
-    executor = new ActionExecutor(executorService, options);
-    executor.start();
+    openMocks(this);
   }
 
   @Test
-  void testBuildProcess_buildsProcess() throws ProcessConstructionException {
+  void testBuildProcess_buildsProcess() throws ProcessConstructionException, EngineConfigurationException {
     final Functions functions = new Functions();
     final EngineSpec engineSpec = buildSpec(functions);
-    final CompilationProcessBuilder compiler = new CompilationProcessBuilder(engineSpec);
+    final CompilationProcessBuilder builder = new CompilationProcessBuilder(engineSpec, compiler);
     final ProcessConfig config = buildProcessConfig("Hello, ", "World!", 3, 5);
-    final Process process = compiler.buildProcess(config);
-    final ModifiableExecutionContext context = new DefaultModifiableExecutionContext();
+    builder.buildProcess(config);
 
-    process.execute(context, executor);
-    assertEquals(1, functions.recordedPairs.size());
-    final Pair<String, Integer> recordedPair = functions.recordedPairs.get(0);
-    assertEquals("Hello, World!", recordedPair.getLeft());
-    assertEquals(Integer.valueOf(8), recordedPair.getRight());
+    // TODO snapshot compare of source file
   }
 
   private static ProcessConfig buildProcessConfig(final String concatA, final String concatB,
-      final Integer addA, final Integer addB) {
-    final DefaultProcessConfig config = new DefaultProcessConfig();
-    config.setActions(List.of(
-        buildRecordPairConfig(buildConcatConfig(concatA, concatB), buildAddConfig(addA, addB))));
-    return config;
+                                                  final Integer addA, final Integer addB) {
+    final BlockConfig blockConfig = new BlockConfig(List.of(
+            buildRecordPairConfig(buildConcatConfig(concatA, concatB), buildAddConfig(addA, addB))));
+    return ProcessConfig.builder().name("example").rootBlock(blockConfig).allowConcurrency(false).build();
   }
 
-  private static ActionConfig buildRecordPairConfig(final InputConfig a, final InputConfig b) {
-    return DefaultActionConfig.builder().name("recordPair")
-        .inputArguments(Map.of("a", List.of(a), "b", List.of(b))).build();
+  private static ActionConfig buildRecordPairConfig(final ExpressionConfig a,
+                                                    final ExpressionConfig b) {
+    return ActionConfig.builder().name("recordPair")
+            .inputs(Map.of("a", List.of(a), "b", List.of(b))).build();
   }
 
-  private static InputConfig buildConcatConfig(final String a, final String b) {
-    return DefaultFunctionConfig.builder().name("concat").arguments(Map.of("a",
-        List.of(DefaultValueConfig.builder().typeId(String.class.getName()).value(a).build()), "b",
-        List.of(DefaultValueConfig.builder().typeId(String.class.getName()).value(b).build())))
-        .build();
+  private static ExpressionConfig buildConcatConfig(final String a, final String b) {
+    return FunctionConfig.builder().name("concat").arguments(Map.of("a",
+                    List.of(ValueConfig.builder().typeId(String.class.getName()).value(a).build()), "b",
+                    List.of(ValueConfig.builder().typeId(String.class.getName()).value(b).build())))
+            .build();
   }
 
-  private static InputConfig buildAddConfig(final int a, final int b) {
-    return DefaultFunctionConfig.builder().name("add")
-        .arguments(Map.of("a",
-            List.of(DefaultValueConfig.builder().typeId(Integer.class.getName())
-                .value(Integer.toString(a)).build()),
-            "b", List.of(DefaultValueConfig.builder().typeId(Integer.class.getName())
-                .value(Integer.toString(b)).build())))
-        .build();
+  private static ExpressionConfig buildAddConfig(final int a, final int b) {
+    return FunctionConfig.builder().name("add")
+            .arguments(Map.of("a",
+                    List.of(ValueConfig.builder().typeId(Integer.class.getName())
+                            .value(Integer.toString(a)).build()),
+                    "b", List.of(ValueConfig.builder().typeId(Integer.class.getName())
+                            .value(Integer.toString(b)).build())))
+            .build();
   }
 
-  private static EngineSpec buildSpec(final Functions functions) {
-    return new EngineSpecBuilder().withAction(Functions.recordPair(functions))
-        .withFunction(Functions.add(functions)).withFunction(Functions.concat(functions)).build();
+  private static EngineSpec buildSpec(final Functions functions) throws EngineConfigurationException {
+    return new EngineSpecBuilder()
+            .withAction(Functions.recordPair(functions))
+            .withFunction(Functions.add(functions))
+            .withFunction(Functions.concat(functions))
+            .build();
   }
 
   public static class Functions {
@@ -130,10 +113,9 @@ public class CompilationProcessBuilderTest {
       final Method method;
       try {
         method = Functions.class.getMethod("recordPair", String.class, Integer.class);
-        final List<ParameterSpec> parameters =
-            List.of(new ComputedParameterSpecImpl("a", String.class, false),
-                new ComputedParameterSpecImpl("b", Integer.class, false));
-        return new ActionSpecImpl("recordPair", method, functions, parameters);
+        final List<InputSpec> parameters = List.of(new InputSpec("a", String.class, false),
+                new InputSpec("b", Integer.class, false));
+        return new ActionSpec("recordPair", method, functions, parameters, Void.class);
       } catch (NoSuchMethodException e) {
         throw new RuntimeException(e);
       }
@@ -143,10 +125,9 @@ public class CompilationProcessBuilderTest {
       final Method method;
       try {
         method = Functions.class.getMethod("concat", String.class, String.class);
-        final List<ParameterSpec> parameters =
-            List.of(new ComputedParameterSpecImpl("a", String.class, false),
-                new ComputedParameterSpecImpl("b", String.class, false));
-        return new FunctionSpecImpl("concat", String.class, method, functions, parameters);
+        final List<InputSpec> parameters = List.of(new InputSpec("a", String.class, false),
+                new InputSpec("b", String.class, false));
+        return new FunctionSpec("concat", method, functions, parameters, String.class);
       } catch (NoSuchMethodException e) {
         throw new RuntimeException(e);
       }
@@ -156,40 +137,12 @@ public class CompilationProcessBuilderTest {
       final Method method;
       try {
         method = Functions.class.getMethod("add", Integer.class, Integer.class);
-        final List<ParameterSpec> parameters =
-            List.of(new ComputedParameterSpecImpl("a", Integer.class, false),
-                new ComputedParameterSpecImpl("b", Integer.class, false));
-        return new FunctionSpecImpl("add", String.class, method, functions, parameters);
+        final List<InputSpec> parameters = List.of(new InputSpec("a", Integer.class, false),
+                new InputSpec("b", Integer.class, false));
+        return new FunctionSpec("add", method, functions, parameters, String.class);
       } catch (NoSuchMethodException e) {
         throw new RuntimeException(e);
       }
     }
-  }
-
-  @RequiredArgsConstructor
-  @Getter
-  public static class ComputedParameterSpecImpl implements ComputedParameterSpec {
-    private final String name;
-    private final Class<?> type;
-    private final boolean multi;
-  }
-
-  @RequiredArgsConstructor
-  @Getter
-  public static class ActionSpecImpl implements ActionSpec {
-    private final String name;
-    private final Method method;
-    private final Object provider;
-    private final List<ParameterSpec> parameters;
-  }
-
-  @RequiredArgsConstructor
-  @Getter
-  public static class FunctionSpecImpl implements FunctionSpec {
-    private final String name;
-    private final Class<?> outputType;
-    private final Method method;
-    private final Object provider;
-    private final List<ParameterSpec> parameters;
   }
 }

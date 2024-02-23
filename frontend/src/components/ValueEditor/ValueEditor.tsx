@@ -6,7 +6,7 @@ import {
   FunctionSpec,
   INTEGER_STRING,
   LONG_STRING,
-  ParameterSpec,
+  InputSpec,
   TypeSpec,
   Validator,
   ValueContent,
@@ -29,11 +29,11 @@ import { Simulate } from 'react-dom/test-utils';
 import error = Simulate.error;
 
 export interface ValueEditorProps {
-  parameterSpec: ParameterSpec;
+  parameterSpec: InputSpec;
   content: ValueContent;
 }
 
-function validatorForSpec(parameterSpec: ParameterSpec): Validator {
+function validatorForSpec(parameterSpec: InputSpec): Validator {
   const returnType = parameterSpec.returnType;
   const wellKnownType = returnType as WellKnownType;
   if (Object.values(WellKnownType).includes(wellKnownType)) {
@@ -142,7 +142,7 @@ function findFunctionsMatchingTypeId(
   if (typeMapping !== undefined && engineSpec !== undefined) {
     const subtypes = collectSubtypes(typeId, typeMapping);
     Object.entries(engineSpec.functions).forEach(([key, value]) => {
-      if (subtypes[value.returnType] !== undefined) {
+      if (subtypes[value.outputType] !== undefined) {
         matchingFunctions[key] = value;
       }
     });

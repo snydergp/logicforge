@@ -11,8 +11,8 @@ import java.util.Map;
 public class ActionSpecDTO implements SpecDTO {
 
   private String name;
-  public Map<String, ActionListSpecDTO> actionParameters;
-  public Map<String, InputParameterSpecDTO> inputParameters;
+  public Map<String, ActionListSpecDTO> actions;
+  public Map<String, InputSpecDTO> inputs;
 
   @Override
   public SpecType getType() {

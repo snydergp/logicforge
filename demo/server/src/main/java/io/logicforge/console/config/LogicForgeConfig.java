@@ -1,11 +1,11 @@
 package io.logicforge.console.config;
 
 import io.logicforge.core.builtin.BuiltinProviders;
-import io.logicforge.core.engine.ActionExecutor;
 import io.logicforge.core.engine.LogicForgeOptions;
 import io.logicforge.core.engine.ProcessBuilder;
 import io.logicforge.core.engine.compile.CompilationProcessBuilder;
-import io.logicforge.core.model.specification.ContextVariableSpec;
+import io.logicforge.core.engine.compile.ProcessCompiler;
+import io.logicforge.core.exception.EngineConfigurationException;
 import io.logicforge.core.model.specification.EngineSpec;
 import io.logicforge.core.model.specification.EngineSpecBuilder;
 import io.logicforge.core.model.specification.ProcessSpec;
@@ -14,9 +14,8 @@ import org.springframework.context.annotation.Configuration;
 
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -27,34 +26,13 @@ public class LogicForgeConfig {
 
   @Bean
   public ProcessSpec processSpec() {
-    return new ProcessSpec() {
-      @Override
-      public String getName() {
-        return "example";
-      }
-
-      @Override
-      public List<ContextVariableSpec> getAvailableVariables() {
-        return List.of();
-      }
-
-      @Override
-      public Optional<ContextVariableSpec> getReturnValue() {
-        return Optional.empty();
-      }
-    };
+    return new ProcessSpec("example", new ArrayList<>(), null);
   }
 
   @Bean
-  public EngineSpec engineSpec(final ProcessSpec processSpec) {
+  public EngineSpec engineSpec(final ProcessSpec processSpec) throws EngineConfigurationException {
     return new EngineSpecBuilder().withProviderClasses(BuiltinProviders.getBuiltinProviders())
         .withProcess(processSpec).build();
-  }
-
-  @Bean
-  public ActionExecutor actionExecutor(final LogicForgeOptions logicForgeOptions,
-      final ExecutorService executorService) {
-    return new ActionExecutor(executorService, logicForgeOptions);
   }
 
   @Bean
@@ -69,8 +47,13 @@ public class LogicForgeConfig {
   }
 
   @Bean
-  public ProcessBuilder processBuilder(final EngineSpec engineSpec) {
-    return new CompilationProcessBuilder(engineSpec);
+  public ProcessCompiler processCompiler() {
+    return new ProcessCompiler();
+  }
+
+  @Bean
+  public ProcessBuilder processBuilder(final EngineSpec engineSpec, final ProcessCompiler processCompiler) {
+    return new CompilationProcessBuilder(engineSpec, processCompiler);
   }
 
 }

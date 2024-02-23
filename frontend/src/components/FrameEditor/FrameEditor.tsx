@@ -185,7 +185,7 @@ function ActionFrame({ content }: ActionFrameProps) {
         description={description}
         type={FrameType.ACTION}
       />
-      {Object.entries(specification.actionParameters)?.map(([name]) => {
+      {Object.entries(specification.actions)?.map(([name]) => {
         return (
           <Paper key={name}>
             <ActionParameterList
@@ -196,7 +196,7 @@ function ActionFrame({ content }: ActionFrameProps) {
           </Paper>
         );
       })}
-      {Object.entries(specification.inputParameters)?.map(([name]) => {
+      {Object.entries(specification.inputs)?.map(([name]) => {
         return (
           <Paper key={name}>
             <InputParameterList
@@ -234,7 +234,7 @@ export function FunctionFrame({ content }: FunctionFrameProps) {
         type={FrameType.FUNCTION}
       />
       <Stack spacing={1}>
-        {Object.entries(specification.parameters)?.map(([name]) => {
+        {Object.entries(specification.inputs)?.map(([name]) => {
           return (
             <Paper key={name}>
               <InputParameterList

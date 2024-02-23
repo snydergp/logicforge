@@ -49,14 +49,12 @@ At runtime, the user-supplied logic is compiled into a Java class that can be ex
 package io.metalmind.generated.action.pid_0;
 
 import io.logicforge.core.engine.Action;
-import io.logicforge.core.engine.ActionExecutor;
-import io.logicforge.core.engine.ChildActionsImpl;
 import io.logicforge.core.engine.Process;
 import io.logicforge.core.engine.compile.CompilationProcessBuilderTest;
 import io.logicforge.core.exception.ProcessExecutionException;
 import io.logicforge.core.injectable.ChildActions;
-import io.logicforge.core.injectable.ExecutionContext;
-import io.logicforge.core.injectable.ModifiableExecutionContext;
+import io.logicforge.core.injectable.Variables;
+import io.logicforge.core.engine.ExecutionContext;
 
 import java.util.concurrent.atomic.AtomicLong;
 

@@ -1,17 +1,24 @@
 package io.logicforge.core.model.specification;
 
+import lombok.Builder;
+import lombok.Data;
+import lombok.RequiredArgsConstructor;
+
 import java.util.List;
 import java.util.Map;
 
-public interface EngineSpec {
+@Data
+@Builder
+@RequiredArgsConstructor
+public class EngineSpec {
 
-  Map<String, ProcessSpec> getProcesses();
+  private final Map<String, ProcessSpec> processes;
 
-  Map<String, TypeSpec> getTypes();
+  private final Map<String, TypeSpec> types;
 
-  Map<String, ActionSpec> getActions();
+  private final Map<String, ActionSpec> actions;
 
-  Map<String, FunctionSpec> getFunctions();
+  private final Map<String, FunctionSpec> functions;
 
-  List<ConverterSpec> getConverters();
+  private final List<ConverterSpec> converters;
 }

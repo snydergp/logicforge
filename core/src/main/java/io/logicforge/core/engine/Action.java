@@ -1,19 +1,16 @@
 package io.logicforge.core.engine;
 
 import io.logicforge.core.exception.ProcessExecutionException;
-import io.logicforge.core.injectable.ModifiableExecutionContext;
+
+import java.util.List;
 
 public interface Action {
 
-  void execute(final ModifiableExecutionContext context) throws ProcessExecutionException;
+  Object execute(final ExecutionContext context) throws ProcessExecutionException;
 
-  String getName();
+  int[] getCoordinates();
 
-  String getProcessId();
-
-  String getPath();
-
-  int getIndex();
+  List<int[]> getDependencyCoordinates();
 
 
 }

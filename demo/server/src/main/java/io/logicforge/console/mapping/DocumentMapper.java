@@ -9,7 +9,7 @@ import io.logicforge.console.model.persistence.ValueConfigDocument;
 import io.logicforge.core.common.Pair;
 import io.logicforge.core.model.configuration.ActionConfig;
 import io.logicforge.core.model.configuration.FunctionConfig;
-import io.logicforge.core.model.configuration.InputConfig;
+import io.logicforge.core.model.configuration.ExpressionConfig;
 import io.logicforge.core.model.configuration.ValueConfig;
 import io.logicforge.core.model.configuration.impl.DefaultActionConfig;
 import io.logicforge.core.model.configuration.impl.DefaultFunctionConfig;
@@ -34,24 +34,24 @@ public class DocumentMapper {
   public ProcessConfigDocument internal(final ExtendedProcessConfig external) {
     return ProcessConfigDocument.builder().id(external.getId())
         .actions(
-            external.getActions().stream().map(this::actionInternal).collect(Collectors.toList()))
+            external.getExecutables().stream().map(this::actionInternal).collect(Collectors.toList()))
         .build();
   }
 
   private ActionConfigDocument actionInternal(final ActionConfig external) {
     return ActionConfigDocument.builder().name(external.getName())
-        .actionArguments(external.getActionArguments().entrySet().stream()
+        .actions(external.getActions().entrySet().stream()
             .map(e -> new Pair<>(e.getKey(),
                 e.getValue().stream().map(this::actionInternal).collect(Collectors.toList())))
             .collect(Collectors.toMap(Pair::getLeft, Pair::getRight)))
-        .inputArguments(external.getInputArguments().entrySet().stream()
+        .inputs(external.getInputs().entrySet().stream()
             .map(e -> new Pair<>(e.getKey(),
                 e.getValue().stream().map(this::inputInternal).collect(Collectors.toList())))
             .collect(Collectors.toMap(Pair::getLeft, Pair::getRight)))
         .build();
   }
 
-  private InputConfigDocument inputInternal(final InputConfig external) {
+  private InputConfigDocument inputInternal(final ExpressionConfig external) {
     if (external instanceof FunctionConfig functionConfig) {
       return functionInternal(functionConfig);
     } else if (external instanceof ValueConfig valueConfig) {
@@ -87,18 +87,18 @@ public class DocumentMapper {
 
   private ActionConfig actionExternal(final ActionConfigDocument internal) {
     return DefaultActionConfig.builder().name(internal.getName())
-        .actionArguments(internal.getActionArguments().entrySet().stream()
+        .actionArguments(internal.getActions().entrySet().stream()
             .map(e -> new Pair<>(e.getKey(),
                 e.getValue().stream().map(this::actionExternal).collect(Collectors.toList())))
             .collect(Collectors.toMap(Pair::getLeft, Pair::getRight)))
-        .inputArguments(internal.getInputArguments().entrySet().stream()
+        .inputArguments(internal.getInputs().entrySet().stream()
             .map(e -> new Pair<>(e.getKey(),
                 e.getValue().stream().map(this::inputExternal).collect(Collectors.toList())))
             .collect(Collectors.toMap(Pair::getLeft, Pair::getRight)))
         .build();
   }
 
-  private InputConfig inputExternal(final InputConfigDocument internal) {
+  private ExpressionConfig inputExternal(final InputConfigDocument internal) {
     if (internal instanceof FunctionConfigDocument functionConfig) {
       return functionExternal(functionConfig);
     } else if (internal instanceof ValueConfigDocument valueConfig) {

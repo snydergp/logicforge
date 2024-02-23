@@ -9,5 +9,5 @@ import java.lang.annotation.Target;
 @Target(ElementType.TYPE)
 public @interface Property {
 
-    boolean optional() default false;
+  boolean optional() default false;
 }

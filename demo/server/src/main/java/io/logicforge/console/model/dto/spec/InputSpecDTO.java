@@ -6,7 +6,7 @@ import lombok.Data;
 
 @Data
 @Builder
-public class InputParameterSpecDTO implements SpecDTO {
+public class InputSpecDTO implements SpecDTO {
 
   private String name;
   private String returnType;

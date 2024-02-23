@@ -11,7 +11,7 @@ export enum SpecType {
   ACTION = 'ACTION',
   FUNCTION = 'FUNCTION',
   VARIABLE = 'VARIABLE',
-  PARAMETER = 'PARAMETER',
+  INPUT = 'INPUT',
 }
 
 export type TypeSpec = {
@@ -23,8 +23,8 @@ export type TypeSpec = {
 
 export type FunctionSpec = {
   type: SpecType.FUNCTION;
-  returnType: string;
-  parameters: { [key: string]: ParameterSpec };
+  outputType: string;
+  inputs: { [key: string]: InputSpec };
 };
 
 export type VariableSpec = {
@@ -33,8 +33,8 @@ export type VariableSpec = {
   optional: boolean;
 };
 
-export type ParameterSpec = {
-  type: SpecType.PARAMETER;
+export type InputSpec = {
+  type: SpecType.INPUT;
   returnType: string;
   multi: boolean;
   properties?: { [key: string]: string[] };
@@ -46,8 +46,8 @@ export type ActionListSpec = {
 
 export type ActionSpec = {
   type: SpecType.ACTION;
-  actionParameters: { [key: string]: ActionListSpec };
-  inputParameters: { [key: string]: ParameterSpec };
+  actions: { [key: string]: ActionListSpec };
+  inputs: { [key: string]: InputSpec };
 };
 
 export type ProcessSpec = {
@@ -71,4 +71,4 @@ export type LogicForgeSpec =
   | ProcessSpec
   | ActionSpec
   | FunctionSpec
-  | ParameterSpec;
+  | InputSpec;

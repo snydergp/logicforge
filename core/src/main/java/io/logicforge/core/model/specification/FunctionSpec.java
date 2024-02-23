@@ -1,9 +1,25 @@
 package io.logicforge.core.model.specification;
 
-public interface FunctionSpec extends MethodSpec {
+import lombok.Builder;
+import lombok.Data;
+import lombok.RequiredArgsConstructor;
 
-  String getName();
+import java.lang.reflect.Method;
+import java.util.List;
 
-  Class<?> getOutputType();
+@Data
+@Builder
+@RequiredArgsConstructor
+public class FunctionSpec {
+
+  private final String name;
+
+  private final Method method;
+
+  private final Object provider;
+
+  private final List<InputSpec> inputs;
+
+  private final Class<?> outputType;
 
 }

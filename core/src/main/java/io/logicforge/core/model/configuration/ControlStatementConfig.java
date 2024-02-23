@@ -4,20 +4,21 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.RequiredArgsConstructor;
+import lombok.experimental.SuperBuilder;
 
 import java.util.List;
-import java.util.Map;
 
 @EqualsAndHashCode(callSuper = false)
 @Data
-@Builder
 @RequiredArgsConstructor
-public class ActionConfig extends ExecutableConfig {
+public class ControlStatementConfig extends ExecutableConfig {
 
-  private final String name;
+  public enum Type {
+    CONDITIONAL;
+  }
 
-  private final Map<String, List<ExpressionConfig>> inputs;
+  private final Type type;
 
-  private final VariableConfig output;
+  private final List<BlockConfig> blocks;
 
 }

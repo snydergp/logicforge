@@ -9,7 +9,7 @@ import {
   EngineSpec,
   FunctionConfig,
   FunctionSpec,
-  InputConfig,
+  ExpressionConfig,
   LogicForgeConfig,
   ProcessConfig,
   ValueConfig,
@@ -237,32 +237,32 @@ export const selectParameterSpecificationForKey = (key?: string) => (state: Stor
 };
 
 function newFunctionConfigForSpec(functionName: string, spec: FunctionSpec): FunctionConfig {
-  const argumentConfigs: { [key: string]: InputConfig[] } = {};
-  Object.entries(spec.parameters).forEach(([key, value]) => {
+  const argumentConfigs: { [key: string]: ExpressionConfig[] } = {};
+  Object.entries(spec.inputs).forEach(([key, value]) => {
     argumentConfigs[key] = [{ type: ConfigType.VALUE, value: '' }];
   });
   return {
     type: ConfigType.FUNCTION,
     name: functionName,
-    arguments: argumentConfigs,
+    inputs: argumentConfigs,
   };
 }
 
 function newActionConfigForSpec(actionName: string, spec: ActionSpec): ActionConfig {
-  const inputArgumentConfigs: { [key: string]: InputConfig[] } = {};
+  const inputArgumentConfigs: { [key: string]: ExpressionConfig[] } = {};
   const actionArgumentConfigs: { [key: string]: ActionConfig[] } = {};
-  Object.entries(spec.inputParameters).forEach(([key, value]) => {
+  Object.entries(spec.inputs).forEach(([key, value]) => {
     inputArgumentConfigs[key] = [{ type: ConfigType.VALUE, value: '' }];
   });
-  Object.entries(spec.actionParameters).forEach(([key, value]) => {
+  Object.entries(spec.actions).forEach(([key, value]) => {
     actionArgumentConfigs[key] = [];
   });
 
   return {
     type: ConfigType.ACTION,
     name: actionName,
-    inputArguments: inputArgumentConfigs,
-    actionArguments: actionArgumentConfigs,
+    inputs: inputArgumentConfigs,
+    actions: actionArgumentConfigs,
   };
 }
 

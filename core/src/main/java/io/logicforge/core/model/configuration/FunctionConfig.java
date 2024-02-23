@@ -1,11 +1,20 @@
 package io.logicforge.core.model.configuration;
 
+import lombok.Builder;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.RequiredArgsConstructor;
+
 import java.util.List;
 import java.util.Map;
 
-public interface FunctionConfig extends InputConfig {
+@EqualsAndHashCode(callSuper = false)
+@Data
+@Builder
+@RequiredArgsConstructor
+public class FunctionConfig extends ExpressionConfig {
 
-  String getName();
+  private final String name;
 
-  Map<String, List<InputConfig>> getArguments();
+  private final Map<String, List<ExpressionConfig>> arguments;
 }

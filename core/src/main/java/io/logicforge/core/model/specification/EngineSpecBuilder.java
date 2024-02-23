@@ -5,12 +5,10 @@ import io.logicforge.core.annotations.elements.CompoundType;
 import io.logicforge.core.annotations.elements.Converter;
 import io.logicforge.core.annotations.elements.Function;
 import io.logicforge.core.annotations.elements.Property;
-import io.logicforge.core.annotations.runtime.Injectable;
 import io.logicforge.core.annotations.metadata.Name;
-import io.logicforge.core.common.Pair;
 import io.logicforge.core.constant.EngineMethodType;
+import io.logicforge.core.exception.EngineConfigurationException;
 import io.logicforge.core.util.EngineMethodUtil;
-import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
@@ -22,10 +20,8 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.Parameter;
-import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -37,7 +33,7 @@ import java.util.stream.Collectors;
 
 public class EngineSpecBuilder {
 
-  private static java.util.function.Function<Class<?>, String> TYPE_ID_NAMING_STRATEGY =
+  private static final java.util.function.Function<Class<?>, String> TYPE_ID_NAMING_STRATEGY =
       Class::getName;
 
   private final Map<String, ProcessSpec> processes = new HashMap<>();
@@ -46,9 +42,6 @@ public class EngineSpecBuilder {
   private final Map<String, ActionSpec> actions = new HashMap<>();
   private final Map<String, FunctionSpec> functions = new HashMap<>();
   private final List<ConverterSpec> converters = new ArrayList<>();
-
-  private final Map<Pair<EngineMethodType, Class<?>>, Optional<InjectedParameterSpec>> injectableCache =
-      new HashMap<>();
 
   /**
    * Adds methods annotated on the provider object's class to this builder. Only methods annotated with {@link Action},
@@ -62,14 +55,16 @@ public class EngineSpecBuilder {
    * @return this builder instance
    */
   public EngineSpecBuilder withProviderInstance(final Object provider,
-      final boolean processStaticMethods) {
+      final boolean processStaticMethods) throws EngineConfigurationException {
     if (provider instanceof Class<?>) {
       throw new IllegalArgumentException(
           "Attempted to pass class instance to withProviderInstance method.");
     }
 
     final Class<?> providerClass = provider.getClass();
-    Arrays.stream(providerClass.getMethods()).forEach(method -> processMethod(method, provider));
+    for (final Method method : providerClass.getMethods()) {
+      processMethod(method, provider);
+    }
     if (processStaticMethods) {
       withProviderClass(providerClass);
     }
@@ -77,58 +72,75 @@ public class EngineSpecBuilder {
     return this;
   }
 
-  public EngineSpecBuilder withProviderClasses(final Class<?>... providerClasses) {
-    Arrays.stream(providerClasses).forEach(this::withProviderClass);
+  public EngineSpecBuilder withProviderClasses(final Class<?>... providerClasses)
+      throws EngineConfigurationException {
+    for (final Class<?> providerClass : providerClasses) {
+      withProviderClass(providerClass);
+    }
     return this;
   }
 
-  public EngineSpecBuilder withProviderClass(final Class<?> providerClass) {
-    Arrays.stream(providerClass.getMethods())
-        .forEach(method -> processMethod(method, providerClass));
+  public EngineSpecBuilder withProviderClass(final Class<?> providerClass)
+      throws EngineConfigurationException {
+    for (final Method method : providerClass.getMethods()) {
+      processMethod(method, providerClass);
+    }
     return this;
   }
 
-  public EngineSpecBuilder withProcess(final ProcessSpec process) {
+  public EngineSpecBuilder withProcess(final ProcessSpec process) throws EngineConfigurationException {
     processes.put(process.getName(), process);
+    if (process.getOutputType() != null) {
+      registerType(process.getOutputType().getType());
+    }
     return this;
   }
 
-  public EngineSpecBuilder withAction(final ActionSpec actionSpec) {
+  public EngineSpecBuilder withAction(final ActionSpec actionSpec) throws EngineConfigurationException {
     actions.put(actionSpec.getName(), actionSpec);
+    if (actionSpec.getOutputType() != null) {
+      registerType(actionSpec.getOutputType());
+    }
+    for (final InputSpec input : actionSpec.getInputs()) {
+      registerType(input.getType());
+    }
     return this;
   }
 
-  public EngineSpecBuilder withFunction(final FunctionSpec functionSpec) {
+  public EngineSpecBuilder withFunction(final FunctionSpec functionSpec) throws EngineConfigurationException {
     functions.put(functionSpec.getName(), functionSpec);
+    registerType(functionSpec.getOutputType());
+    for (final InputSpec input : functionSpec.getInputs()) {
+      registerType(input.getType());
+    }
     return this;
   }
 
   public EngineSpec build() {
-    return new EngineSpecImpl(processes, processTypes(), actions, functions, converters);
+    return new EngineSpec(processes, processTypes(), actions, functions, converters);
   }
 
-  private void processMethod(final Method method, final Object instanceOrClass) {
+  private void processMethod(final Method method, final Object instanceOrClass)
+      throws EngineConfigurationException {
     final boolean processStatic = instanceOrClass instanceof Class<?>;
     if (processStatic == isMethodStatic(method)) {
-      final Optional<Pair<EngineMethodType, Object>> optionalAnnotation =
-          EngineMethodUtil.analyzeMethod(method);
-      if (optionalAnnotation.isPresent()) {
-        final Pair<EngineMethodType, Object> annotation = optionalAnnotation.get();
-        switch (annotation.getLeft()) {
-          case ACTION -> processAction(method, instanceOrClass, (Action) annotation.getRight());
-          case FUNCTION ->
-            processFunction(method, instanceOrClass, (Function) annotation.getRight());
-          case CONVERTER ->
-            processConverter(method, instanceOrClass, (Converter) annotation.getRight());
+      final Optional<EngineMethodType> optionalType = EngineMethodUtil.analyzeMethod(method);
+      if (optionalType.isPresent()) {
+        final EngineMethodType type = optionalType.get();
+        switch (type) {
+          case ACTION -> processAction(method, instanceOrClass);
+          case FUNCTION -> processFunction(method, instanceOrClass);
+          case CONVERTER -> processConverter(method, instanceOrClass);
         }
       }
     }
   }
 
-  private void registerType(final Class<?> type) {
+  private void registerType(final Class<?> type) throws EngineConfigurationException {
     final Class<?> typeToProcess = type.isArray() ? type.getComponentType() : type;
     types.add(typeToProcess);
-    if (type.getAnnotation(CompoundType.class) != null && !compoundTypes.containsKey(typeToProcess)) {
+    if (type.getAnnotation(CompoundType.class) != null
+        && !compoundTypes.containsKey(typeToProcess)) {
       final Map<String, PropertyInfo> propertyInfos = analyzeCompoundType(type);
       compoundTypes.put(typeToProcess, propertyInfos);
       propertyInfos.values().forEach(propertyInfo -> types.add(propertyInfo.getType()));
@@ -156,8 +168,8 @@ public class EngineSpecBuilder {
           parentTypeIdMappings.computeIfAbsent(id, (i) -> new HashSet<>());
       final List<String> values;
       if (type.isEnum()) {
-        values = Arrays.stream((Enum[]) type.getEnumConstants()).map(Enum::name)
-                .collect(Collectors.toList());
+        values = Arrays.stream((Enum<?>[]) type.getEnumConstants()).map(Enum::name)
+            .collect(Collectors.toList());
       } else if (type.equals(boolean.class) || type.equals(Boolean.class)) {
         values = List.of(Boolean.TRUE.toString(), Boolean.FALSE.toString());
       } else {
@@ -166,17 +178,15 @@ public class EngineSpecBuilder {
       final Map<String, TypePropertySpec> properties = new HashMap<>();
       if (compoundTypes.containsKey(type)) {
         final Map<String, PropertyInfo> propertyInfos = compoundTypes.get(type);
-        propertyInfos.values().stream().map(propertyInfo -> new TypePropertySpecImpl(
-                propertyInfo.getName(),
-                typesByClass.get(propertyInfo.getType()),
-                propertyInfo.isOptional(),
-                propertyInfo.getGetter(),
-                propertyInfo.getSetter()
+        propertyInfos.values().stream()
+            .map(propertyInfo -> new TypePropertySpec(propertyInfo.getName(),
+                typesByClass.get(propertyInfo.getType()), propertyInfo.isOptional(),
+                propertyInfo.getGetter()
 
-        )).forEach(propertyInfo -> properties.put(propertyInfo.getName(), propertyInfo));
+            )).forEach(propertyInfo -> properties.put(propertyInfo.getName(), propertyInfo));
 
       }
-      return new TypeSpecImpl(type, primitive, new HashSet<>(supertypes), values, properties);
+      return new TypeSpec(type, values, new HashSet<>(supertypes), properties);
     }).collect(Collectors.toMap(typeSpec -> typesByClass.get(typeSpec.getRuntimeClass()),
         java.util.function.Function.identity()));
   }
@@ -225,96 +235,73 @@ public class EngineSpecBuilder {
     return parentMapping;
   }
 
-  private void processAction(final Method method, final Object provider, final Action annotation) {
+  private void processAction(final Method method, final Object provider)
+      throws EngineConfigurationException {
     final Class<?> returnType = method.getReturnType();
     if (!void.class.equals(returnType)) {
       throw new IllegalStateException(String
           .format("Action-annotated method %s has a non-void return type: %s", method, returnType));
     }
     final String name = getNameForMethod(method);
-    final List<ParameterSpec> parameterSpecs = processParameters(method, annotation);
-    final ActionSpec actionSpec = new ActionSpecImpl(name, method, provider, parameterSpecs);
+    final List<InputSpec> inputSpecs = processParameters(method);
+    final Class<?> outputType = method.getReturnType();
+    final ActionSpec actionSpec = new ActionSpec(name, method, provider, inputSpecs, outputType);
     actions.put(name, actionSpec);
   }
 
-  private void processFunction(final Method method, final Object provider,
-      final Function annotation) {
+  private void processFunction(final Method method, final Object provider)
+      throws EngineConfigurationException {
     final Class<?> returnType = method.getReturnType();
     if (Void.class.equals(returnType)) {
       throw new IllegalStateException(
           String.format("Function-annotated method %s has a void return type", method));
     }
     final String name = getNameForMethod(method);
-    final List<ParameterSpec> parameterSpecs = processParameters(method, annotation);
+    final List<InputSpec> inputSpecs = processParameters(method);
     final FunctionSpec functionSpec =
-        new FunctionSpecImpl(name, returnType, method, provider, parameterSpecs);
+        new FunctionSpec(name, method, provider, inputSpecs, returnType);
     functions.put(name, functionSpec);
     registerType(returnType);
   }
 
-  private void processConverter(final Method method, final Object provider,
-      final Converter annotation) {
+  private void processConverter(final Method method, final Object provider)
+      throws EngineConfigurationException {
     final Class<?> returnType = method.getReturnType();
     if (Void.class.equals(returnType)) {
       throw new IllegalStateException(
           String.format("Converter-annotated method %s has a void return type", method));
     }
-    final List<ParameterSpec> parameterSpecs = processParameters(method, annotation);
-    if (parameterSpecs.size() != 1) {
+    final List<InputSpec> inputSpecs = processParameters(method);
+    if (inputSpecs.size() != 1) {
       throw new IllegalStateException(
           String.format("Converter-annotated method %s must have a single parameter", method));
     }
-    final ParameterSpec parameterSpec = parameterSpecs.get(0);
-    if (parameterSpec instanceof ComputedParameterSpec computedParameterSpec) {
-      if (computedParameterSpec.isMulti()) {
-        throw new IllegalStateException(
-            String.format("Converter-annotated method %s must not use multi-parameters", method));
-      }
-      final Class<?> inputType = computedParameterSpec.getType();
-      converters
-          .add(new ConverterSpecImpl(inputType, returnType, method, provider, parameterSpecs));
-    } else {
-      throw new IllegalStateException(String
-          .format("Converter-annotated method %s must not include injected parameters", method));
+    final InputSpec inputSpec = inputSpecs.get(0);
+    if (inputSpec.isMulti()) {
+      throw new IllegalStateException(
+          String.format("Converter-annotated method %s must not use multi-parameters", method));
     }
+    final Class<?> inputType = inputSpec.getType();
+    converters.add(new ConverterSpec(inputType, returnType, method, provider, inputSpecs));
   }
 
-  private List<ParameterSpec> processParameters(final Method method, final Object annotation) {
-    final EngineMethodType methodType = EngineMethodUtil.getTypeForAnnotation(annotation)
-        .orElseThrow(() -> new IllegalStateException(String
-            .format("Method %s with annotation %s is illegally defined", method, annotation)));
-    final Parameter[] parameters = method.getParameters();
-    return Arrays.stream(parameters).map(parameter -> processParameter(parameter, methodType))
-        .collect(Collectors.toList());
+  private List<InputSpec> processParameters(final Method method)
+      throws EngineConfigurationException {
+    final List<InputSpec> out = new ArrayList<>();
+    for (final Parameter parameter : method.getParameters()) {
+      out.add(processParameter(parameter));
+    }
+    return out;
   }
 
-  private ParameterSpec processParameter(final Parameter parameter,
-      final EngineMethodType methodType) {
+  private InputSpec processParameter(final Parameter parameter)
+      throws EngineConfigurationException {
     final Class<?> parameterType = parameter.getType();
     final String name = getNameForParameter(parameter);
-    final Optional<InjectedParameterSpec> injectedParameter =
-        getInjectedParameter(parameterType, methodType, name);
-    if (injectedParameter.isPresent()) {
-      return injectedParameter.get();
-    }
     final boolean multi = parameterType.isArray();
     final Class<?> type = multi ? parameterType.getComponentType() : parameterType;
     registerType(type);
-    return new ComputedParameterSpecImpl(name, multi, type);
-  }
-
-  private Optional<InjectedParameterSpec> getInjectedParameter(final Class<?> parameterType,
-      final EngineMethodType methodType, final String name) {
-    final Pair<EngineMethodType, Class<?>> key = new Pair<>(methodType, parameterType);
-    return injectableCache.computeIfAbsent(key, k -> {
-      final Injectable annotation = parameterType.getAnnotation(Injectable.class);
-      if (annotation != null) {
-        if (Arrays.asList(annotation.methodTypes()).contains(methodType)) {
-          return Optional.of(new InjectedParameterSpecImpl(parameterType, name));
-        }
-      }
-      return Optional.empty();
-    });
+    return new InputSpec(name, type, multi);
   }
 
   private static MethodHandle getHandleForMethod(final Method method, final Object provider) {
@@ -355,59 +342,58 @@ public class EngineSpecBuilder {
     return name != null ? name.value() : parameter.getName();
   }
 
-  private static Map<String, PropertyInfo> analyzeCompoundType(final Class<?> type) {
-    return Arrays.stream(type.getDeclaredFields())
-            .map(EngineSpecBuilder::analyzeCompoundTypeField)
-            .filter(Optional::isPresent)
-            .map(Optional::get)
-            .collect(Collectors.toMap(PropertyInfo::getName, java.util.function.Function.identity()));
+  private static Map<String, PropertyInfo> analyzeCompoundType(final Class<?> type)
+      throws EngineConfigurationException {
+    final Map<String, PropertyInfo> out = new HashMap<>();
+    for (final Field declaredField : type.getDeclaredFields()) {
+      final PropertyInfo propertyInfo = analyzeCompoundTypeField(declaredField);
+      if (propertyInfo != null) {
+        out.put(propertyInfo.getName(), propertyInfo);
+      }
+    }
+    return out;
   }
 
-  private static Optional<PropertyInfo> analyzeCompoundTypeField(final Field field) {
+  private static PropertyInfo analyzeCompoundTypeField(final Field field)
+      throws EngineConfigurationException {
     final Property propertyAnnotation = field.getAnnotation(Property.class);
     if (propertyAnnotation == null) {
-      return Optional.empty();
+      return null;
     }
     final Name nameAnnotation = field.getAnnotation(Name.class);
     final String name = nameAnnotation != null ? nameAnnotation.value() : field.getName();
     final Class<?> type = field.getType();
     final Class<?> compoundType = field.getDeclaringClass();
-    final Optional<Method> getter = getGetter(compoundType, name, type);
-    final Optional<Method> setter = getSetter(compoundType, name, type);
-    if (getter.isPresent() || setter.isPresent()) {
-      return Optional.of(new PropertyInfo(name, type, propertyAnnotation.optional(), getter.orElse(null), setter.orElse(null)));
-    }
-    return Optional.empty();
+    final Method getter = getGetter(compoundType, name, type);
+    return new PropertyInfo(name, type, propertyAnnotation.optional(), getter);
   }
 
-  private static Optional<Method> getGetter(final Class<?> containingClass, final String name, final Class<?> type) {
+  private static Method getGetter(final Class<?> containingClass, final String name,
+      final Class<?> type) throws EngineConfigurationException {
+
     final String beanName = name.substring(0, 1).toUpperCase() + name.substring(1);
-    Method getter;
-    try {
-      getter = containingClass.getMethod("get" + beanName);
-    } catch (NoSuchMethodException e) {
-      getter = null;
+    Method getter = null;
+    final boolean propertyIsBoolean = type.equals(Boolean.class) || type.equals(boolean.class);
+    final List<String> getterNames = new ArrayList<>();
+    getterNames.add("get" + beanName);
+    if (propertyIsBoolean) {
+      getterNames.add("is" + beanName);
     }
-    if (getter == null && (type.equals(Boolean.class) || type.equals(boolean.class))) {
+    for (final String getterName : getterNames) {
       try {
-        getter = containingClass.getMethod("is" + beanName);
-      } catch (NoSuchMethodException e) { }
+        getter = containingClass.getMethod(getterName);
+      } catch (NoSuchMethodException e) {
+        getter = null;
+      }
     }
-    if (getter != null && getter.getReturnType().equals(type)) {
-      return Optional.of(getter);
+    if (getter == null) {
+      throw new EngineConfigurationException(
+          ("CompoundType class %s has registered a property %s but no getter is "
+              + "present. Valid getters must be public, accept no arguments, return the type indicated by the type ID, "
+              + "and be named with the format \"get%s\" or (for boolean values) \"is%s\".")
+              .formatted(containingClass, name, beanName, beanName));
     }
-    return Optional.empty();
-  }
-
-  private static Optional<Method> getSetter(final Class<?> containingClass, final String name, final Class<?> type) {
-    final String beanName = name.substring(0, 1).toUpperCase() + name.substring(1);
-    Method setter;
-    try {
-      setter = containingClass.getMethod("set" + beanName, type);
-    } catch (NoSuchMethodException e) {
-      setter = null;
-    }
-    return Optional.ofNullable(setter);
+    return getter;
   }
 
   @RequiredArgsConstructor
@@ -418,99 +404,7 @@ public class EngineSpecBuilder {
     private final Class<?> type;
     private final boolean optional;
     private final Method getter;
-    private final Method setter;
 
-  }
-
-  @Getter
-  private static class EngineSpecImpl implements EngineSpec {
-
-    private final Map<String, ProcessSpec> processes;
-    private final Map<String, TypeSpec> types;
-    private final Map<String, ActionSpec> actions;
-    private final Map<String, FunctionSpec> functions;
-    private final List<ConverterSpec> converters;
-
-    public EngineSpecImpl(final Map<String, ProcessSpec> processes,
-        final Map<String, TypeSpec> types, final Map<String, ActionSpec> actions,
-        final Map<String, FunctionSpec> functions, final List<ConverterSpec> converters) {
-      this.processes = Collections.unmodifiableMap(processes);
-      this.types = Collections.unmodifiableMap(types);
-      this.actions = Collections.unmodifiableMap(actions);
-      this.functions = Collections.unmodifiableMap(functions);
-      this.converters = Collections.unmodifiableList(converters);
-    }
-  }
-
-  @Getter
-  @AllArgsConstructor
-  private static class ActionSpecImpl implements ActionSpec {
-
-    private final String name;
-    private final Method method;
-    private final Object provider;
-    private final List<ParameterSpec> parameters;
-  }
-
-  @Getter
-  @AllArgsConstructor
-  private static class FunctionSpecImpl implements FunctionSpec {
-
-    private final String name;
-    private final Class<?> outputType;
-    private final Method method;
-    private final Object provider;
-    private final List<ParameterSpec> parameters;
-  }
-
-  @Getter
-  @AllArgsConstructor
-  private static class ConverterSpecImpl implements ConverterSpec {
-
-    private final Class<?> inputType;
-    private final Class<?> outputType;
-    private final Method method;
-    private final Object provider;
-    private final List<ParameterSpec> parameters;
-  }
-
-  @Getter
-  @AllArgsConstructor
-  private static class TypeSpecImpl implements TypeSpec {
-
-    private final Class<?> runtimeClass;
-    private final boolean primitive;
-    private final Set<String> supertypes;
-    private final List<String> values;
-    private final Map<String, TypePropertySpec> properties;
-  }
-
-  @Getter
-  @AllArgsConstructor
-  private static class ComputedParameterSpecImpl implements ComputedParameterSpec {
-
-    private final String name;
-    private final boolean multi;
-    private final Class<?> type;
-  }
-
-  @Getter
-  @AllArgsConstructor
-  private static class InjectedParameterSpecImpl implements InjectedParameterSpec {
-
-    private final Class<?> type;
-    private final String name;
-  }
-
-  @Getter
-  @AllArgsConstructor
-  private static class TypePropertySpecImpl implements TypePropertySpec {
-
-    private final String name;
-    private final String typeId;
-    private boolean optional;
-    private Method getter;
-    private Method setter;
   }
 
 

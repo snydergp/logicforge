@@ -5,13 +5,13 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.RequiredArgsConstructor;
 
+import java.util.List;
+
 @EqualsAndHashCode(callSuper = false)
 @Data
 @Builder
 @RequiredArgsConstructor
-public class ValueConfig extends ExpressionConfig {
+public class BlockConfig extends ExecutableConfig {
 
-  private final String value;
-
-  private final String typeId;
+  private final List<ExecutableConfig> executables;
 }

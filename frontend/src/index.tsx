@@ -148,55 +148,55 @@ const specification: EngineSpec = {
   actions: {
     'set-variable': {
       type: SpecType.ACTION,
-      inputParameters: {
+      inputs: {
         value: {
-          type: SpecType.PARAMETER,
+          type: SpecType.INPUT,
           returnType: 'java.lang.Object',
           multi: false,
         },
         variableName: {
-          type: SpecType.PARAMETER,
+          type: SpecType.INPUT,
           returnType: 'java.lang.String',
           multi: false,
         },
       },
-      actionParameters: {},
+      actions: {},
     },
     'delete-variable': {
       type: SpecType.ACTION,
-      inputParameters: {
+      inputs: {
         variableName: {
-          type: SpecType.PARAMETER,
+          type: SpecType.INPUT,
           returnType: 'java.lang.String',
           multi: false,
         },
       },
-      actionParameters: {},
+      actions: {},
     },
     'increment-counter': {
       type: SpecType.ACTION,
-      inputParameters: {
+      inputs: {
         variableName: {
-          type: SpecType.PARAMETER,
+          type: SpecType.INPUT,
           returnType: 'java.lang.String',
           multi: false,
         },
         count: {
-          type: SpecType.PARAMETER,
+          type: SpecType.INPUT,
           returnType: 'java.lang.Integer',
           multi: false,
         },
       },
-      actionParameters: {},
+      actions: {},
     },
   },
   functions: {
     concatenate: {
       type: SpecType.FUNCTION,
-      returnType: 'java.lang.String',
-      parameters: {
+      outputType: 'java.lang.String',
+      inputs: {
         values: {
-          type: SpecType.PARAMETER,
+          type: SpecType.INPUT,
           multi: true,
           returnType: 'java.lang.String',
           properties: {},
@@ -205,10 +205,10 @@ const specification: EngineSpec = {
     },
     min: {
       type: SpecType.FUNCTION,
-      returnType: 'java.lang.Number',
-      parameters: {
+      outputType: 'java.lang.Number',
+      inputs: {
         values: {
-          type: SpecType.PARAMETER,
+          type: SpecType.INPUT,
           multi: true,
           returnType: 'java.lang.Number',
           properties: {},
@@ -217,10 +217,10 @@ const specification: EngineSpec = {
     },
     and: {
       type: SpecType.FUNCTION,
-      returnType: 'java.lang.Boolean',
-      parameters: {
+      outputType: 'java.lang.Boolean',
+      inputs: {
         values: {
-          type: SpecType.PARAMETER,
+          type: SpecType.INPUT,
           multi: true,
           returnType: 'java.lang.Boolean',
           properties: {},
@@ -271,13 +271,13 @@ const process: ProcessConfig = {
     {
       type: ConfigType.ACTION,
       name: 'set-variable',
-      actionArguments: {},
-      inputArguments: {
+      actions: {},
+      inputs: {
         value: [
           {
             type: ConfigType.FUNCTION,
             name: 'concatenate',
-            arguments: {
+            inputs: {
               values: [
                 {
                   type: ConfigType.VALUE,
@@ -286,7 +286,7 @@ const process: ProcessConfig = {
                 {
                   type: ConfigType.FUNCTION,
                   name: 'concatenate',
-                  arguments: {
+                  inputs: {
                     values: [
                       {
                         type: ConfigType.VALUE,
@@ -310,8 +310,8 @@ const process: ProcessConfig = {
     {
       type: ConfigType.ACTION,
       name: 'delete-variable',
-      actionArguments: {},
-      inputArguments: {
+      actions: {},
+      inputs: {
         variableName: [
           {
             type: ConfigType.VALUE,
@@ -323,8 +323,8 @@ const process: ProcessConfig = {
     {
       type: ConfigType.ACTION,
       name: 'increment-counter',
-      actionArguments: {},
-      inputArguments: {
+      actions: {},
+      inputs: {
         variableName: [
           {
             type: ConfigType.VALUE,

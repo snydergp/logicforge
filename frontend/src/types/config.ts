@@ -18,7 +18,7 @@ export type ValueConfig = {
 export type FunctionConfig = {
   type: ConfigType.FUNCTION;
   name: string;
-  arguments: { [key: string]: InputConfig[] };
+  inputs: { [key: string]: ExpressionConfig[] };
 };
 
 export type VariableConfig = {
@@ -30,8 +30,8 @@ export type VariableConfig = {
 export type ActionConfig = {
   type: ConfigType.ACTION;
   name: string;
-  actionArguments: { [key: string]: ActionConfig[] };
-  inputArguments: { [key: string]: InputConfig[] };
+  actions?: ActionConfig[];
+  inputs: { [key: string]: ExpressionConfig[] };
 };
 
 export type ProcessConfig = {
@@ -40,10 +40,6 @@ export type ProcessConfig = {
   actions: ActionConfig[];
 };
 
-export type InputConfig = ValueConfig | FunctionConfig | VariableConfig;
-
-export type ArgumentConfig = InputConfig | ActionConfig;
-
-export type ParentConfig = ProcessConfig | ActionConfig | FunctionConfig;
+export type ExpressionConfig = ValueConfig | FunctionConfig | VariableConfig;
 
 export type LogicForgeConfig = ProcessConfig | ActionConfig | FunctionConfig | ValueConfig;

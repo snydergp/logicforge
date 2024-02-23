@@ -6,7 +6,7 @@ import {
   ContentType,
   FunctionContent,
   ListContent,
-  ParameterSpec,
+  InputSpec,
   ValueContent,
 } from '../../types';
 import { useDispatch, useSelector } from 'react-redux';
@@ -52,9 +52,7 @@ export function InputParameterList({ contentKey, name, parent }: InputParameterL
     selection !== undefined
       ? selection.findIndex((selectedContent) => contentKey === selectedContent.key)
       : -1;
-  const parameterSpec = useSelector(
-    selectParameterSpecificationForKey(contentKey),
-  ) as ParameterSpec;
+  const parameterSpec = useSelector(selectParameterSpecificationForKey(contentKey)) as InputSpec;
 
   function isChildSelected(contentKey: string) {
     if (selectionDepth >= 0 && selection !== undefined && selectionDepth + 1 < selection.length) {

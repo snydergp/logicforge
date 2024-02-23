@@ -9,10 +9,10 @@ import java.lang.annotation.Target;
 @Target({ElementType.METHOD})
 public @interface SetsVariable {
 
-    String title() default "";
+  String title() default "";
 
-    String description() default "";
+  String description() default "";
 
-    Class<?> type() default SetsVariable.class; // using this class as placeholder
+  Class<?> type() default SetsVariable.class; // using this class as placeholder
 
 }

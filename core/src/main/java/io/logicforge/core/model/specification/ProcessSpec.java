@@ -1,14 +1,21 @@
 package io.logicforge.core.model.specification;
 
+import lombok.Builder;
+import lombok.Data;
+import lombok.RequiredArgsConstructor;
+
 import java.util.List;
 import java.util.Optional;
 
-public interface ProcessSpec {
+@Data
+@Builder
+@RequiredArgsConstructor
+public class ProcessSpec {
 
-  String getName();
+  private final String name;
 
-  List<ContextVariableSpec> getAvailableVariables();
+  private final List<VariableSpec> inputVariables;
 
-  Optional<ContextVariableSpec> getReturnValue();
+  private final InputSpec outputType;
 
 }

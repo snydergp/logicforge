@@ -11,6 +11,6 @@ import java.util.Map;
 public class ActionConfigDocument {
 
   private String name;
-  private Map<String, List<ActionConfigDocument>> actionArguments;
-  private Map<String, List<InputConfigDocument>> inputArguments;
+  private List<ActionConfigDocument> actions;
+  private Map<String, List<InputConfigDocument>> inputs;
 }

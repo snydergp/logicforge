@@ -7,14 +7,6 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 public class OneOf<LEFT, RIGHT> {
 
-  public static <L, R> OneOf<L, R> left(@NonNull final L left) {
-    return new OneOf<>(left, null);
-  }
-
-  public static <L, R> OneOf<L, R> right(@NonNull final R right) {
-    return new OneOf<>(null, right);
-  }
-
   public static <L, R> OneOf<L, R> nullable(final L left, final R right) {
     if (left == null && right == null) {
       throw new NullPointerException("Both arguments cannot be null");

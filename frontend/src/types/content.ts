@@ -9,7 +9,7 @@ export enum ContentType {
   ACTION_LIST = 'actions',
   ACTION = 'action',
   FUNCTION = 'function',
-  INPUT_LIST = 'inputs',
+  EXPRESSION_LIST = 'expressions',
   VALUE = 'value',
   VARIABLE = 'variable',
 }
@@ -56,7 +56,7 @@ export type FunctionContent = NodeContent & {
 };
 
 export type InputsContent = ListContent & {
-  type: ContentType.INPUT_LIST;
+  type: ContentType.EXPRESSION_LIST;
   name: string;
 };
 

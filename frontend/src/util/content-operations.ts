@@ -9,12 +9,12 @@ import {
   EngineSpec,
   FunctionConfig,
   FunctionContent,
-  InputConfig,
+  ExpressionConfig,
   InputsContent,
   ListContent,
   LogicForgeConfig,
   NodeContent,
-  ParameterSpec,
+  InputSpec,
   ProcessContent,
   ValueConfig,
   ValueContent,
@@ -242,8 +242,8 @@ export function constructContent(
       };
       contentStore.data[actionContent.key] = actionContent;
       const actionSpec = engineSpec.actions[actionName];
-      Object.entries(config.actionArguments).forEach(([name, configs]) => {
-        const parameterSpec = actionSpec.actionParameters[name];
+      Object.entries(config.actions).forEach(([name, configs]) => {
+        const parameterSpec = actionSpec.actions[name];
         let listContent: ListContent;
         const childKey = nextKey(contentStore);
         listContent = {
@@ -261,8 +261,8 @@ export function constructContent(
           listContent.childKeys.push(content.key);
         });
       });
-      Object.entries(config.inputArguments).forEach(([name, configs]) => {
-        const parameterSpec = actionSpec.inputParameters[name];
+      Object.entries(config.inputs).forEach(([name, configs]) => {
+        const parameterSpec = actionSpec.inputs[name];
         let listContent: ListContent;
         const childKey = nextKey(contentStore);
         listContent = {
@@ -291,7 +291,7 @@ export function constructContent(
         childKeys: {},
       };
       contentStore.data[functionContent.key] = functionContent;
-      Object.entries(config.arguments).forEach(([name, argumentConfigs]) => {
+      Object.entries(config.inputs).forEach(([name, argumentConfigs]) => {
         const childKey = nextKey(contentStore);
         const inputsState: InputsContent = {
           key: childKey,
@@ -396,12 +396,12 @@ function configFromState<T extends LogicForgeConfig | LogicForgeConfig[]>(
     case ContentType.ACTION:
       const actionContent = content as ActionContent;
       const actionChildArgs: { [key: string]: ActionConfig[] } = {};
-      const actionInputArgs: { [key: string]: InputConfig[] } = {};
+      const actionInputArgs: { [key: string]: ExpressionConfig[] } = {};
       Object.entries(actionContent.actionChildKeys).forEach(([name, childKey]) => {
         actionChildArgs[name] = configFromState<ActionConfig[]>(contentStore, childKey);
       });
       Object.entries(actionContent.inputChildKeys).forEach(([name, childKey]) => {
-        actionInputArgs[name] = configFromState<InputConfig[]>(contentStore, childKey);
+        actionInputArgs[name] = configFromState<ExpressionConfig[]>(contentStore, childKey);
       });
       return {
         type: ConfigType.ACTION,
@@ -411,9 +411,9 @@ function configFromState<T extends LogicForgeConfig | LogicForgeConfig[]>(
       } as T;
     case ContentType.FUNCTION:
       const functionContent = content as FunctionContent;
-      const functionArgs: { [key: string]: InputConfig[] } = {};
+      const functionArgs: { [key: string]: ExpressionConfig[] } = {};
       Object.entries(functionContent.childKeys).forEach(([name, childKey]) => {
-        functionArgs[name] = configFromState<InputConfig[]>(contentStore, childKey);
+        functionArgs[name] = configFromState<ExpressionConfig[]>(contentStore, childKey);
       });
       return {
         type: ConfigType.FUNCTION,
@@ -423,7 +423,7 @@ function configFromState<T extends LogicForgeConfig | LogicForgeConfig[]>(
     case ContentType.INPUT_LIST:
       const inputsContent = content as InputsContent;
       return inputsContent.childKeys.map((childKey) => {
-        return configFromState<InputConfig>(contentStore, childKey);
+        return configFromState<ExpressionConfig>(contentStore, childKey);
       }) as T;
     case ContentType.VALUE:
       const valueContent = content as ValueContent;
@@ -449,8 +449,8 @@ function resolveParameterSpecForInput(
   const parentFunctionOrAction = contentStore.data[inputsContent.parentKey as string];
   const parentName = (parentFunctionOrAction as FunctionContent | ActionContent).name;
   return parentFunctionOrAction.type === ContentType.FUNCTION
-    ? engineSpec.functions[parentName].parameters[parameterName]
-    : (engineSpec.actions[parentName].inputParameters[parameterName] as ParameterSpec);
+    ? engineSpec.functions[parentName].inputs[parameterName]
+    : (engineSpec.actions[parentName].inputs[parameterName] as InputSpec);
 }
 
 export function resolveParameterSpecForKey(
@@ -481,8 +481,8 @@ export function resolveParameterSpec(
   const parentFunctionOrAction = contentStore.data[pointer.parentKey as string];
   const parentName = (parentFunctionOrAction as FunctionContent | ActionContent).name;
   return parentFunctionOrAction.type === ContentType.FUNCTION
-    ? engineSpec.functions[parentName].parameters[parameterName]
-    : (engineSpec.actions[parentName].inputParameters[parameterName] as ParameterSpec);
+    ? engineSpec.functions[parentName].inputs[parameterName]
+    : (engineSpec.actions[parentName].inputs[parameterName] as InputSpec);
 }
 
 /**

@@ -1,11 +1,22 @@
 package io.logicforge.core.model.configuration;
 
+import lombok.Builder;
+import lombok.Data;
+import lombok.RequiredArgsConstructor;
+
 import java.util.List;
 
-public interface ProcessConfig {
+@Data
+@Builder
+@RequiredArgsConstructor
+public class ProcessConfig {
 
-  String getName();
+  private final String name;
 
-  List<ActionConfig> getActions();
+  private final BlockConfig rootBlock;
+
+  private final ExpressionConfig returnStatement;
+
+  private final boolean allowConcurrency;
 
 }

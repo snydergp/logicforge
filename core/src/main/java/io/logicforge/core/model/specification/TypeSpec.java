@@ -1,17 +1,24 @@
 package io.logicforge.core.model.specification;
 
+import lombok.Builder;
+import lombok.Data;
+import lombok.RequiredArgsConstructor;
+
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-public interface TypeSpec {
+@Data
+@Builder
+@RequiredArgsConstructor
+public class TypeSpec {
 
-  Class<?> getRuntimeClass();
+  private final Class<?> runtimeClass;
 
-  List<String> getValues();
+  private final List<String> values;
 
-  Set<String> getSupertypes();
+  private final Set<String> supertypes;
 
-  Map<String, TypePropertySpec> getProperties();
+  private final Map<String, TypePropertySpec> properties;
 
 }
