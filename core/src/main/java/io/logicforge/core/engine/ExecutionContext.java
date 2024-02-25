@@ -1,5 +1,6 @@
 package io.logicforge.core.engine;
 
+import io.logicforge.core.common.Coordinates;
 import io.logicforge.core.exception.MissingVariableException;
 
 import java.util.List;
@@ -46,17 +47,9 @@ public interface ExecutionContext {
    * @param coordinates the action's coordinates, as defined above
    * @return whether the referenced action has both completed and output a variable
    */
-  boolean isVariableSet(final int[] coordinates);
+  boolean isVariableSet(final Coordinates coordinates, final Class<?> expectedType);
 
-  boolean isNestedVariableSet(final int[] coordinates, final String[] path);
-
-  /**
-   * Checks whether the referenced action has completed, regardless of whether any value was outputted as a variable
-   *
-   * @param coordinates the action's coordinates, as defined above
-   * @return whether the referenced action has completed
-   */
-  boolean isActionCompleted(final int[] coordinates);
+  boolean isNestedVariableSet(final Coordinates coordinates, final Class<?> expectedType, final String ... path);
 
   /**
    * Get the variable stored by the referenced action
@@ -65,14 +58,28 @@ public interface ExecutionContext {
    * @return the variable stored by the action
    * @throws MissingVariableException if no variable was set by the action
    */
-  Object getVariable(final int[] coordinates) throws MissingVariableException;
+  <T> T getVariable(final Coordinates coordinates, final Class<T> expectedType) throws MissingVariableException;
 
-  Object getNestedVariable(final int[] coordinates, String... path) throws MissingVariableException;
+  <T> T getNestedVariable(final Coordinates coordinates, Class<T> expectedType, String ... path) throws MissingVariableException;
 
-  void setVariable(final int[] coordinates, final Object value);
+  /**
+   * Checks whether the referenced action has completed, regardless of whether any value was outputted as a variable
+   *
+   * @param coordinates the action's coordinates, as defined above
+   * @return whether the referenced action has completed
+   */
+  boolean isActionCompleted(final Coordinates coordinates);
+
+  void setVariable(final Coordinates coordinates, final Object value);
 
   void enqueue(final List<Action> actions);
 
   void enqueue(final Action action);
+
+  <T> T await(final Action returnAction, Class<T> type);
+
+  <T> T convert(final Object value, final Class<T> type);
+
+  boolean canConvert(final Object value, final Class<?> type);
 
 }

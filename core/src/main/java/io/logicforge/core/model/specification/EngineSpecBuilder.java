@@ -7,6 +7,7 @@ import io.logicforge.core.annotations.elements.Function;
 import io.logicforge.core.annotations.elements.Property;
 import io.logicforge.core.annotations.metadata.Name;
 import io.logicforge.core.constant.EngineMethodType;
+import io.logicforge.core.engine.Process;
 import io.logicforge.core.exception.EngineConfigurationException;
 import io.logicforge.core.util.EngineMethodUtil;
 import lombok.Getter;
@@ -72,6 +73,31 @@ public class EngineSpecBuilder {
     return this;
   }
 
+  /**
+   * Processes are defined from interfaces with a single method. This method will be inspected to generate the process's
+   * name, parameters, and return type (if any). When a process is built, it will be returned as an instance of this
+   * interface, allowing the process to be called as is if were a normal Java method.
+   *
+   * @param processClass the interface to use
+   * @return this builder
+   */
+  public EngineSpecBuilder withProcess(final Class<?> processClass) throws EngineConfigurationException {
+    if (!processClass.isInterface()) {
+      throw new IllegalArgumentException("Processes must be defined as Java interfaces");
+    }
+    final Class<?>[] interfaces = processClass.getInterfaces();
+    if (!Arrays.asList(interfaces).contains(Process.class)) {
+      throw new IllegalArgumentException("Process interfaces must directly extend %s".formatted(Process.class.getName()));
+    }
+    final Method[] declaredMethods = processClass.getDeclaredMethods();
+    if (declaredMethods.length != 1) {
+      throw new IllegalArgumentException("Process interfaces must declare a single method");
+    }
+    final Method method = declaredMethods[0];
+    processProcess(method);
+    return this;
+  }
+
   public EngineSpecBuilder withProviderClasses(final Class<?>... providerClasses)
       throws EngineConfigurationException {
     for (final Class<?> providerClass : providerClasses) {
@@ -84,14 +110,6 @@ public class EngineSpecBuilder {
       throws EngineConfigurationException {
     for (final Method method : providerClass.getMethods()) {
       processMethod(method, providerClass);
-    }
-    return this;
-  }
-
-  public EngineSpecBuilder withProcess(final ProcessSpec process) throws EngineConfigurationException {
-    processes.put(process.getName(), process);
-    if (process.getOutputType() != null) {
-      registerType(process.getOutputType().getType());
     }
     return this;
   }
@@ -163,7 +181,6 @@ public class EngineSpecBuilder {
 
     return types.stream().map(type -> {
       final String id = typesByClass.get(type);
-      final boolean primitive = type.isPrimitive();
       final Set<String> supertypes =
           parentTypeIdMappings.computeIfAbsent(id, (i) -> new HashSet<>());
       final List<String> values;
@@ -235,18 +252,24 @@ public class EngineSpecBuilder {
     return parentMapping;
   }
 
-  private void processAction(final Method method, final Object provider)
-      throws EngineConfigurationException {
-    final Class<?> returnType = method.getReturnType();
-    if (!void.class.equals(returnType)) {
-      throw new IllegalStateException(String
-          .format("Action-annotated method %s has a non-void return type: %s", method, returnType));
-    }
+  private void processProcess(final Method method)
+          throws EngineConfigurationException {
     final String name = getNameForMethod(method);
     final List<InputSpec> inputSpecs = processParameters(method);
-    final Class<?> outputType = method.getReturnType();
-    final ActionSpec actionSpec = new ActionSpec(name, method, provider, inputSpecs, outputType);
+    final Class<?> returnType = method.getReturnType();
+    final ProcessSpec processSpec = new ProcessSpec(name, method, inputSpecs, returnType);
+    processes.put(name, processSpec);
+    registerType(returnType);
+  }
+
+  private void processAction(final Method method, final Object provider)
+          throws EngineConfigurationException {
+    final Class<?> returnType = method.getReturnType();
+    final String name = getNameForMethod(method);
+    final List<InputSpec> inputSpecs = processParameters(method);
+    final ActionSpec actionSpec = new ActionSpec(name, method, provider, inputSpecs, returnType);
     actions.put(name, actionSpec);
+    registerType(returnType);
   }
 
   private void processFunction(final Method method, final Object provider)
@@ -276,13 +299,13 @@ public class EngineSpecBuilder {
       throw new IllegalStateException(
           String.format("Converter-annotated method %s must have a single parameter", method));
     }
-    final InputSpec inputSpec = inputSpecs.get(0);
+    final InputSpec inputSpec = inputSpecs.getFirst();
     if (inputSpec.isMulti()) {
       throw new IllegalStateException(
           String.format("Converter-annotated method %s must not use multi-parameters", method));
     }
     final Class<?> inputType = inputSpec.getType();
-    converters.add(new ConverterSpec(inputType, returnType, method, provider, inputSpecs));
+    converters.add(new ConverterSpec(returnType, inputType, method, provider, inputSpecs));
   }
 
   private List<InputSpec> processParameters(final Method method)

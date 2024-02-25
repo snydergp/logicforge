@@ -1,0 +1,158 @@
+package io.logicforge.generated.process_0;
+
+import io.logicforge.core.common.CoordinateTrie;
+import io.logicforge.core.common.Coordinates;
+import io.logicforge.core.engine.Action;
+import io.logicforge.core.engine.ExecutionContext;
+import io.logicforge.core.engine.ExecutionQueue;
+import io.logicforge.core.engine.impl.DefaultExecutionContext;
+import io.logicforge.core.engine.util.EngineSpecUtils;
+import io.logicforge.core.exception.ProcessExecutionException;
+import io.logicforge.core.model.specification.EngineSpec;
+import java.lang.Integer;
+import java.lang.String;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
+
+public class CompiledProcess implements EngineSpecUtils.TestProcess {
+
+    private final AtomicLong executionCount = new AtomicLong(0L);
+    private final CoordinateTrie<Action> trie = new CoordinateTrie<>();
+
+    final EngineSpec var0;
+    final ExecutionQueue var1;
+    final EngineSpecUtils.Functions var2;
+
+    public CompiledProcess(final EngineSpec var0, final ExecutionQueue var1, final EngineSpecUtils.Functions var2) {
+        // initialize instance variables
+        this.var0 = var0;
+        this.var1 = var1;
+        this.var2 = var2;
+
+        // initialize singleton actions and load action trie
+        final Action exec = new Executable();
+        trie.put(exec.getCoordinates(), exec);
+
+        final Action exec0 = new Executable0();
+        trie.put(exec0.getCoordinates(), exec0);
+
+        final Action exec1 = new Executable1();
+        trie.put(exec1.getCoordinates(), exec1);
+
+    }
+
+    @Override
+    public String doTheThing(final String text, final int number) {
+        final long executionNumber = executionCount.getAndIncrement();
+        final Map<String, Object> args = new HashMap<>();
+        args.put("text", text);
+        args.put("number", number);
+
+        final ExecutionContext context = new DefaultExecutionContext(var0, var1, args);
+        final Action rootAction = trie.get(Coordinates.ROOT);
+        final Integer sum = (Integer) trie.get(Coordinates.ROOT).execute(context);
+        return "The sum is " + sum;
+    }
+
+    public String getProcessId() {
+        return "0";
+    }
+
+    public long getExecutionCount() {
+        return executionCount.get();
+    }
+    private class Executable implements Action {
+
+        private final Coordinates coordinates = Coordinates.from();
+        private final List<Coordinates> dependencyCoordinates = List.of();
+
+        public Object execute(final ExecutionContext context) throws ProcessExecutionException {
+
+            final Integer a = (Integer) trie.get(Coordinates.from(0)).execute(context);
+            final Integer b = (Integer) trie.get(Coordinates.from(1)).execute(context);
+            return a + b;
+        }
+
+        public Coordinates getCoordinates() {
+            return coordinates;
+        }
+
+        public List<Coordinates> getDependencyCoordinates() {
+            return dependencyCoordinates;
+        }
+
+        public String toString() {
+            return "context.enqueue(trie.listChildren(Coordinates.from()));\n			return null";
+        }
+    }
+
+    private class Executable0 implements Action {
+
+        private final Coordinates coordinates = Coordinates.from(0);
+        private final List<Coordinates> dependencyCoordinates = List.of();
+
+        public Object execute(final ExecutionContext context) throws ProcessExecutionException {
+
+            return var2.recordPair(var2.concat("Hello, ", context.isNestedVariableSet(Coordinates.from(), String.class, "text") ? context.getNestedVariable(Coordinates.from(), String.class, "text") : null ), var2.add(3, context.isNestedVariableSet(Coordinates.from(), Integer.class, "number") ? context.getNestedVariable(Coordinates.from(), Integer.class, "number") : null ));
+        }
+
+        public Coordinates getCoordinates() {
+            return coordinates;
+        }
+
+        public List<Coordinates> getDependencyCoordinates() {
+            return dependencyCoordinates;
+        }
+
+        public String toString() {
+            return "return var2.recordPair(var2.concat(\"Hello, \", context.isNestedVariableSet(Coordinates.from(), String.class, \"text\") ? context.getNestedVariable(Coordinates.from(), String.class, \"text\") : null ), var2.add(3, context.isNestedVariableSet(Coordinates.from(), Integer.class, \"number\") ? context.getNestedVariable(Coordinates.from(), Integer.class, \"number\") : null ))";
+        }
+    }
+
+    private class Executable1 implements Action {
+
+        private final Coordinates coordinates = Coordinates.from(1);
+        private final List<Coordinates> dependencyCoordinates = List.of(Coordinates.from(0));
+
+        public Object execute(final ExecutionContext context) throws ProcessExecutionException {
+
+            return var2.recordPair(var2.concat("Hi, ", context.isNestedVariableSet(Coordinates.from(), String.class, "text") ? context.getNestedVariable(Coordinates.from(), String.class, "text") : null ), var2.add(7, context.isNestedVariableSet(Coordinates.from(), Integer.class, "number") ? context.getNestedVariable(Coordinates.from(), Integer.class, "number") : null ));
+        }
+
+        public Coordinates getCoordinates() {
+            return coordinates;
+        }
+
+        public List<Coordinates> getDependencyCoordinates() {
+            return dependencyCoordinates;
+        }
+
+        public String toString() {
+            return "return var2.recordPair(var2.concat(\"Hi, \", context.isNestedVariableSet(Coordinates.from(), String.class, \"text\") ? context.getNestedVariable(Coordinates.from(), String.class, \"text\") : null ), var2.add(7, context.isNestedVariableSet(Coordinates.from(), Integer.class, \"number\") ? context.getNestedVariable(Coordinates.from(), Integer.class, \"number\") : null ))";
+        }
+    }
+
+    private class ReturnAction implements Action {
+
+        private final Coordinates coordinates = Coordinates.from(List.of(-1));
+        private final List<Coordinates> dependencyCoordinates = List.of();
+
+        public Object execute(final ExecutionContext context) throws ProcessExecutionException {
+            return var2.concat("The sum is ", context.convert(var2.add(context.isVariableSet(Coordinates.from(0), Integer.class) ? context.getVariable(Coordinates.from(0), Integer.class) : null , context.isVariableSet(Coordinates.from(1), Integer.class) ? context.getVariable(Coordinates.from(1), Integer.class) : null ), String.class));
+        }
+
+        public Coordinates getCoordinates() {
+            return coordinates;
+        }
+
+        public List<Coordinates> getDependencyCoordinates() {
+            return dependencyCoordinates;
+        }
+
+        public String toString() {
+            return "var2.concat(\"The sum is \", context.convert(var2.add(context.isVariableSet(Coordinates.from(0), Integer.class) ? context.getVariable(Coordinates.from(0), Integer.class) : null , context.isVariableSet(Coordinates.from(1), Integer.class) ? context.getVariable(Coordinates.from(1), Integer.class) : null ), String.class))";
+        }
+    }
+}

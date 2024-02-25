@@ -3,6 +3,7 @@ package io.logicforge.core.model.configuration;
 import lombok.Builder;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
+import lombok.Singular;
 
 import java.util.List;
 
@@ -17,13 +18,13 @@ public class ReferenceConfig extends ExpressionConfig {
   @RequiredArgsConstructor
   public static class Reference {
 
-    private final int[] coordinates;
+    private final List<Integer> coordinateList;
 
-    private final String[] path;
+    private final List<String> path;
 
   }
 
-  private final List<Reference> references;
+  @Singular private final List<Reference> references;
 
   private final ExpressionConfig fallback;
 

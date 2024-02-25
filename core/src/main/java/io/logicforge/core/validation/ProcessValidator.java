@@ -1,16 +1,18 @@
 package io.logicforge.core.validation;
 
 import io.logicforge.core.common.CoordinateTrie;
+import io.logicforge.core.common.Coordinates;
 import io.logicforge.core.model.configuration.BlockConfig;
 import io.logicforge.core.model.configuration.ControlStatementConfig;
 import io.logicforge.core.model.configuration.ExecutableConfig;
 import io.logicforge.core.model.configuration.ProcessConfig;
 import io.logicforge.core.model.specification.EngineSpec;
-import io.logicforge.core.util.CoordinateUtils;
 import lombok.RequiredArgsConstructor;
 
 import java.util.List;
 import java.util.stream.Stream;
+
+import static io.logicforge.core.common.Coordinates.ROOT;
 
 /**
  * A service that validates process configurations. This includes the following error scenarios:
@@ -43,11 +45,11 @@ public class ProcessValidator {
 
     private ProcessConfigValidator(ProcessConfig processConfig) {
       this.processConfig = processConfig;
-      newExecutableConfigValidator(processConfig.getRootBlock(), new int[0]);
+      newExecutableConfigValidator(processConfig.getRootBlock(), ROOT);
     }
 
     private void newExecutableConfigValidator(final ExecutableConfig config,
-        final int[] coordinates) {
+        final Coordinates coordinates) {
       final ExecutableConfigValidator validator =
           new ExecutableConfigValidator(this, config, coordinates);
       trie.put(coordinates, validator);
@@ -55,13 +57,13 @@ public class ProcessValidator {
       if (config instanceof BlockConfig blockConfig) {
         for (int i = 0; i < blockConfig.getExecutables().size(); i++) {
           final ExecutableConfig child = blockConfig.getExecutables().get(i);
-          final int[] childCoordinates = CoordinateUtils.getNthChild(coordinates, i);
+          final Coordinates childCoordinates = coordinates.getNthChild(i);
           newExecutableConfigValidator(child, childCoordinates);
         }
       } else if (config instanceof ControlStatementConfig controlStatementConfig) {
         for (int i = 0; i < controlStatementConfig.getBlocks().size(); i++) {
           final BlockConfig child = controlStatementConfig.getBlocks().get(i);
-          final int[] childCoordinates = CoordinateUtils.getNthChild(coordinates, i);
+          final Coordinates childCoordinates = coordinates.getNthChild(i);
           newExecutableConfigValidator(child, childCoordinates);
         }
       }
@@ -77,10 +79,10 @@ public class ProcessValidator {
 
     private final ProcessConfigValidator parent;
     private final ExecutableConfig executableConfig;
-    private final int[] coordinates;
+    private final Coordinates coordinates;
 
     private ExecutableConfigValidator(ProcessConfigValidator parent,
-        ExecutableConfig executableConfig, int[] coordinates) {
+        ExecutableConfig executableConfig, Coordinates coordinates) {
       this.parent = parent;
       this.executableConfig = executableConfig;
       this.coordinates = coordinates;

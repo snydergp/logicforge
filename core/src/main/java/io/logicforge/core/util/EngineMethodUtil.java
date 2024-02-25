@@ -14,15 +14,19 @@ import java.util.stream.Collectors;
 public class EngineMethodUtil {
 
   public static Optional<EngineMethodType> analyzeMethod(final Method method) {
-    final List<EngineMethodType> annotatedTypes = Arrays.stream(EngineMethodType.values()).toList();
+    final List<EngineMethodType> annotatedTypes = Arrays.stream(EngineMethodType.values())
+            .filter(type -> method.getAnnotation(type.getAnnotationType()) != null)
+            .toList();
+
 
     if (annotatedTypes.size() > 1) {
       final String annotationClassList =
-          annotatedTypes.stream().map(EngineMethodType::getAnnotationType).map(Class::toString)
-              .collect(Collectors.joining(", "));
+              annotatedTypes.stream()
+                      .map(EngineMethodType::getAnnotationType)
+                      .map(Class::getName)
+                      .collect(Collectors.joining(", "));
       throw new IllegalStateException(
-          String.format("Method %s has multiple annotations where only one is permitted: %s",
-              method, annotationClassList));
+              "Method %s has multiple annotations where only one is permitted: %s".formatted(method, annotationClassList));
     }
 
     return annotatedTypes.isEmpty() ? Optional.empty() : Optional.of(annotatedTypes.get(0));

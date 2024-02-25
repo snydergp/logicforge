@@ -1,7 +1,10 @@
 package io.logicforge.core.engine;
 
+import java.util.concurrent.Callable;
+import java.util.concurrent.Future;
+
 public interface ExecutionQueue {
 
-  void submit(Runnable runnable);
+  Future<Object> submit(Callable<Object> runnable);
 
 }

@@ -13,5 +13,4 @@ public class ValueConfig extends ExpressionConfig {
 
   private final String value;
 
-  private final String typeId;
 }

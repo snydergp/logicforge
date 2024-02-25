@@ -4,6 +4,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 
+import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Optional;
 
@@ -14,8 +15,10 @@ public class ProcessSpec {
 
   private final String name;
 
-  private final List<VariableSpec> inputVariables;
+  private final Method method;
 
-  private final InputSpec outputType;
+  private final List<InputSpec> inputs;
+
+  private final Class<?> outputType;
 
 }

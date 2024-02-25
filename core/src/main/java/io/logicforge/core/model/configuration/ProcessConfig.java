@@ -9,7 +9,9 @@ import java.util.List;
 @Data
 @Builder
 @RequiredArgsConstructor
-public class ProcessConfig {
+public class ProcessConfig<INTERFACE> {
+
+  private final Class<INTERFACE> functionalInterface;
 
   private final String name;
 
