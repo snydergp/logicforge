@@ -81,13 +81,15 @@ public class EngineSpecBuilder {
    * @param processClass the interface to use
    * @return this builder
    */
-  public EngineSpecBuilder withProcess(final Class<?> processClass) throws EngineConfigurationException {
+  public EngineSpecBuilder withProcess(final Class<?> processClass)
+      throws EngineConfigurationException {
     if (!processClass.isInterface()) {
       throw new IllegalArgumentException("Processes must be defined as Java interfaces");
     }
     final Class<?>[] interfaces = processClass.getInterfaces();
     if (!Arrays.asList(interfaces).contains(Process.class)) {
-      throw new IllegalArgumentException("Process interfaces must directly extend %s".formatted(Process.class.getName()));
+      throw new IllegalArgumentException(
+          "Process interfaces must directly extend %s".formatted(Process.class.getName()));
     }
     final Method[] declaredMethods = processClass.getDeclaredMethods();
     if (declaredMethods.length != 1) {
@@ -114,7 +116,8 @@ public class EngineSpecBuilder {
     return this;
   }
 
-  public EngineSpecBuilder withAction(final ActionSpec actionSpec) throws EngineConfigurationException {
+  public EngineSpecBuilder withAction(final ActionSpec actionSpec)
+      throws EngineConfigurationException {
     actions.put(actionSpec.getName(), actionSpec);
     if (actionSpec.getOutputType() != null) {
       registerType(actionSpec.getOutputType());
@@ -125,7 +128,8 @@ public class EngineSpecBuilder {
     return this;
   }
 
-  public EngineSpecBuilder withFunction(final FunctionSpec functionSpec) throws EngineConfigurationException {
+  public EngineSpecBuilder withFunction(final FunctionSpec functionSpec)
+      throws EngineConfigurationException {
     functions.put(functionSpec.getName(), functionSpec);
     registerType(functionSpec.getOutputType());
     for (final InputSpec input : functionSpec.getInputs()) {
@@ -252,8 +256,7 @@ public class EngineSpecBuilder {
     return parentMapping;
   }
 
-  private void processProcess(final Method method)
-          throws EngineConfigurationException {
+  private void processProcess(final Method method) throws EngineConfigurationException {
     final String name = getNameForMethod(method);
     final List<InputSpec> inputSpecs = processParameters(method);
     final Class<?> returnType = method.getReturnType();
@@ -263,7 +266,7 @@ public class EngineSpecBuilder {
   }
 
   private void processAction(final Method method, final Object provider)
-          throws EngineConfigurationException {
+      throws EngineConfigurationException {
     final Class<?> returnType = method.getReturnType();
     final String name = getNameForMethod(method);
     final List<InputSpec> inputSpecs = processParameters(method);

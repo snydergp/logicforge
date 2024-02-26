@@ -122,7 +122,7 @@ public class DTOMapper {
             .map(e -> new Pair<>(e.getKey(),
                 e.getValue().stream().map(this::actionExternal).collect(Collectors.toList())))
             .collect(Collectors.toMap(Pair::getLeft, Pair::getRight)))
-        .inputArguments(internal.getInputs().entrySet().stream()
+        .inputArguments(internal.getArguments().entrySet().stream()
             .map(e -> new Pair<>(e.getKey(),
                 e.getValue().stream().map(this::inputExternal).collect(Collectors.toList())))
             .collect(Collectors.toMap(Pair::getLeft, Pair::getRight)))

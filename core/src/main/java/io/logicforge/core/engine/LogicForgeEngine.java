@@ -19,7 +19,8 @@ public class LogicForgeEngine {
   private final ProcessBuilder processBuilder;
   private final ExecutionQueue executionQueue;
 
-  public <T extends Process> T buildProcess(final ProcessConfig<T> config) throws ProcessConstructionException {
+  public <T extends Process> T buildProcess(final ProcessConfig<T> config)
+      throws ProcessConstructionException {
     return processBuilder.buildProcess(config, executionQueue);
   }
 

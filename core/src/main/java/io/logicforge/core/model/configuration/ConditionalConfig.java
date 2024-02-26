@@ -17,9 +17,10 @@ public class ConditionalConfig extends ControlStatementConfig {
 
   private final Type type = Type.CONDITIONAL;
 
-  public ConditionalConfig(final Type type, final List<BlockConfig> blocks, ExpressionConfig condition) {
+  public ConditionalConfig(final Type type, final List<BlockConfig> blocks,
+      ExpressionConfig condition) {
     super(type, blocks);
-      this.condition = condition;
+    this.condition = condition;
   }
 
   public BlockConfig getThen() {

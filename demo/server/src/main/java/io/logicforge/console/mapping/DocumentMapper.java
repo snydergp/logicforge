@@ -44,7 +44,7 @@ public class DocumentMapper {
             .map(e -> new Pair<>(e.getKey(),
                 e.getValue().stream().map(this::actionInternal).collect(Collectors.toList())))
             .collect(Collectors.toMap(Pair::getLeft, Pair::getRight)))
-        .inputs(external.getInputs().entrySet().stream()
+        .inputs(external.getArguments().entrySet().stream()
             .map(e -> new Pair<>(e.getKey(),
                 e.getValue().stream().map(this::inputInternal).collect(Collectors.toList())))
             .collect(Collectors.toMap(Pair::getLeft, Pair::getRight)))

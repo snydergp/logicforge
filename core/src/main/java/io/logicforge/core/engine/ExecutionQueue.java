@@ -5,6 +5,8 @@ import java.util.concurrent.Future;
 
 public interface ExecutionQueue {
 
-  Future<Object> submit(Callable<Object> runnable);
+  <T> Future<T> submit(final Callable<T> runnable);
+
+  Future<?> submit(final Runnable runnable);
 
 }

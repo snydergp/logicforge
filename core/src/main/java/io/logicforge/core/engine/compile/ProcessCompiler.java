@@ -30,8 +30,8 @@ import java.util.stream.Collectors;
 public class ProcessCompiler {
 
   public <T extends Process> T compileAndInstantiate(final String className, final String code,
-                                                     final List<TypedArgument> argumentsAndTypes, Class<T> type)
-          throws ProcessConstructionException {
+      final List<TypedArgument> argumentsAndTypes, Class<T> type)
+      throws ProcessConstructionException {
 
     final InMemorySource source = new InMemorySource(className, code);
 
@@ -42,8 +42,8 @@ public class ProcessCompiler {
 
     final StringWriter javacLog = new StringWriter();
     final List<InMemorySource> toCompile = List.of(source);
-    final JavaCompiler.CompilationTask task =
-        compiler.getTask(javacLog, fileManager, diagnostics, List.of("-g:source,lines,vars"), null, toCompile);
+    final JavaCompiler.CompilationTask task = compiler.getTask(javacLog, fileManager, diagnostics,
+        List.of("-g:source,lines,vars"), null, toCompile);
 
     boolean success = task.call();
     // TODO log diagnostic info
@@ -51,16 +51,16 @@ public class ProcessCompiler {
     if (success) {
       return loadClassInstance(fileManager, className, argumentsAndTypes, type);
     } else {
-      throw new ProcessConstructionException("Error compiling process actions: " + diagnostics
-          .getDiagnostics().stream().map(diagnostic -> diagnostic.getLineNumber() + " " + diagnostic.getMessage(Locale.ENGLISH))
-          .collect(Collectors.joining("\n")));
+      throw new ProcessConstructionException("Error compiling process actions: "
+          + diagnostics.getDiagnostics().stream().map(diagnostic -> diagnostic.getLineNumber() + " "
+              + diagnostic.getMessage(Locale.ENGLISH)).collect(Collectors.joining("\n")));
     }
   }
 
 
-  private <T extends Process> T loadClassInstance(final InMemoryFileManager fileManager, final String className,
-                                                  final List<TypedArgument> argumentsAndTypes, final Class<T> type)
-          throws ProcessConstructionException {
+  private <T extends Process> T loadClassInstance(final InMemoryFileManager fileManager,
+      final String className, final List<TypedArgument> argumentsAndTypes, final Class<T> type)
+      throws ProcessConstructionException {
 
     try {
       final Class<?> loaded = fileManager.getClassLoader(null).loadClass(className);
@@ -68,8 +68,10 @@ public class ProcessCompiler {
         throw new ProcessConstructionException("Compiled process does not represent expected type");
       }
       final Class<? extends T> actionClass = (Class<? extends T>) loaded;
-      final Class<?>[] argTypes = argumentsAndTypes.stream().map(TypedArgument::getType).toArray(Class<?>[]::new);
-      final Object[] args = argumentsAndTypes.stream().map(TypedArgument::getArgument).toArray(Object[]::new);
+      final Class<?>[] argTypes =
+          argumentsAndTypes.stream().map(TypedArgument::getType).toArray(Class<?>[]::new);
+      final Object[] args =
+          argumentsAndTypes.stream().map(TypedArgument::getArgument).toArray(Object[]::new);
       final Constructor<? extends T> constructor = actionClass.getConstructor(argTypes);
       return constructor.newInstance(args);
     } catch (ClassNotFoundException | NoSuchMethodException | InstantiationException

@@ -16,7 +16,7 @@ public class ActionConfig extends ExecutableConfig {
 
   private final String name;
 
-  private final Map<String, List<ExpressionConfig>> inputs;
+  private final Map<String, List<ExpressionConfig>> arguments;
 
   private final VariableConfig output;
 

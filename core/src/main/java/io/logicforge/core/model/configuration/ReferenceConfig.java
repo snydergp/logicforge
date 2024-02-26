@@ -24,7 +24,8 @@ public class ReferenceConfig extends ExpressionConfig {
 
   }
 
-  @Singular private final List<Reference> references;
+  @Singular
+  private final List<Reference> references;
 
   private final ExpressionConfig fallback;
 

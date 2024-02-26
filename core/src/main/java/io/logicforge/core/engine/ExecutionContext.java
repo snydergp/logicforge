@@ -3,8 +3,6 @@ package io.logicforge.core.engine;
 import io.logicforge.core.common.Coordinates;
 import io.logicforge.core.exception.MissingVariableException;
 
-import java.util.List;
-
 /**
  * <p>
  * </p>
@@ -47,9 +45,8 @@ public interface ExecutionContext {
    * @param coordinates the action's coordinates, as defined above
    * @return whether the referenced action has both completed and output a variable
    */
-  boolean isVariableSet(final Coordinates coordinates, final Class<?> expectedType);
-
-  boolean isNestedVariableSet(final Coordinates coordinates, final Class<?> expectedType, final String ... path);
+  boolean isVariableSet(final Coordinates coordinates, final Class<?> expectedType,
+      final String... path);
 
   /**
    * Get the variable stored by the referenced action
@@ -58,25 +55,19 @@ public interface ExecutionContext {
    * @return the variable stored by the action
    * @throws MissingVariableException if no variable was set by the action
    */
-  <T> T getVariable(final Coordinates coordinates, final Class<T> expectedType) throws MissingVariableException;
-
-  <T> T getNestedVariable(final Coordinates coordinates, Class<T> expectedType, String ... path) throws MissingVariableException;
+  <T> T getVariable(final Coordinates coordinates, final Class<T> expectedType,
+      final String... path) throws MissingVariableException;
 
   /**
-   * Checks whether the referenced action has completed, regardless of whether any value was outputted as a variable
-   *
-   * @param coordinates the action's coordinates, as defined above
-   * @return whether the referenced action has completed
+   * Checks whether the referenced action has completed. For non-async types, this will return true as soon as
+   * {@link #setVariable(Coordinates, Object)} has been called for the coordinates. For async types, this will return
+   * false until the async method has completed.
    */
   boolean isActionCompleted(final Coordinates coordinates);
 
   void setVariable(final Coordinates coordinates, final Object value);
 
-  void enqueue(final List<Action> actions);
-
-  void enqueue(final Action action);
-
-  <T> T await(final Action returnAction, Class<T> type);
+  void await();
 
   <T> T convert(final Object value, final Class<T> type);
 

@@ -14,15 +14,15 @@ import lombok.RequiredArgsConstructor;
 @Getter
 public class TypedArgument {
 
-    public static TypedArgument from(final Class<?> type, final Object argument) {
-        return new TypedArgument(type, argument);
-    }
+  public static TypedArgument from(final Class<?> type, final Object argument) {
+    return new TypedArgument(type, argument);
+  }
 
-    public static TypedArgument from(final Object argument) {
-        return new TypedArgument(argument.getClass(), argument);
-    }
+  public static TypedArgument from(final Object argument) {
+    return new TypedArgument(argument.getClass(), argument);
+  }
 
-    private final Class<?> type;
-    private final Object argument;
+  private final Class<?> type;
+  private final Object argument;
 
 }

@@ -18,7 +18,12 @@ public class SimpleExecutionQueue implements ExecutionQueue {
   }
 
   @Override
-  public Future<Object> submit(final Callable<Object> callable) {
+  public <T> Future<T> submit(final Callable<T> callable) {
     return executorService.submit(callable);
+  }
+
+  @Override
+  public Future<?> submit(final Runnable runnable) {
+    return executorService.submit(runnable);
   }
 }
