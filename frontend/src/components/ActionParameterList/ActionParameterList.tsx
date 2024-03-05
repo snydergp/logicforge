@@ -2,9 +2,11 @@ import React, { useCallback, useContext, useEffect, useMemo, useState } from 're
 import { EditorContext, EditorInfo } from '../FrameEditor/FrameEditor';
 import {
   ActionContent,
-  ActionSpec,
+  ConditionalContent,
   Content,
   ContentType,
+  ControlContent,
+  ControlType,
   ListContent,
   ProcessContent,
 } from '../../types';
@@ -21,7 +23,6 @@ import { ParameterHeading } from '../ParameterHeading/ParameterHeading';
 import {
   Box,
   Button,
-  Container,
   Dialog,
   DialogActions,
   DialogTitle,
@@ -32,7 +33,6 @@ import {
   ListItem,
   ListItemButton,
   ListItemText,
-  Paper,
   Stack,
 } from '@mui/material';
 import { useTranslate } from 'react-polyglot';
@@ -41,6 +41,7 @@ import {
   actionParameterDescriptionPath,
   actionParameterTitlePath,
   actionTitlePath,
+  label,
   processParameterDescriptionPath,
   processParameterTitlePath,
 } from '../../util';
@@ -121,7 +122,7 @@ export function ActionParameterList({ contentKey, name, parent }: ActionParamete
   }, []);
 
   if (content !== undefined && selection !== undefined) {
-    if (content.type !== ContentType.PROCESS && content.type !== ContentType.ACTION_LIST) {
+    if (content.type !== ContentType.PROCESS && content.type !== ContentType.BLOCK) {
       throw new Error(
         `Unexpected state at key ${content.key} -- expected actions, found ${content.type}`,
       );
@@ -220,6 +221,22 @@ function ContextMenuButton({ contentKey }: ContextMenuButtonProps) {
   );
 }
 
+interface ExecutableWrapperProps {
+  contentKey: string;
+  selected: boolean;
+}
+
+function ExecutableWrapper({ contentKey, selected }: ExecutableWrapperProps) {
+  const content = useSelector(selectContentByKey(contentKey));
+  if (content != undefined) {
+    if (content.type === ContentType.ACTION) {
+      return ActionButton({ contentKey, selected });
+    } else if (content.type === ContentType.CONTROL) {
+      return;
+    }
+  }
+}
+
 interface ActionButtonProps {
   contentKey: string;
   selected: boolean;
@@ -249,6 +266,30 @@ function ActionButton({ contentKey, selected }: ActionButtonProps) {
     );
   }
   return null;
+}
+
+interface ConditionalButtonProps {
+  contentKey: string;
+  selected: boolean;
+}
+
+function ConditionalButton({ contentKey, selected }: ConditionalButtonProps) {
+  const dispatch = useDispatch();
+  const content = useSelector(selectContentByKey(contentKey));
+  const translate = useTranslate();
+  if (
+    content === undefined ||
+    content.type !== ContentType.CONTROL ||
+    (content as ControlContent).controlType !== ControlType.CONDITIONAL
+  ) {
+    return null;
+  }
+  const conditionalContent = content as ConditionalContent;
+  return (
+    <>
+      <div>{translate(label('if'))}</div>
+    </>
+  );
 }
 
 interface ActionSelectionDialogProps {

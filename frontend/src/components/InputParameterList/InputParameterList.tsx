@@ -1,12 +1,11 @@
-import React, { useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { EditorContext, EditorInfo } from '../FrameEditor/FrameEditor';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActionContent,
   Content,
   ContentType,
   FunctionContent,
-  ListContent,
   InputSpec,
+  ListContent,
   ValueContent,
 } from '../../types';
 import { useDispatch, useSelector } from 'react-redux';
@@ -89,19 +88,19 @@ export function InputParameterList({ contentKey, name, parent }: InputParameterL
   }, []);
 
   if (content !== undefined && selection !== undefined) {
-    if (content.type !== ContentType.INPUT_LIST) {
+    if (content.type !== ContentType.EXPRESSION_LIST) {
       throw new Error(
         `Unexpected state at key ${content.key} -- expected actions, found ${content.type}`,
       );
     }
     const listState = content as ListContent;
 
-    let title = '';
-    let description = '';
+    let title: string;
+    let description: string;
     if (parent.type === ContentType.ACTION) {
-      const actionEditorState = parent as ActionContent;
-      title = translate(actionParameterTitlePath(actionEditorState.name, name));
-      description = translate(actionParameterDescriptionPath(actionEditorState.name, name));
+      const actionContent = parent as ActionContent;
+      title = translate(actionParameterTitlePath(actionContent.name, name));
+      description = translate(actionParameterDescriptionPath(actionContent.name, name));
     } else {
       const functionContent = parent as FunctionContent;
       title = translate(functionParameterTitlePath(functionContent.name, name));

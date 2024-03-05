@@ -3,20 +3,22 @@ import { StoreStructure } from '../types';
 import {
   ActionConfig,
   ActionSpec,
+  ConditionalConfig,
   ConfigType,
   ContentStore,
   ContentType,
+  ControlType,
   EngineSpec,
+  ExpressionConfig,
   FunctionConfig,
   FunctionSpec,
-  ExpressionConfig,
   LogicForgeConfig,
   ProcessConfig,
   ValueConfig,
 } from '../../types';
 import {
-  addNewAction,
   addInput,
+  addNewExecutable,
   deleteListItem,
   getContentAndAncestors,
   loadRootContent,
@@ -129,20 +131,36 @@ const editorsSlice = createSlice({
         return { payload };
       },
     },
-    addAction: {
-      reducer(state, action: PayloadAction<string, string, { actionName: string }>) {
-        const actionName = action.meta.actionName;
+    addExecutable: {
+      reducer(
+        state,
+        action: PayloadAction<
+          string,
+          string,
+          {
+            name: string;
+            type: ContentType.CONTROL | ContentType.ACTION;
+          }
+        >,
+      ) {
+        const name = action.meta.name;
+        const type = action.meta.type;
         const parentKey = action.payload;
         const engineSpec = state.engineSpec;
         const editorStateStore = state.contentStore;
-        const actionSpec = engineSpec.actions[actionName];
-        const actionConfig = newActionConfigForSpec(actionName, actionSpec);
-        const newKey = addNewAction(editorStateStore, parentKey, actionConfig, engineSpec);
+        let config;
+        if (type === ContentType.ACTION) {
+          const actionSpec = engineSpec.actions[name];
+          config = newActionConfigForSpec(name, actionSpec);
+        } else {
+          config = newConditionalConfig();
+        }
+        const newKey = addNewExecutable(editorStateStore, parentKey, config, engineSpec);
         state.selection = newKey;
         return state;
       },
-      prepare(payload: string, actionName: string) {
-        return { payload, meta: { actionName } };
+      prepare(payload: string, name: string, type: ContentType.CONTROL | ContentType.ACTION) {
+        return { payload, meta: { name, type } };
       },
     },
     reorderItem: {
@@ -228,7 +246,7 @@ export const selectParameterSpecificationForKey = (key?: string) => (state: Stor
         state !== undefined &&
         (state.type === ContentType.VALUE ||
           state.type === ContentType.FUNCTION ||
-          state.type === ContentType.INPUT_LIST)
+          state.type === ContentType.EXPRESSION_LIST)
       ) {
         return resolveParameterSpecForKey(editorStateStore, engineSpecification, key);
       }
@@ -244,25 +262,41 @@ function newFunctionConfigForSpec(functionName: string, spec: FunctionSpec): Fun
   return {
     type: ConfigType.FUNCTION,
     name: functionName,
-    inputs: argumentConfigs,
+    arguments: argumentConfigs,
   };
 }
 
 function newActionConfigForSpec(actionName: string, spec: ActionSpec): ActionConfig {
   const inputArgumentConfigs: { [key: string]: ExpressionConfig[] } = {};
-  const actionArgumentConfigs: { [key: string]: ActionConfig[] } = {};
   Object.entries(spec.inputs).forEach(([key, value]) => {
     inputArgumentConfigs[key] = [{ type: ConfigType.VALUE, value: '' }];
-  });
-  Object.entries(spec.actions).forEach(([key, value]) => {
-    actionArgumentConfigs[key] = [];
   });
 
   return {
     type: ConfigType.ACTION,
     name: actionName,
-    inputs: inputArgumentConfigs,
-    actions: actionArgumentConfigs,
+    arguments: inputArgumentConfigs,
+  };
+}
+
+function newConditionalConfig(): ConditionalConfig {
+  return {
+    type: ConfigType.CONTROL_STATEMENT,
+    controlType: ControlType.CONDITIONAL,
+    conditionalExpression: {
+      type: ConfigType.VALUE,
+      value: '',
+    },
+    blocks: [
+      {
+        type: ConfigType.BLOCK,
+        executables: [],
+      },
+      {
+        type: ConfigType.BLOCK,
+        executables: [],
+      },
+    ],
   };
 }
 
@@ -272,7 +306,7 @@ export const {
   setFunction,
   setValue,
   addValue,
-  addAction,
+  addExecutable,
   reorderItem,
   deleteItem,
 } = editorsSlice.actions;

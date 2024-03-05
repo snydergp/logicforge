@@ -6,19 +6,31 @@
 export enum SpecType {
   ENGINE = 'ENGINE',
   TYPE = 'TYPE',
+  TYPE_PROPERTY = 'TYPE_PROPERTY',
   PROCESS = 'PROCESS',
-  ACTION_LIST = 'ACTION_LIST',
   ACTION = 'ACTION',
   FUNCTION = 'FUNCTION',
   VARIABLE = 'VARIABLE',
   INPUT = 'INPUT',
 }
 
+export enum ControlType {
+  CONDITIONAL = 'conditional',
+}
+
+export type TypePropertySpec = {
+  type: SpecType.TYPE_PROPERTY;
+  name: string;
+  typeId: string;
+  optional: boolean;
+};
+
 export type TypeSpec = {
   type: SpecType.TYPE;
   id: string;
   supertypes: string[];
   values?: string[];
+  properties?: { [key: string]: TypePropertySpec };
 };
 
 export type FunctionSpec = {
@@ -30,6 +42,8 @@ export type FunctionSpec = {
 export type VariableSpec = {
   type: SpecType.VARIABLE;
   typeId: string;
+  title: string;
+  description?: string;
   optional: boolean;
 };
 
@@ -40,21 +54,17 @@ export type InputSpec = {
   properties?: { [key: string]: string[] };
 };
 
-export type ActionListSpec = {
-  type: SpecType.ACTION_LIST;
-};
-
 export type ActionSpec = {
   type: SpecType.ACTION;
-  actions: { [key: string]: ActionListSpec };
   inputs: { [key: string]: InputSpec };
+  outputType?: string;
 };
 
 export type ProcessSpec = {
   type: SpecType.PROCESS;
   name: string;
-  variables: VariableSpec[];
-  returnValue: VariableSpec;
+  inputs: VariableSpec[];
+  outputType?: string;
 };
 
 export type EngineSpec = {
@@ -63,12 +73,5 @@ export type EngineSpec = {
   actions: { [key: string]: ActionSpec };
   functions: { [key: string]: FunctionSpec };
   types: { [key: string]: TypeSpec };
+  controls: ControlType[];
 };
-
-export type LogicForgeSpec =
-  | EngineSpec
-  | TypeSpec
-  | ProcessSpec
-  | ActionSpec
-  | FunctionSpec
-  | InputSpec;

@@ -4,14 +4,19 @@
  * flattening the structure stored in Redux.
  */
 
+import {ActionSpec, ControlType, FunctionSpec, InputSpec} from './specification';
+
 export enum ContentType {
-  PROCESS = 'process',
-  ACTION_LIST = 'actions',
-  ACTION = 'action',
-  FUNCTION = 'function',
-  EXPRESSION_LIST = 'expressions',
-  VALUE = 'value',
-  VARIABLE = 'variable',
+  PROCESS = 'PROCESS',
+  BLOCK = 'BLOCK',
+  CONTROL = 'CONTROL',
+  ACTION = 'ACTION',
+  FUNCTION = 'FUNCTION',
+  EXPRESSION_LIST = 'EXPRESSION_LIST',
+  VALUE = 'VALUE',
+  REFERENCE = 'REFERENCE',
+  CONDITIONAL_REFERENCE = 'CONDITIONAL_REFERENCE',
+  VARIABLE = 'VARIABLE',
 }
 
 export type ContentStore = {
@@ -34,30 +39,45 @@ export type ListContent = {
   childKeys: string[];
 } & Content;
 
-export type ProcessContent = ListContent & {
+export type ProcessContent = Content & {
   type: ContentType.PROCESS;
   name: string;
+  rootBlockKey: string;
+  returnExpressionKey?: string;
 };
 
-export type ActionListContent = ListContent & {
-  type: ContentType.ACTION_LIST;
+export type ControlContent = ListContent & {
+  type: ContentType.CONTROL;
+  controlType: ControlType;
 };
 
-export type ActionContent = Content & {
+export type ConditionalContent = ControlContent & {
+  type: ContentType.CONTROL;
+  controlType: ControlType.CONDITIONAL;
+  conditionalExpressionKey: string;
+};
+
+export type BlockContent = ListContent & {
+  type: ContentType.BLOCK;
+};
+
+export type ActionContent = NodeContent & {
   type: ContentType.ACTION;
   name: string;
-  actionChildKeys: { [key: string]: string };
-  inputChildKeys: { [key: string]: string };
+  spec: ActionSpec;
+  variableContentKey?: string;
 };
 
 export type FunctionContent = NodeContent & {
   type: ContentType.FUNCTION;
+  spec: FunctionSpec;
   name: string;
 };
 
 export type InputsContent = ListContent & {
   type: ContentType.EXPRESSION_LIST;
   name: string;
+  spec: InputSpec;
 };
 
 export type ValueContent = Content & {
@@ -65,8 +85,24 @@ export type ValueContent = Content & {
   value: string;
 };
 
-export type VariableContent = Content & {
-  type: ContentType.VARIABLE;
-  index: number;
+export type ReferenceContent = Content & {
+  type: ContentType.REFERENCE;
+  referenceKey: string;
   path: string[];
 };
+
+export type ConditionalReferenceContent = ListContent & {
+  type: ContentType.CONDITIONAL_REFERENCE;
+  expressionKey: string;
+  fallbackKey: string;
+};
+
+export type VariableContent = Content & {
+  type: ContentType.VARIABLE;
+  title: string;
+  description?: string;
+};
+
+export function isExecutable(type: ContentType) {
+  return type === ContentType.CONTROL || type === ContentType.BLOCK || type === ContentType.ACTION;
+}

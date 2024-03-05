@@ -1,8 +1,11 @@
-import { Provider, useDispatch, useSelector } from 'react-redux';
+import { Provider, useSelector } from 'react-redux';
 import { Box, Container, Divider, Paper, Stack, Typography } from '@mui/material';
 import {
   ActionContent,
+  ConditionalContent,
   ContentType,
+  ControlContent,
+  ControlType,
   EngineSpec,
   FunctionContent,
   LogicForgeConfig,
@@ -15,6 +18,8 @@ import { I18n, useTranslate } from 'react-polyglot';
 import {
   actionDescriptionPath,
   actionTitlePath,
+  controlDescription,
+  controlTitle,
   functionDescriptionPath,
   functionTitlePath,
   generateTypeMappings,
@@ -25,8 +30,9 @@ import {
 import { Info } from '../Info/Info';
 import { ActionIcon, FunctionIcon, ProcessIcon } from '../Icons/Icons';
 import { getStore, StoreStructure } from '../../redux';
-import { ActionParameterList } from '../ActionParameterList/ActionParameterList';
 import { InputParameterList } from '../InputParameterList/InputParameterList';
+import { ExecutableBlockEditor } from '../ExecutableBlockEditor/ExecutableBlockEditor';
+import { InitialVariablesDisplay } from '../InitialVariablesDisplay/InitialVariablesDisplay';
 
 export type EditorInfo = {
   engineSpec: EngineSpec;
@@ -38,12 +44,13 @@ enum FrameType {
   PROCESS,
   ACTION,
   FUNCTION,
+  CONTROL,
 }
 
 /**
  * The content types that are rendered using frames
  */
-type FrameContent = ProcessContent | ActionContent | FunctionContent;
+type FrameContent = ProcessContent | ActionContent | FunctionContent | ControlContent;
 
 export type FrameEditorProps = {
   config: LogicForgeConfig;
@@ -58,8 +65,6 @@ export function FrameEditor({ config, engineSpec, translations, locale }: FrameE
   useEffect(() => {
     store.dispatch(initEditor(config as ProcessConfig, engineSpec));
   }, []);
-
-  const [childFrames, setChildFrames] = useState<React.JSX.Element[]>([]);
 
   const typeMappings = generateTypeMappings(engineSpec.types);
 
@@ -93,7 +98,8 @@ function FrameEditorInternal() {
         if (
           contentType === ContentType.PROCESS ||
           contentType === ContentType.ACTION ||
-          contentType === ContentType.FUNCTION
+          contentType === ContentType.FUNCTION ||
+          (contentType === ContentType.CONTROL && i + 1 === selection.length) // only show control when directly selected
         ) {
           children.push(<Frame content={content as FrameContent} key={content.key}></Frame>);
         }
@@ -124,6 +130,13 @@ function Frame({ content }: FrameProps) {
       break;
     case ContentType.FUNCTION:
       renderedFrameContents = <FunctionFrame content={content} />;
+      break;
+    case ContentType.CONTROL:
+      if (content.controlType === ControlType.CONDITIONAL) {
+        renderedFrameContents = <ControlFrame content={content as ConditionalContent} />;
+      } else {
+        throw new Error(`Unknown control type: ${content.controlType}`);
+      }
       break;
   }
 
@@ -157,7 +170,8 @@ function ProcessFrame({ content }: ProcessFrameProps) {
         type={FrameType.PROCESS}
       />
       <Paper>
-        <ActionParameterList contentKey={content.key} name={'root'} parent={content} />
+        <InitialVariablesDisplay initialVariables={specification.inputs} />
+        <ExecutableBlockEditor contentKey={content.rootBlockKey} />
       </Paper>
     </Stack>
   );
@@ -185,25 +199,10 @@ function ActionFrame({ content }: ActionFrameProps) {
         description={description}
         type={FrameType.ACTION}
       />
-      {Object.entries(specification.actions)?.map(([name]) => {
-        return (
-          <Paper key={name}>
-            <ActionParameterList
-              contentKey={content.actionChildKeys[name]}
-              name={name}
-              parent={content}
-            />
-          </Paper>
-        );
-      })}
       {Object.entries(specification.inputs)?.map(([name]) => {
         return (
           <Paper key={name}>
-            <InputParameterList
-              contentKey={content.inputChildKeys[name]}
-              name={name}
-              parent={content}
-            />
+            <InputParameterList contentKey={content.childKeys[name]} name={name} parent={content} />
           </Paper>
         );
       })}
@@ -216,10 +215,10 @@ export interface FunctionFrameProps extends FrameProps {
 }
 
 export function FunctionFrame({ content }: FunctionFrameProps) {
-  const editorInfo = useContext(EditorContext) as EditorInfo;
+  const { engineSpec } = useContext(EditorContext) as EditorInfo;
 
   const functionName = content.name;
-  const specification = editorInfo.engineSpec.functions[functionName];
+  const specification = engineSpec.functions[functionName];
 
   const translate = useTranslate();
   const title = translate(functionTitlePath(functionName));
@@ -245,6 +244,38 @@ export function FunctionFrame({ content }: FunctionFrameProps) {
             </Paper>
           );
         })}
+      </Stack>
+    </div>
+  );
+}
+
+interface ConditionalFrameProps {
+  content: ConditionalContent;
+}
+
+function ControlFrame({ content }: ConditionalFrameProps) {
+  const controlType = content.controlType;
+
+  const translate = useTranslate();
+  const title = translate(controlTitle(controlType));
+  const description = translate(controlDescription(controlType));
+
+  return (
+    <div className={'logicforgeFrameEditor__controlFrame'}>
+      <FrameHeading
+        title={title}
+        subtitle={'Conditional'}
+        description={description}
+        type={FrameType.CONTROL}
+      />
+      <Stack spacing={1}>
+        <Paper>
+          <InputParameterList
+            contentKey={content.conditionalExpressionKey}
+            name={'conditional'}
+            parent={content}
+          />
+        </Paper>
       </Stack>
     </div>
   );

@@ -1,7 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
-import { ConfigType, EngineSpec, ProcessConfig, SpecType } from './types';
+import { ConfigType, ControlType, EngineSpec, ProcessConfig, SpecType } from './types';
 import { FrameEditor } from './components';
 import { createTheme, CssBaseline, ThemeProvider } from '@mui/material';
 import '@fontsource/roboto';
@@ -114,6 +114,26 @@ const messages = {
       },
     },
   },
+  controls: {
+    conditional: {
+      parameters: {
+        condition: {
+          title: 'If',
+          description: 'A boolean expression. If the expression evaluates to "true"...',
+        },
+      },
+      blocks: {
+        then: {
+          title: 'Then',
+          description: '',
+        },
+        else: {
+          title: 'Else',
+          description: '',
+        },
+      },
+    },
+  },
   types: {
     'java.lang.String': {
       title: 'Text',
@@ -140,8 +160,16 @@ const messages = {
 const specification: EngineSpec = {
   type: SpecType.ENGINE,
   processes: {
-    EXAMPLE: {
+    example: {
       type: SpecType.PROCESS,
+      inputs: [
+        {
+          type: SpecType.VARIABLE,
+          title: 'A text String',
+          typeId: 'java.lang.String',
+          optional: false,
+        },
+      ],
       name: 'example',
     },
   },
@@ -160,7 +188,6 @@ const specification: EngineSpec = {
           multi: false,
         },
       },
-      actions: {},
     },
     'delete-variable': {
       type: SpecType.ACTION,
@@ -171,7 +198,6 @@ const specification: EngineSpec = {
           multi: false,
         },
       },
-      actions: {},
     },
     'increment-counter': {
       type: SpecType.ACTION,
@@ -187,7 +213,6 @@ const specification: EngineSpec = {
           multi: false,
         },
       },
-      actions: {},
     },
   },
   functions: {
@@ -260,6 +285,7 @@ const specification: EngineSpec = {
       id: 'java.lang.Boolean',
     },
   },
+  controls: [ControlType.CONDITIONAL],
 };
 
 // This configuration would be provided from the server (if editing an existing config) or
@@ -267,79 +293,79 @@ const specification: EngineSpec = {
 const process: ProcessConfig = {
   type: ConfigType.PROCESS,
   name: 'EXAMPLE',
-  actions: [
-    {
-      type: ConfigType.ACTION,
-      name: 'set-variable',
-      actions: {},
-      inputs: {
-        value: [
-          {
-            type: ConfigType.FUNCTION,
-            name: 'concatenate',
-            inputs: {
-              values: [
-                {
-                  type: ConfigType.VALUE,
-                  value: 'Hello',
-                },
-                {
-                  type: ConfigType.FUNCTION,
-                  name: 'concatenate',
-                  inputs: {
-                    values: [
-                      {
-                        type: ConfigType.VALUE,
-                        value: '!!',
-                      },
-                    ],
+  rootBlock: {
+    type: ConfigType.BLOCK,
+    executables: [
+      {
+        type: ConfigType.ACTION,
+        name: 'set-variable',
+        arguments: {
+          value: [
+            {
+              type: ConfigType.FUNCTION,
+              name: 'concatenate',
+              arguments: {
+                values: [
+                  {
+                    type: ConfigType.VALUE,
+                    value: 'Hello',
                   },
-                },
-              ],
+                  {
+                    type: ConfigType.FUNCTION,
+                    name: 'concatenate',
+                    arguments: {
+                      values: [
+                        {
+                          type: ConfigType.VALUE,
+                          value: '!!',
+                        },
+                      ],
+                    },
+                  },
+                ],
+              },
             },
-          },
-        ],
-        variableName: [
-          {
-            type: ConfigType.VALUE,
-            value: 'World',
-          },
-        ],
+          ],
+          variableName: [
+            {
+              type: ConfigType.VALUE,
+              value: 'World',
+            },
+          ],
+        },
       },
-    },
-    {
-      type: ConfigType.ACTION,
-      name: 'delete-variable',
-      actions: {},
-      inputs: {
-        variableName: [
-          {
-            type: ConfigType.VALUE,
-            value: 'World',
-          },
-        ],
+      {
+        type: ConfigType.ACTION,
+        name: 'delete-variable',
+        arguments: {
+          variableName: [
+            {
+              type: ConfigType.VALUE,
+              value: 'World',
+            },
+          ],
+        },
       },
-    },
-    {
-      type: ConfigType.ACTION,
-      name: 'increment-counter',
-      actions: {},
-      inputs: {
-        variableName: [
-          {
-            type: ConfigType.VALUE,
-            value: 'counterVar',
-          },
-        ],
-        count: [
-          {
-            type: ConfigType.VALUE,
-            value: '2',
-          },
-        ],
+      {
+        type: ConfigType.ACTION,
+        name: 'increment-counter',
+        arguments: {
+          variableName: [
+            {
+              type: ConfigType.VALUE,
+              value: 'counterVar',
+            },
+          ],
+          count: [
+            {
+              type: ConfigType.VALUE,
+              value: '2',
+            },
+          ],
+        },
       },
-    },
-  ],
+    ],
+  },
 };
 
 const root = ReactDOM.createRoot(document.getElementById('root') as HTMLElement);
