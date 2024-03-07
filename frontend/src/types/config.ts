@@ -52,13 +52,13 @@ export type BlockConfig = {
   executables: ExecutableConfig[];
 };
 
-export type ControlStatementConfig = {
+export type ControlConfig = {
   type: ConfigType.CONTROL_STATEMENT;
   controlType: ControlType;
   blocks: BlockConfig[];
 };
 
-export type ConditionalConfig = ControlStatementConfig & {
+export type ConditionalConfig = ControlConfig & {
   controlType: ControlType.CONDITIONAL;
   conditionalExpression: ExpressionConfig;
 };
@@ -78,7 +78,7 @@ export type VariableConfig = {
 
 export type ExpressionConfig = ValueConfig | FunctionConfig | ConditionalReferenceConfig;
 
-export type ExecutableConfig = ActionConfig | BlockConfig | ControlStatementConfig;
+export type ExecutableConfig = ActionConfig | BlockConfig | ControlConfig;
 
 export type LogicForgeConfig =
   | ProcessConfig

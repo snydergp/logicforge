@@ -179,12 +179,12 @@ const specification: EngineSpec = {
       inputs: {
         value: {
           type: SpecType.INPUT,
-          returnType: 'java.lang.Object',
+          outputTypeId: 'java.lang.Object',
           multi: false,
         },
         variableName: {
           type: SpecType.INPUT,
-          returnType: 'java.lang.String',
+          outputTypeId: 'java.lang.String',
           multi: false,
         },
       },
@@ -194,7 +194,7 @@ const specification: EngineSpec = {
       inputs: {
         variableName: {
           type: SpecType.INPUT,
-          returnType: 'java.lang.String',
+          outputTypeId: 'java.lang.String',
           multi: false,
         },
       },
@@ -204,12 +204,12 @@ const specification: EngineSpec = {
       inputs: {
         variableName: {
           type: SpecType.INPUT,
-          returnType: 'java.lang.String',
+          outputTypeId: 'java.lang.String',
           multi: false,
         },
         count: {
           type: SpecType.INPUT,
-          returnType: 'java.lang.Integer',
+          outputTypeId: 'java.lang.Integer',
           multi: false,
         },
       },
@@ -218,36 +218,36 @@ const specification: EngineSpec = {
   functions: {
     concatenate: {
       type: SpecType.FUNCTION,
-      outputType: 'java.lang.String',
+      outputTypeId: 'java.lang.String',
       inputs: {
         values: {
           type: SpecType.INPUT,
           multi: true,
-          returnType: 'java.lang.String',
+          outputTypeId: 'java.lang.String',
           properties: {},
         },
       },
     },
     min: {
       type: SpecType.FUNCTION,
-      outputType: 'java.lang.Number',
+      outputTypeId: 'java.lang.Number',
       inputs: {
         values: {
           type: SpecType.INPUT,
           multi: true,
-          returnType: 'java.lang.Number',
+          outputTypeId: 'java.lang.Number',
           properties: {},
         },
       },
     },
     and: {
       type: SpecType.FUNCTION,
-      outputType: 'java.lang.Boolean',
+      outputTypeId: 'java.lang.Boolean',
       inputs: {
         values: {
           type: SpecType.INPUT,
           multi: true,
-          returnType: 'java.lang.Boolean',
+          outputTypeId: 'java.lang.Boolean',
           properties: {},
         },
       },

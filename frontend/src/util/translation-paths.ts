@@ -54,6 +54,14 @@ export function typeDescriptionPath(typeId: string) {
   return `types.${typeId}.description`;
 }
 
+export function typePropertyTitle(typeId: string, propertyName: string) {
+  return `types.${typeId}.properties.${propertyName}.title`;
+}
+
+export function typePropertyDescription(typeId: string, propertyName: string) {
+  return `types.${typeId}.properties.${propertyName}.description`;
+}
+
 export function typeEnumValueTitlePath(typeId: string, value: string) {
   return `types.${typeId}.values.${value}.title`;
 }

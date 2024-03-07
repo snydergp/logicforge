@@ -222,10 +222,10 @@ function ActionItem({ content }: ActionItemProps) {
     <ListItemButton selected={selected}>
       <ActionIcon sx={{ mr: 1 }} />
       <ListItemText primary={title} secondary={<span>{description}</span>} />
-      {content.variableContentKey !== undefined && actionSpec.outputType !== undefined && (
+      {content.variableContentKey !== undefined && actionSpec.outputTypeId !== null && (
         <VariableDisplayWrapper
           contentKey={content.variableContentKey}
-          typeId={actionSpec.outputType}
+          typeId={actionSpec.outputTypeId}
         />
       )}
     </ListItemButton>

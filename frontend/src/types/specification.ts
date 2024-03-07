@@ -30,13 +30,14 @@ export type TypeSpec = {
   id: string;
   supertypes: string[];
   values?: string[];
-  properties?: { [key: string]: TypePropertySpec };
+  properties: { [key: string]: TypePropertySpec };
 };
 
 export type FunctionSpec = {
   type: SpecType.FUNCTION;
-  outputType: string;
+  outputTypeId: string;
   inputs: { [key: string]: InputSpec };
+  metadata: { [key: string]: string };
 };
 
 export type VariableSpec = {
@@ -49,22 +50,23 @@ export type VariableSpec = {
 
 export type InputSpec = {
   type: SpecType.INPUT;
-  returnType: string;
+  outputTypeId: string;
   multi: boolean;
-  properties?: { [key: string]: string[] };
+  metadata: { [key: string]: string };
 };
 
 export type ActionSpec = {
   type: SpecType.ACTION;
   inputs: { [key: string]: InputSpec };
-  outputType?: string;
+  outputTypeId: string | null;
+  metadata: { [key: string]: string };
 };
 
 export type ProcessSpec = {
   type: SpecType.PROCESS;
   name: string;
-  inputs: VariableSpec[];
-  outputType?: string;
+  inputs: { [key: string]: VariableSpec };
+  outputTypeId: string | null;
 };
 
 export type EngineSpec = {

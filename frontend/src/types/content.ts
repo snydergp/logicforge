@@ -4,7 +4,8 @@
  * flattening the structure stored in Redux.
  */
 
-import {ActionSpec, ControlType, FunctionSpec, InputSpec} from './specification';
+import {ActionSpec, ControlType, FunctionSpec, InputSpec, ProcessSpec} from './specification';
+import {ErrorCode} from './error-codes';
 
 export enum ContentType {
   PROCESS = 'PROCESS',
@@ -19,6 +20,10 @@ export enum ContentType {
   VARIABLE = 'VARIABLE',
 }
 
+export type MightError = {
+  errors: ErrorCode[];
+};
+
 export type ContentStore = {
   count: number;
   data: { [key: string]: Content };
@@ -31,6 +36,16 @@ export type Content = {
   parentKey?: string;
 };
 
+export type ExpressionContent = Content & {
+  type:
+    | ContentType.PROCESS
+    | ContentType.ACTION
+    | ContentType.FUNCTION
+    | ContentType.REFERENCE
+    | ContentType.VALUE;
+  outputTypeId: string | null;
+};
+
 export type NodeContent = {
   childKeys: { [key: string]: string };
 } & Content;
@@ -39,12 +54,15 @@ export type ListContent = {
   childKeys: string[];
 } & Content;
 
-export type ProcessContent = Content & {
-  type: ContentType.PROCESS;
-  name: string;
-  rootBlockKey: string;
-  returnExpressionKey?: string;
-};
+export type ProcessContent = Content &
+  ExpressionContent & {
+    type: ContentType.PROCESS;
+    name: string;
+    rootBlockKey: string;
+    returnExpressionKey?: string;
+    spec: ProcessSpec;
+    inputVariableKeys: string[];
+  };
 
 export type ControlContent = ListContent & {
   type: ContentType.CONTROL;
@@ -61,18 +79,20 @@ export type BlockContent = ListContent & {
   type: ContentType.BLOCK;
 };
 
-export type ActionContent = NodeContent & {
-  type: ContentType.ACTION;
-  name: string;
-  spec: ActionSpec;
-  variableContentKey?: string;
-};
+export type ActionContent = NodeContent &
+  ExpressionContent & {
+    type: ContentType.ACTION;
+    name: string;
+    spec: ActionSpec;
+    variableContentKey?: string;
+  };
 
-export type FunctionContent = NodeContent & {
-  type: ContentType.FUNCTION;
-  spec: FunctionSpec;
-  name: string;
-};
+export type FunctionContent = NodeContent &
+  ExpressionContent & {
+    type: ContentType.FUNCTION;
+    spec: FunctionSpec;
+    name: string;
+  };
 
 export type InputsContent = ListContent & {
   type: ContentType.EXPRESSION_LIST;
@@ -80,16 +100,20 @@ export type InputsContent = ListContent & {
   spec: InputSpec;
 };
 
-export type ValueContent = Content & {
-  type: ContentType.VALUE;
-  value: string;
-};
+export type ValueContent = Content &
+  MightError &
+  ExpressionContent & {
+    type: ContentType.VALUE;
+    value: string;
+  };
 
-export type ReferenceContent = Content & {
-  type: ContentType.REFERENCE;
-  referenceKey: string;
-  path: string[];
-};
+export type ReferenceContent = Content &
+  MightError &
+  ExpressionContent & {
+    type: ContentType.REFERENCE;
+    referenceKey: string;
+    path: string[];
+  };
 
 export type ConditionalReferenceContent = ListContent & {
   type: ContentType.CONDITIONAL_REFERENCE;
@@ -101,6 +125,9 @@ export type VariableContent = Content & {
   type: ContentType.VARIABLE;
   title: string;
   description?: string;
+  basePath?: string;
+  optional: boolean;
+  typeId: string;
 };
 
 export function isExecutable(type: ContentType) {

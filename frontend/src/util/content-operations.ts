@@ -1,24 +1,28 @@
 import {
   ActionConfig,
   ActionContent,
+  BlockConfig,
   BlockContent,
   ConditionalConfig,
   ConditionalContent,
+  ConditionalReferenceConfig,
   ConditionalReferenceContent,
   ConfigType,
   Content,
   ContentStore,
   ContentType,
+  ControlConfig,
   ControlContent,
-  ControlStatementConfig,
   ControlType,
   EngineSpec,
+  ExpressionContent,
   FunctionConfig,
   FunctionContent,
   InputsContent,
   InputSpec,
   ListContent,
   LogicForgeConfig,
+  ProcessConfig,
   ProcessContent,
   ReferenceConfig,
   ReferenceContent,
@@ -27,6 +31,12 @@ import {
   VariableConfig,
   VariableContent,
 } from '../types';
+import { MetadataProperties } from '../constant/metadata-properties';
+import { WellKnownType } from '../constant/well-known-type';
+
+function nextKey(contentStore: ContentStore) {
+  return `${contentStore.count++}`;
+}
 
 export function loadRootContent(
   contentStore: ContentStore,
@@ -43,8 +53,295 @@ export function loadRootContent(
   contentStore.rootConfigKey = rootState.key;
 }
 
-function nextKey(contentStore: ContentStore) {
-  return `${contentStore.count++}`;
+export function constructContent(
+  contentStore: ContentStore,
+  config: LogicForgeConfig,
+  engineSpec: EngineSpec,
+): Content {
+  switch (config.type) {
+    case ConfigType.BLOCK:
+      return constructBlock(config as BlockConfig, contentStore, engineSpec);
+    case ConfigType.PROCESS:
+      return constructProcess(config as ProcessConfig, contentStore, engineSpec);
+    case ConfigType.ACTION:
+      return constructAction(config as ActionConfig, contentStore, engineSpec);
+    case ConfigType.CONTROL_STATEMENT:
+      return constructControl(config as ControlConfig, contentStore, engineSpec);
+    case ConfigType.VALUE:
+      return constructValue(config as ValueConfig, contentStore, engineSpec);
+    case ConfigType.FUNCTION:
+      return constructFunction(config as FunctionConfig, contentStore, engineSpec);
+    case ConfigType.CONDITIONAL_REFERENCE:
+      return constructConditionalReference(
+        config as ConditionalReferenceConfig,
+        contentStore,
+        engineSpec,
+      );
+    case ConfigType.REFERENCE:
+      return constructReference(config as ReferenceConfig, contentStore, engineSpec);
+    case ConfigType.VARIABLE:
+      return constructVariable(config as VariableConfig, contentStore, engineSpec);
+  }
+}
+
+function constructProcess(
+  config: ProcessConfig,
+  contentStore: ContentStore,
+  engineSpec: EngineSpec,
+) {
+  const processKey = nextKey(contentStore);
+  const processName = config.name;
+  const processSpec = engineSpec.processes[processName];
+  const rootBlockContent = constructContent(contentStore, config.rootBlock, engineSpec);
+  rootBlockContent.parentKey = processKey;
+  const returnExpressionContent =
+    config.returnExpression !== undefined
+      ? constructContent(contentStore, config.returnExpression, engineSpec)
+      : undefined;
+  if (returnExpressionContent !== undefined) {
+    returnExpressionContent.parentKey = processKey;
+  }
+  const inputVariableKeys = Object.entries(processSpec.inputs).map(([name, variableSpec]) => {
+    const variableConfig = {
+      type: ConfigType.VARIABLE,
+      title: variableSpec.title,
+      description: variableSpec.description,
+    } as VariableConfig;
+    const variableContent = constructVariable(variableConfig, contentStore, engineSpec);
+    variableContent.parentKey = processKey;
+    variableContent.basePath = name;
+    variableContent.optional = variableSpec.optional;
+    variableContent.typeId = variableSpec.typeId;
+    return variableContent.key;
+  });
+  const processContent: ProcessContent = {
+    key: processKey,
+    type: ContentType.PROCESS,
+    name: processName,
+    spec: processSpec,
+    rootBlockKey: rootBlockContent.key,
+    outputTypeId: processSpec.outputTypeId,
+    returnExpressionKey:
+      returnExpressionContent !== undefined ? returnExpressionContent.key : undefined,
+    inputVariableKeys,
+  };
+  contentStore.data[processContent.key] = processContent;
+  return processContent;
+}
+
+function constructBlock(config: BlockConfig, contentStore: ContentStore, engineSpec: EngineSpec) {
+  const blockKey = nextKey(contentStore);
+  const blockChildKeys = config.executables.map((child) => {
+    const childContent = constructContent(contentStore, child, engineSpec);
+    childContent.parentKey = blockKey;
+    return childContent.key;
+  });
+  return {
+    key: blockKey,
+    childKeys: blockChildKeys,
+  } as BlockContent;
+}
+
+function constructControl(
+  config: ControlConfig,
+  contentStore: ContentStore,
+  engineSpec: EngineSpec,
+) {
+  const controlStatementKey = nextKey(contentStore);
+  const type = config.controlType;
+  if (type !== ControlType.CONDITIONAL) {
+    throw new Error(`Unknown control statement type: ${type}`);
+  }
+  const conditionalConfig = config as ConditionalConfig;
+  const controlStatementChildKeys = config.blocks.map((block) => {
+    let content = constructContent(contentStore, block, engineSpec);
+    content.parentKey = controlStatementKey;
+    return content.key;
+  });
+  const conditionalExpression = constructContent(
+    contentStore,
+    conditionalConfig.conditionalExpression,
+    engineSpec,
+  );
+  conditionalExpression.parentKey = controlStatementKey;
+  return {
+    key: controlStatementKey,
+    childKeys: controlStatementChildKeys,
+    controlType: ControlType.CONDITIONAL,
+    conditionalExpressionKey: conditionalExpression.key,
+  } as ConditionalContent;
+}
+
+function constructAction(config: ActionConfig, contentStore: ContentStore, engineSpec: EngineSpec) {
+  const key = nextKey(contentStore);
+  const name = config.name;
+  const spec = engineSpec.actions[name];
+
+  // for actions with dynamic return types, override the output type with the output type of the
+  //  input defined in the metadata
+  const outputTypeInputName = spec.metadata[MetadataProperties.DYNAMIC_RETURN_TYPE];
+  let outputTypeId = spec.outputTypeId;
+
+  const actionChildKeys: { [key: string]: string } = {};
+  Object.entries(config.arguments).forEach(([argName, argumentConfigs]) => {
+    const childKey = nextKey(contentStore);
+    const inputsContent: InputsContent = {
+      key: childKey,
+      type: ContentType.EXPRESSION_LIST,
+      name: argName,
+      spec: spec.inputs[argName],
+      parentKey: key,
+      childKeys: [],
+    };
+    contentStore.data[childKey] = inputsContent;
+    actionChildKeys[argName] = childKey;
+    argumentConfigs.forEach((inputConfig, index) => {
+      const content = constructContent(contentStore, inputConfig, engineSpec);
+      if (index === 0 && argName === outputTypeInputName) {
+        const expressionContent = content as ExpressionContent;
+        if (expressionContent.outputTypeId !== null) {
+          outputTypeId = expressionContent.outputTypeId;
+        }
+      }
+      content.parentKey = childKey;
+      inputsContent.childKeys.push(content.key);
+    });
+  });
+
+  const actionContent: ActionContent = {
+    type: ContentType.ACTION,
+    key,
+    name,
+    spec,
+    outputTypeId,
+    childKeys: actionChildKeys,
+  };
+  contentStore.data[actionContent.key] = actionContent;
+
+  const varContent =
+    config.output !== undefined
+      ? constructVariable(config.output, contentStore, engineSpec)
+      : undefined;
+  if (varContent !== undefined) {
+    varContent.parentKey = key;
+    varContent.typeId = inferActionOutputType(actionContent, contentStore, engineSpec) as string;
+    actionContent.variableContentKey = varContent.key;
+  }
+
+  return actionContent;
+}
+
+function constructFunction(
+  config: FunctionConfig,
+  contentStore: ContentStore,
+  engineSpec: EngineSpec,
+) {
+  const key = nextKey(contentStore);
+  const name = config.name;
+  const spec = engineSpec.functions[name];
+
+  // for actions with dynamic return types, override the output type with the output type of the
+  //  input defined in the metadata
+  const outputTypeInputName = spec.metadata[MetadataProperties.DYNAMIC_RETURN_TYPE];
+  let outputTypeId = spec.outputTypeId;
+
+  const functionChildKeys: { [key: string]: string } = {};
+  Object.entries(config.arguments).forEach(([argName, argumentConfigs]) => {
+    const childKey = nextKey(contentStore);
+    const inputsContent: InputsContent = {
+      key: childKey,
+      type: ContentType.EXPRESSION_LIST,
+      name: argName,
+      spec: spec.inputs[argName],
+      parentKey: key,
+      childKeys: [],
+    };
+    contentStore.data[childKey] = inputsContent;
+    functionChildKeys[argName] = childKey;
+    argumentConfigs.forEach((inputConfig, index) => {
+      const content = constructContent(contentStore, inputConfig, engineSpec);
+      if (index === 0 && argName === outputTypeInputName) {
+        const expressionContent = content as ExpressionContent;
+        if (expressionContent.outputTypeId !== null) {
+          outputTypeId = expressionContent.outputTypeId;
+        }
+      }
+      content.parentKey = childKey;
+      inputsContent.childKeys.push(content.key);
+    });
+  });
+
+  const functionContent: FunctionContent = {
+    type: ContentType.FUNCTION,
+    key,
+    name,
+    spec,
+    outputTypeId,
+    childKeys: functionChildKeys,
+  };
+  contentStore.data[functionContent.key] = functionContent;
+
+  return functionContent;
+}
+
+function constructValue(config: ValueConfig, contentStore: ContentStore, engineSpec: EngineSpec) {
+  const valueContent: ValueContent = {
+    key: nextKey(contentStore),
+    type: ContentType.VALUE,
+    value: config.value,
+    errors: [],
+    outputTypeId: null, // parent will override this following construction
+  };
+  contentStore.data[valueContent.key] = valueContent;
+  return valueContent;
+}
+
+function constructConditionalReference(
+  config: ConditionalReferenceConfig,
+  contentStore: ContentStore,
+  engineSpec: EngineSpec,
+) {
+  const referenceKey = nextKey(contentStore);
+  const childKeys = config.references.map((coordinates) => {
+    const refContent = getExecutableContentForCoordinates(contentStore, coordinates);
+    return refContent.key;
+  });
+  const expressionContent = constructContent(contentStore, config.expression, engineSpec);
+  const fallbackContent = constructContent(contentStore, config.fallback, engineSpec);
+  return {
+    key: referenceKey,
+    childKeys: childKeys,
+    expressionKey: expressionContent.key,
+    fallbackKey: fallbackContent.key,
+  } as ConditionalReferenceContent;
+}
+
+function constructReference(
+  config: ReferenceConfig,
+  contentStore: ContentStore,
+  engineSpec: EngineSpec,
+) {
+  const ref = config as ReferenceConfig;
+  const pointedContent = findExecutableContent(contentStore, ref.coordinates);
+  return {
+    key: nextKey(contentStore),
+    referenceKey: pointedContent.key,
+    path: ref.path,
+  } as ReferenceContent;
+}
+
+function constructVariable(
+  config: VariableConfig,
+  contentStore: ContentStore,
+  engineSpec: EngineSpec,
+) {
+  const variableConfig = config as VariableConfig;
+  return {
+    key: nextKey(contentStore),
+    type: ContentType.VARIABLE,
+    title: variableConfig.title,
+    description: variableConfig.description,
+  } as VariableContent;
 }
 
 /**
@@ -92,7 +389,7 @@ export function replaceInput(
 export function addNewExecutable(
   contentStore: ContentStore,
   parentKey: string,
-  newConfig: ActionConfig | ControlStatementConfig,
+  newConfig: ActionConfig | ControlConfig,
   engineSpec: EngineSpec,
 ) {
   const resolvedState = contentStore.data[parentKey];
@@ -205,186 +502,6 @@ export function reorderList(
   ];
 }
 
-export function constructContent(
-  contentStore: ContentStore,
-  config: LogicForgeConfig,
-  engineSpec: EngineSpec,
-): Content {
-  if (config.type === ConfigType.PROCESS) {
-    const processKey = nextKey(contentStore);
-    const processName = config.name;
-    const rootBlockContent = constructContent(contentStore, config.rootBlock, engineSpec);
-    rootBlockContent.parentKey = processKey;
-    const returnExpressionContent =
-      config.returnExpression !== undefined
-        ? constructContent(contentStore, config.returnExpression, engineSpec)
-        : undefined;
-    if (returnExpressionContent !== undefined) {
-      returnExpressionContent.parentKey = processKey;
-    }
-    const processContent: ProcessContent = {
-      key: processKey,
-      type: ContentType.PROCESS,
-      name: processName,
-      rootBlockKey: rootBlockContent.key,
-      returnExpressionKey:
-        returnExpressionContent !== undefined ? returnExpressionContent.key : undefined,
-    };
-    contentStore.data[processContent.key] = processContent;
-    return processContent;
-  } else if (config.type === ConfigType.BLOCK) {
-    const blockKey = nextKey(contentStore);
-    const blockChildKeys = config.executables.map((child) => {
-      const childContent = constructContent(contentStore, child, engineSpec);
-      childContent.parentKey = blockKey;
-      return childContent.key;
-    });
-    return {
-      key: blockKey,
-      childKeys: blockChildKeys,
-    } as BlockContent;
-  } else if (config.type === ConfigType.CONTROL_STATEMENT) {
-    const controlStatementKey = nextKey(contentStore);
-    const type = config.controlType;
-    if (type !== ControlType.CONDITIONAL) {
-      throw new Error(`Unknown control statement type: ${type}`);
-    }
-    const conditionalConfig = config as ConditionalConfig;
-    const controlStatementChildKeys = config.blocks.map((block) => {
-      let content = constructContent(contentStore, block, engineSpec);
-      content.parentKey = controlStatementKey;
-      return content.key;
-    });
-    const conditionalExpression = constructContent(
-      contentStore,
-      conditionalConfig.conditionalExpression,
-      engineSpec,
-    );
-    conditionalExpression.parentKey = controlStatementKey;
-    return {
-      key: controlStatementKey,
-      childKeys: controlStatementChildKeys,
-      controlType: ControlType.CONDITIONAL,
-      conditionalExpressionKey: conditionalExpression.key,
-    } as ConditionalContent;
-  } else if (config.type === ConfigType.ACTION) {
-    const actionKey = nextKey(contentStore);
-    const actionName = config.name;
-    const actionSpec = engineSpec.actions[actionName];
-
-    const actionContent: ActionContent = {
-      key: actionKey,
-      type: ContentType.ACTION,
-      name: actionName,
-      spec: actionSpec,
-      childKeys: {},
-    };
-    contentStore.data[actionContent.key] = actionContent;
-
-    Object.entries(config.arguments).forEach(([name, argumentConfigs]) => {
-      const childKey = nextKey(contentStore);
-      const inputsState: InputsContent = {
-        key: childKey,
-        type: ContentType.EXPRESSION_LIST,
-        name,
-        spec: actionSpec.inputs[name],
-        parentKey: actionKey,
-        childKeys: [],
-      };
-      contentStore.data[childKey] = inputsState;
-      actionContent.childKeys[name] = childKey;
-      argumentConfigs.forEach((inputConfig) => {
-        const content = constructContent(contentStore, inputConfig, engineSpec);
-        content.parentKey = childKey;
-        inputsState.childKeys.push(content.key);
-      });
-      actionContent.childKeys[name] = childKey;
-    });
-
-    const varContent =
-      config.output !== undefined
-        ? constructContent(contentStore, config.output, engineSpec)
-        : undefined;
-    if (varContent !== undefined) {
-      varContent.parentKey = actionKey;
-      actionContent.variableContentKey = varContent.key;
-    }
-
-    return actionContent;
-  } else if (config.type === ConfigType.FUNCTION) {
-    const functionKey = nextKey(contentStore);
-    const functionName = config.name;
-    const functionSpec = engineSpec.functions[functionName];
-    const functionContent: FunctionContent = {
-      key: functionKey,
-      type: ContentType.FUNCTION,
-      name: functionName,
-      spec: functionSpec,
-      childKeys: {},
-    };
-    contentStore.data[functionContent.key] = functionContent;
-    Object.entries(config.arguments).forEach(([name, argumentConfigs]) => {
-      const childKey = nextKey(contentStore);
-      const inputsState: InputsContent = {
-        key: childKey,
-        type: ContentType.EXPRESSION_LIST,
-        name,
-        spec: functionSpec.inputs[name],
-        parentKey: functionKey,
-        childKeys: [],
-      };
-      contentStore.data[childKey] = inputsState;
-      functionContent.childKeys[name] = childKey;
-      argumentConfigs.forEach((inputConfig) => {
-        const content = constructContent(contentStore, inputConfig, engineSpec);
-        content.parentKey = childKey;
-        inputsState.childKeys.push(content.key);
-      });
-    });
-    return functionContent;
-  } else if (config.type === ConfigType.VALUE) {
-    const valueContent: ValueContent = {
-      key: nextKey(contentStore),
-      type: ContentType.VALUE,
-      value: config.value,
-    };
-    contentStore.data[valueContent.key] = valueContent;
-    return valueContent;
-  } else if (config.type === ConfigType.CONDITIONAL_REFERENCE) {
-    const referenceKey = nextKey(contentStore);
-    const childKeys = config.references.map((coordinates) => {
-      const refContent = getExecutableContentForCoordinates(contentStore, coordinates);
-      return refContent.key;
-    });
-    const expressionContent = constructContent(contentStore, config.expression, engineSpec);
-    const fallbackContent = constructContent(contentStore, config.fallback, engineSpec);
-    return {
-      key: referenceKey,
-      childKeys: childKeys,
-      expressionKey: expressionContent.key,
-      fallbackKey: fallbackContent.key,
-    } as ConditionalReferenceContent;
-  } else if (config.type === ConfigType.REFERENCE) {
-    const ref = config as ReferenceConfig;
-    const pointedContent = findExecutableContent(contentStore, ref.coordinates);
-    return {
-      key: nextKey(contentStore),
-      referenceKey: pointedContent.key,
-      path: ref.path,
-    } as ReferenceContent;
-  } else if (config.type === ConfigType.VARIABLE) {
-    const variableConfig = config as VariableConfig;
-    return {
-      key: nextKey(contentStore),
-      type: ContentType.VARIABLE,
-      title: variableConfig.title,
-      description: variableConfig.description,
-    } as VariableContent;
-  } else {
-    throw new Error(`Unknown config type`);
-  }
-}
-
 export function getContentAndAncestors(contentStore: ContentStore, key: string) {
   const ancestorPath: Content[] = [];
   recurseUp(
@@ -423,7 +540,7 @@ export function getKeyDepth(contentStore: ContentStore, key: string) {
   return depth;
 }
 
-export function getStatePath(contentStore: ContentStore, key: string) {
+export function getContentPath(contentStore: ContentStore, key: string) {
   const ancestorPath: string[] = [];
   recurseUp(
     contentStore,
@@ -440,7 +557,8 @@ function findExecutableContent(
   contentStore: ContentStore,
   coordinates: number[],
 ): BlockContent | ControlContent | ActionContent {
-  const process = contentStore.data[contentStore.rootConfigKey as string] as ProcessContent;
+  const processKey = contentStore.rootConfigKey as string;
+  const process = contentStore.data[processKey] as ProcessContent;
   let pointer: ListContent = contentStore.data[process.rootBlockKey] as BlockContent;
   for (let i = 0; i < coordinates.length; i++) {
     const coordinate = coordinates[i];
@@ -659,4 +777,78 @@ function recurseDown(
   if (descendantsFirst) {
     func(content);
   }
+}
+
+function inferExpressionOutputType(
+  content: ExpressionContent,
+  contentStore: ContentStore,
+  engineSpec: EngineSpec,
+): string | null {
+  switch (content.type) {
+    case ContentType.FUNCTION:
+      return inferFunctionOutputType(content as FunctionContent, contentStore, engineSpec);
+    case ContentType.REFERENCE:
+      return inferReferenceOutputType(content as ReferenceContent, contentStore, engineSpec);
+    case ContentType.VALUE:
+      return inferValueOutputType(content as ValueContent, contentStore, engineSpec);
+    default:
+      throw new Error(`Invalid child expression type: ${content.type}`);
+  }
+}
+
+function inferActionOutputType(
+  content: ActionContent,
+  contentStore: ContentStore,
+  engineSpec: EngineSpec,
+) {
+  const spec = content.spec;
+  const dynamicReturnTypeProperty = spec.metadata[MetadataProperties.DYNAMIC_RETURN_TYPE];
+  if (dynamicReturnTypeProperty === undefined) {
+    return spec.outputTypeId;
+  }
+  const inputContent = contentStore.data[content.childKeys[dynamicReturnTypeProperty]];
+  return inferExpressionOutputType(inputContent as ExpressionContent, contentStore, engineSpec);
+}
+
+function inferFunctionOutputType(
+  content: FunctionContent,
+  contentStore: ContentStore,
+  engineSpec: EngineSpec,
+) {
+  const spec = content.spec;
+  const dynamicReturnTypeProperty = spec.metadata[MetadataProperties.DYNAMIC_RETURN_TYPE];
+  if (dynamicReturnTypeProperty === undefined) {
+    return spec.outputTypeId;
+  }
+  const inputsContent = contentStore.data[
+    content.childKeys[dynamicReturnTypeProperty]
+  ] as InputsContent;
+  if (inputsContent.childKeys.length > 0) {
+    // FUTURE instead of accepting the first value for multi-value types, find the supertype of all
+    //  children (or error if no overlap)
+    const firstExpressionContent = contentStore.data[inputsContent.childKeys[0]];
+    inferExpressionOutputType(
+      firstExpressionContent as ExpressionContent,
+      contentStore,
+      engineSpec,
+    );
+  }
+}
+
+function inferReferenceOutputType(
+  content: ReferenceContent,
+  contentStore: ContentStore,
+  engineSpec: EngineSpec,
+) {
+  let referencedContent = contentStore.data[content.referenceKey] as VariableContent;
+  return referencedContent.typeId;
+}
+
+function inferValueOutputType(
+  content: ValueContent,
+  contentStore: ContentStore,
+  engineSpec: EngineSpec,
+) {
+  // TODO might need to revisit this. should all unrestricted value inputs be interpreted as strings?
+  return WellKnownType.STRING as string;
 }

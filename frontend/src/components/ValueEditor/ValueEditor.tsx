@@ -4,9 +4,9 @@ import {
   DECIMAL_STRING,
   EngineSpec,
   FunctionSpec,
+  InputSpec,
   INTEGER_STRING,
   LONG_STRING,
-  InputSpec,
   TypeSpec,
   Validator,
   ValueContent,
@@ -18,15 +18,7 @@ import { EditorContext, EditorInfo } from '../FrameEditor/FrameEditor';
 import { useDispatch } from 'react-redux';
 import { setFunction } from '../../redux/slices/editors';
 import { useTranslate } from 'react-polyglot';
-import {
-  collectSubtypes,
-  functionTitlePath,
-  typeEnumValueTitlePath,
-  TypeInfo,
-  typeTitlePath,
-} from '../../util';
-import { Simulate } from 'react-dom/test-utils';
-import error = Simulate.error;
+import { collectSubtypes, functionTitlePath, typeEnumValueTitlePath, TypeInfo } from '../../util';
 
 export interface ValueEditorProps {
   parameterSpec: InputSpec;
@@ -34,7 +26,7 @@ export interface ValueEditorProps {
 }
 
 function validatorForSpec(parameterSpec: InputSpec): Validator {
-  const returnType = parameterSpec.returnType;
+  const returnType = parameterSpec.outputTypeId;
   const wellKnownType = returnType as WellKnownType;
   if (Object.values(WellKnownType).includes(wellKnownType)) {
     switch (wellKnownType) {
@@ -142,7 +134,7 @@ function findFunctionsMatchingTypeId(
   if (typeMapping !== undefined && engineSpec !== undefined) {
     const subtypes = collectSubtypes(typeId, typeMapping);
     Object.entries(engineSpec.functions).forEach(([key, value]) => {
-      if (subtypes[value.outputType] !== undefined) {
+      if (subtypes[value.outputTypeId] !== undefined) {
         matchingFunctions[key] = value;
       }
     });
@@ -164,7 +156,7 @@ export function ValueEditor({ parameterSpec, content }: ValueEditorProps) {
 
   const [errors, setErrors] = useState<string[] | undefined>();
 
-  const returnType = parameterSpec.returnType;
+  const returnType = parameterSpec.outputTypeId;
   const typeSpec = engineSpec.types[returnType];
   const enumerated = typeSpec.values && typeSpec.values.length > 0;
 

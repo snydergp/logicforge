@@ -229,10 +229,12 @@ export const selectSelectedSubtree = createSelector(
   },
 );
 
-export const selectContentByKey = (key: string) => (state: StoreStructure) => {
-  const editorStateStore = state['LOGICFORGE']?.contentStore;
-  if (editorStateStore !== undefined) {
-    return editorStateStore.data[key];
+export const selectContentByKey = (key?: string) => (state: StoreStructure) => {
+  if (key !== undefined) {
+    const editorStateStore = state['LOGICFORGE']?.contentStore;
+    if (editorStateStore !== undefined) {
+      return editorStateStore.data[key];
+    }
   }
 };
 
