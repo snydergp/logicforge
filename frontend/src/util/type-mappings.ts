@@ -6,9 +6,11 @@ export type TypeInfo = {
   supertypes: string[];
 };
 
-export function generateTypeMappings(types: { [key: string]: TypeSpec }): {
+export type TypeMapping = {
   [key: string]: TypeInfo;
-} {
+};
+
+export function generateTypeMapping(types: { [key: string]: TypeSpec }): TypeMapping {
   const out: { [key: string]: TypeInfo } = {};
 
   // create the initial type info mappings and record child -> parent relationships
@@ -41,7 +43,7 @@ export function generateTypeMappings(types: { [key: string]: TypeSpec }): {
   return out;
 }
 
-export function collectSubtypes(parentTypeId: string, typeMapping: { [key: string]: TypeInfo }) {
+export function collectSubtypes(parentTypeId: string, typeMapping: TypeMapping) {
   const subtypes: { [key: string]: TypeInfo } = {};
   let subtypeMappings: { [key: string]: TypeInfo } = {};
   const typeInfo = typeMapping[parentTypeId];

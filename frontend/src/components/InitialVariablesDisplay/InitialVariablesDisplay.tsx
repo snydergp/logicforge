@@ -1,6 +1,6 @@
 import { VariableSpec } from '../../types';
 import React, { ReactElement, useMemo } from 'react';
-import { ListItem, ListItemButton, Stack } from '@mui/material';
+import { ListItem, ListItemButton } from '@mui/material';
 import { VariableDisplay } from '../VariableDisplay/VariableDisplay';
 
 export interface InitialVariablesDisplayProps {
@@ -17,6 +17,7 @@ export function InitialVariablesDisplay({ initialVariables }: InitialVariablesDi
           <ListItemButton>
             <VariableDisplay
               typeId={initialVariable.typeId}
+              multi={initialVariable.multi}
               optional={initialVariable.optional}
               title={initialVariable.title}
               description={initialVariable.description}
@@ -27,10 +28,6 @@ export function InitialVariablesDisplay({ initialVariables }: InitialVariablesDi
       );
       out.push(item);
     }
-    return (
-      <Stack direction={'column'} spacing={0}>
-        {out}
-      </Stack>
-    );
+    return <>{out}</>;
   }, [initialVariables]);
 }

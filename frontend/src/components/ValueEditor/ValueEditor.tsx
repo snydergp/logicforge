@@ -1,62 +1,48 @@
+import { ArgumentContent, TypeSpec, ValueContent } from '../../types';
 import {
-  ALWAYS_VALID,
-  BOOLEAN_STRING,
-  DECIMAL_STRING,
-  EngineSpec,
-  FunctionSpec,
-  InputSpec,
-  INTEGER_STRING,
-  LONG_STRING,
-  TypeSpec,
-  Validator,
-  ValueContent,
-} from '../../types';
-import { WellKnownType } from '../../constant/well-known-type';
-import { Autocomplete, TextField } from '@mui/material';
-import React, { useCallback, useContext, useEffect, useState } from 'react';
+  Autocomplete,
+  AutocompleteRenderGroupParams,
+  Box,
+  createFilterOptions,
+  darken,
+  FilterOptionsState,
+  FormControl,
+  lighten,
+  Stack,
+  styled,
+  TextField,
+  Typography,
+} from '@mui/material';
+import React, { useCallback, useContext, useMemo, useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import {
+  convertValueToFunction,
+  convertValueToReference,
+  selectAvailableVariables,
+  selectContentByKey,
+  updateValue,
+  updateValueType,
+  VariableModel,
+} from '../../redux/slices/editors';
+import {
+  functionTitleKey,
+  labelKey,
+  typeDescriptionKey,
+  typeEnumValueTitleKey,
+  typeTitleKey,
+} from '../../util';
+import { useTranslate } from '../I18n/I18n';
 import { EditorContext, EditorInfo } from '../FrameEditor/FrameEditor';
-import { useDispatch } from 'react-redux';
-import { setFunction } from '../../redux/slices/editors';
-import { useTranslate } from 'react-polyglot';
-import { collectSubtypes, functionTitlePath, typeEnumValueTitlePath, TypeInfo } from '../../util';
 
 export interface ValueEditorProps {
-  parameterSpec: InputSpec;
-  content: ValueContent;
-}
-
-function validatorForSpec(parameterSpec: InputSpec): Validator {
-  const returnType = parameterSpec.outputTypeId;
-  const wellKnownType = returnType as WellKnownType;
-  if (Object.values(WellKnownType).includes(wellKnownType)) {
-    switch (wellKnownType) {
-      case WellKnownType.BOOLEAN:
-        return BOOLEAN_STRING;
-      case WellKnownType.INTEGER:
-        return INTEGER_STRING;
-      case WellKnownType.LONG:
-        return LONG_STRING;
-      case WellKnownType.FLOAT:
-      case WellKnownType.DOUBLE:
-        // all decimal values can be inputted, but precision will ultimately be limited by the underlying datatype
-        return DECIMAL_STRING;
-    }
-  }
-  return ALWAYS_VALID;
+  contentKey: string;
 }
 
 interface Option {
   id: string;
   label: string;
-  groupId?: string;
+  groupId: string;
 }
-
-// Mode will determine whether/how options are rendered
-// - PRIMITIVE: free entry with options for function/variable
-//   "Type to enter a value, or ..."
-//   Apply validation appropriate to type
-// - ENUMERATION: forced selection with options for function variable
-//   "Select a value, or ..."
 
 enum Mode {
   LITERAL = 'LITERAL',
@@ -66,7 +52,6 @@ enum Mode {
 
 const ENUM_GROUP_ID = 'logicforge.enum';
 const NON_LITERAL_GROUP_ID = 'logicforge.non-literal';
-const LITERAL_GROUP_ID = 'logicforge.literal';
 const LITERAL_OPTION_ID = 'logicforge.use-literal';
 const FUNCTION_OPTION_ID = 'logicforge.use-function';
 const VARIABLE_OPTION_ID = 'logicforge.use-variable';
@@ -94,7 +79,7 @@ function buildLiteralOptions(typeSpec: TypeSpec, translate: (keyof: string) => s
       ...typeSpec.values.map((value) => {
         return {
           id: value,
-          label: translate(typeEnumValueTitlePath(typeSpec.id, value)),
+          label: translate(typeEnumValueTitleKey(typeSpec.id, value)),
           groupId: ENUM_GROUP_ID,
         } as Option;
       }),
@@ -106,205 +91,350 @@ function buildLiteralOptions(typeSpec: TypeSpec, translate: (keyof: string) => s
 }
 
 function buildFunctionOptions(
-  functionSpecs: { [key: string]: FunctionSpec },
+  functionIds: string[],
   translateFunction: (key: string) => string,
 ): Option[] {
   return [
-    ...Object.entries(functionSpecs).map(([key, value]) => {
+    ...functionIds.map((key) => {
       return {
         id: key,
-        label: translateFunction(functionTitlePath(key)),
+        groupId: FUNCTION_OPTION_ID,
+        label: translateFunction(functionTitleKey(key)),
       } as Option;
     }),
     ...[USE_LITERAL_OPTION],
   ];
 }
 
-function buildVariableOptions(): Option[] {
-  // TODO
-  return [USE_LITERAL_OPTION];
+function buildVariableOptions(
+  availableVariable: VariableModel[],
+  translateFunction: (key: string) => string,
+): Option[] {
+  return [
+    ...availableVariable.map((model) => {
+      return {
+        id: model.key,
+        groupId: VARIABLE_OPTION_ID,
+        label: model.title,
+      } as Option;
+    }),
+    ...[USE_LITERAL_OPTION],
+  ];
 }
 
-function findFunctionsMatchingTypeId(
-  engineSpec: EngineSpec,
-  typeMapping: { [key: string]: TypeInfo },
-  typeId: string,
-) {
-  const matchingFunctions: { [key: string]: FunctionSpec } = {};
-  if (typeMapping !== undefined && engineSpec !== undefined) {
-    const subtypes = collectSubtypes(typeId, typeMapping);
-    Object.entries(engineSpec.functions).forEach(([key, value]) => {
-      if (subtypes[value.outputTypeId] !== undefined) {
-        matchingFunctions[key] = value;
-      }
-    });
-  }
-  return matchingFunctions;
-}
-
-export function ValueEditor({ parameterSpec, content }: ValueEditorProps) {
+export function ValueEditor({ contentKey }: ValueEditorProps) {
+  const { engineSpec } = useContext(EditorContext) as EditorInfo;
   const dispatch = useDispatch();
+  const translate = useTranslate();
 
-  const translateFunction = useTranslate() as (key: string) => string;
+  const content = useSelector(selectContentByKey(contentKey)) as ValueContent;
+  const argumentContent = useSelector(
+    selectContentByKey(content.parentKey as string),
+  ) as ArgumentContent;
+  const availableVariables = useSelector(selectAvailableVariables(contentKey));
 
-  const [validator, setValidator] = useState<Validator>(ALWAYS_VALID);
-
-  const [value, setValue] = useState(content.value);
-  const { engineSpec, typeMappings } = useContext(EditorContext) as EditorInfo;
-
+  // tracks the input mode, used to show context-dependent options
   const [mode, setMode] = useState(Mode.LITERAL);
 
-  const [errors, setErrors] = useState<string[] | undefined>();
+  const options = useMemo<Option[]>(() => {
+    switch (mode) {
+      case Mode.LITERAL:
+        const typeId = content.typeId as string;
+        const typeSpec = engineSpec.types[typeId];
+        return buildLiteralOptions(typeSpec, translate);
+      case Mode.FUNCTION:
+        return buildFunctionOptions(content.availableFunctionIds, translate);
+      case Mode.VARIABLE:
+        return buildVariableOptions(availableVariables, translate);
+    }
+  }, [mode, content, engineSpec, translate]);
 
-  const returnType = parameterSpec.outputTypeId;
-  const typeSpec = engineSpec.types[returnType];
-  const enumerated = typeSpec.values && typeSpec.values.length > 0;
-
-  const functionSpecs = findFunctionsMatchingTypeId(engineSpec, typeMappings, returnType);
-  // TODO select usable variables
-
-  const optionsMap = {
-    [Mode.LITERAL]: buildLiteralOptions(typeSpec, translateFunction),
-    [Mode.FUNCTION]: buildFunctionOptions(functionSpecs, translateFunction),
-    [Mode.VARIABLE]: buildVariableOptions(),
-  };
-
-  const [inputValue, setInputValue] = useState(value);
-
-  const [options, setOptions] = useState<readonly Option[]>([
-    {
-      id: FUNCTION_OPTION_ID,
-      label: 'FUNCTION',
-    },
-  ]);
-
+  // shortcut mode allows users to move between modes via keypress.
+  //  - Enter FUNCTION from LITERAL by typing '=' when input is empty
+  //  - Enter VARIABLE from LITERAL by typing '$' when input in empty
+  //  - Return to LITERAL mode by hitting BACKSPACE when input is empty
   const [shortcutMode, setShortcutMode] = useState(false);
 
+  const [open, setOpen] = useState(false);
+  const handleFocus = useCallback(() => {
+    setOpen(true);
+  }, [setOpen]);
+  const handleBlur = useCallback(() => {
+    setOpen(false);
+  }, [setOpen]);
+
+  const fixedOptions = useMemo<boolean>(() => {
+    if (mode !== Mode.LITERAL) {
+      return false;
+    } else {
+      const typeId = content.typeId as string;
+      const typeSpec = engineSpec.types[typeId];
+      return typeSpec.values !== undefined && typeSpec.values.length > 0;
+    }
+  }, [content, engineSpec, mode]);
+
+  // Customize autocomplete filter to only filter when not in fixed options mode
+  const filter = useMemo<(options: Option[], state: FilterOptionsState<Option>) => Option[]>(() => {
+    return fixedOptions ? (options: Option[]) => options : createFilterOptions<Option>();
+  }, [fixedOptions]);
+
+  const [inputValue, setInputValue] = useState(
+    fixedOptions
+      ? options.find((option) => option.id === content.value)?.label || content.value
+      : content.value,
+  );
+  const handleInputChange = useCallback(
+    (event: React.SyntheticEvent<Element, Event>, value: string | Option | null) => {
+      if (typeof value === 'string') {
+        let updatedShortcutMode = false;
+
+        // enter shortcut modes
+        if (mode === Mode.LITERAL && !shortcutMode) {
+          if (value === '=') {
+            setMode(Mode.FUNCTION);
+            setShortcutMode(true);
+            updatedShortcutMode = true;
+          } else if (value === '$') {
+            setMode(Mode.VARIABLE);
+            setShortcutMode(true);
+            updatedShortcutMode = true;
+          }
+        }
+
+        if (!updatedShortcutMode && mode === Mode.LITERAL) {
+          setInputValue(value);
+          // dispatch update if changed
+          if (content.value !== value) {
+            dispatch(updateValue(content.key, value));
+          }
+        }
+      }
+    },
+    [content, mode, setMode, shortcutMode, setShortcutMode, dispatch, setInputValue],
+  );
+
   const handleChange = useCallback(
-    (value: string | Option | null) => {
+    (event: React.SyntheticEvent, value: Option | string | null, reason: string) => {
+      if (reason !== 'selectOption' && reason !== 'clear') {
+        return;
+      }
       if (typeof value !== 'string' && value !== null) {
         const option: Option = value;
         const id = option.id;
         if (mode === Mode.LITERAL) {
           if (id === FUNCTION_OPTION_ID) {
             setMode(Mode.FUNCTION);
+            setInputValue('');
           } else if (id === VARIABLE_OPTION_ID) {
             setMode(Mode.VARIABLE);
+            setInputValue('');
+          } else {
+            dispatch(updateValue(content.key, option.id));
+            setOpen(false);
           }
         } else if (mode === Mode.FUNCTION) {
           if (id === LITERAL_OPTION_ID) {
             setMode(Mode.LITERAL);
           } else {
             // use the selected function
-            dispatch(setFunction(id, content.key));
+            dispatch(convertValueToFunction(content.key, id));
           }
         } else if (mode === Mode.VARIABLE) {
           if (id === LITERAL_OPTION_ID) {
             setMode(Mode.LITERAL);
+          } else {
+            dispatch(convertValueToReference(content.key, id));
           }
         }
         setShortcutMode(false);
-        setInputValue('');
       }
     },
-    [mode, setMode, setShortcutMode, setInputValue, dispatch],
+    [mode, setMode, setShortcutMode, dispatch, setInputValue, setOpen],
   );
-
-  const handleInputChange = useCallback(
-    (value: string) => {
-      let updatedShortcutMode = false;
-
-      // enter shortcut modes
-      if (mode === Mode.LITERAL && !shortcutMode) {
-        if (value === '=') {
-          setMode(Mode.FUNCTION);
-          setShortcutMode(true);
-          updatedShortcutMode = true;
-        } else if (value === '$') {
-          setMode(Mode.VARIABLE);
-          setShortcutMode(true);
-          updatedShortcutMode = true;
-        }
-      }
-      // exit shortcut modes
-      if (shortcutMode && value === '') {
-        setMode(Mode.LITERAL);
-        setShortcutMode(false);
-        updatedShortcutMode = true;
-      }
-
-      if (!updatedShortcutMode) {
-        // update input value
-        setInputValue(value);
-        setErrors(validator.validate(value));
-      }
-    },
-    [mode, setMode, shortcutMode, setShortcutMode, setInputValue, setErrors, validator],
-  );
-
-  const handleInputBlur = useCallback(() => {
-    setErrors(validator.validate(inputValue));
-  }, [inputValue, setErrors, validator]);
 
   const handleKeyDown = useCallback(
-    (key: string) => {
+    (event: React.KeyboardEvent<HTMLInputElement>) => {
+      const key = event.key;
       if (
         mode !== Mode.LITERAL &&
         shortcutMode &&
-        inputValue === '' &&
+        content.value === '' &&
         (key === 'Backspace' || key === 'Escape')
       ) {
         setMode(Mode.LITERAL);
         setShortcutMode(false);
-        setInputValue('');
       }
     },
-    [mode, setMode, shortcutMode, setShortcutMode, inputValue, setInputValue],
+    [content, mode, setMode, shortcutMode, setShortcutMode],
   );
 
-  const [freeSolo, setFreeSolo] = useState(!enumerated);
-  const [label, setLabel] = useState(mode as string);
+  const handleSelectTypeId = useCallback(
+    (typeId: string) => {
+      dispatch(updateValueType(content.key, typeId));
+    },
+    [dispatch, content],
+  );
 
-  useEffect(() => {
-    setLabel(mode);
-    setOptions(optionsMap[mode]);
-  }, [mode, setLabel, setOptions]);
+  const label = useMemo(() => {
+    const modeLabel = translate(labelKey(`value-mode-${mode}`));
+    return translate(labelKey('value-with-mode'), { mode: modeLabel });
+  }, [translate, mode]);
 
-  useEffect(() => {
-    setValidator(validatorForSpec(parameterSpec));
-  }, [parameterSpec, setValidator]);
+  const groupRenderer = useCallback(
+    (params: AutocompleteRenderGroupParams) => {
+      return (
+        <li key={params.key}>
+          <GroupHeader>{translate(labelKey(params.group))}</GroupHeader>
+          <GroupItems>{params.children}</GroupItems>
+        </li>
+      );
+    },
+    [translate],
+  );
 
   return (
-    <Autocomplete
-      renderInput={(params) => (
-        <TextField
-          {...params}
-          label={label}
-          variant={'standard'}
-          error={errors !== undefined && errors.length > 0}
-          helperText={errors !== undefined && errors.length > 0 ? errors.join(', ') : null}
-          onBlur={handleInputBlur}
-          InputProps={{
-            ...params.InputProps,
-            type: 'search',
-          }}
+    <Stack width={'100%'}>
+      <FormControl fullWidth>
+        <Autocomplete
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              label={label}
+              variant={'standard'}
+              error={content.errors !== undefined && content.errors.length > 0}
+              helperText={
+                content.errors !== undefined && content.errors.length > 0
+                  ? content.errors.map((error) => error.code).join(', ')
+                  : null
+              }
+              InputProps={{
+                ...params.InputProps,
+                type: 'search',
+              }}
+            />
+          )}
+          disableClearable
+          freeSolo={fixedOptions}
+          filterOptions={filter}
+          options={options}
+          groupBy={(option) => option.groupId}
+          renderGroup={groupRenderer}
+          onChange={handleChange}
+          onInputChange={handleInputChange}
+          onBlur={handleBlur}
+          onFocus={handleFocus}
+          open={open}
+          inputValue={inputValue}
+          value={inputValue}
+          onKeyDown={handleKeyDown}
+          fullWidth={true}
         />
+      </FormControl>
+      {argumentContent.allowedTypeIds.length > 1 ? (
+        <TypeSelector
+          contentKey={content.key}
+          onSelectType={handleSelectTypeId}
+          availableTypeIds={argumentContent.allowedTypeIds}
+          selectedTypeId={content.typeId as string}
+        />
+      ) : (
+        <TypeDisplay typeId={content.typeId as string} />
       )}
-      disableClearable
-      freeSolo={freeSolo}
-      options={options}
-      onChange={(event, value) => {
-        handleChange(value);
-      }}
-      onInputChange={(event, value, reason) => {
-        handleInputChange(value);
-      }}
-      onKeyDown={(event) => {
-        handleKeyDown(event.key);
-      }}
-      fullWidth={true}
-      value={value}
-      inputValue={inputValue}
-    />
+    </Stack>
   );
 }
+
+interface TypeSelectorProps {
+  contentKey: string;
+  onSelectType: (typeId: string) => void;
+  availableTypeIds: string[];
+  selectedTypeId: string;
+}
+
+function TypeSelector({
+  contentKey,
+  onSelectType,
+  availableTypeIds,
+  selectedTypeId,
+}: TypeSelectorProps) {
+  const translate = useTranslate();
+
+  const options: Option[] = useMemo(
+    () =>
+      availableTypeIds.map((typeId) => {
+        return {
+          id: typeId,
+          label: translate(typeTitleKey(typeId)),
+          groupId: '',
+        };
+      }),
+    [availableTypeIds, translate],
+  );
+  const selectedOption = useMemo(() => {
+    return options.find((option) => option.id === selectedTypeId);
+  }, [options, selectedTypeId]);
+
+  const handleChange = useCallback(
+    (event: React.SyntheticEvent, value: Option, reason: string) => {
+      if (reason !== 'selectOption') {
+        return;
+      }
+      onSelectType(value.id);
+    },
+    [contentKey, onSelectType],
+  );
+
+  return (
+    <FormControl fullWidth sx={{ mt: 3 }}>
+      <Autocomplete
+        renderInput={(params) => (
+          <TextField
+            {...params}
+            label={'Type'}
+            variant={'standard'}
+            InputProps={{
+              ...params.InputProps,
+              type: 'search',
+            }}
+          />
+        )}
+        disableClearable
+        freeSolo={false}
+        options={options}
+        onChange={handleChange}
+        value={selectedOption}
+        fullWidth={true}
+      />
+    </FormControl>
+  );
+}
+
+interface TypeDisplayProps {
+  typeId: string;
+}
+
+function TypeDisplay({ typeId }: TypeDisplayProps) {
+  let translate = useTranslate();
+  const title = translate(typeTitleKey(typeId));
+  const description = translate(typeDescriptionKey(typeId));
+  return (
+    <Box>
+      <Typography>{title}</Typography>
+    </Box>
+  );
+}
+
+const GroupHeader = styled('div')(({ theme }) => ({
+  position: 'sticky',
+  top: '-8px',
+  padding: '4px 10px',
+  color: theme.palette.primary.main,
+  backgroundColor:
+    theme.palette.mode === 'light'
+      ? lighten(theme.palette.primary.light, 0.85)
+      : darken(theme.palette.primary.main, 0.8),
+}));
+
+const GroupItems = styled('ul')({
+  padding: 0,
+});

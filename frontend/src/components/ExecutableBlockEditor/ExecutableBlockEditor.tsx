@@ -1,60 +1,68 @@
+import './ExecutableBlockEditor.scss';
 import { useDispatch, useSelector } from 'react-redux';
 import {
   addExecutable,
+  deleteItem,
+  moveExecutable,
   selectContentByKey,
   selectSelectedSubtree,
+  setSelection,
 } from '../../redux/slices/editors';
 import {
   ActionContent,
   BlockContent,
   ConditionalContent,
   ContentType,
-  ControlContent,
-  ControlType,
-  isExecutable,
   VariableContent,
 } from '../../types';
+import React, {
+  MouseEventHandler,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
+import { ItemInterface, ReactSortable, SortableEvent } from 'react-sortablejs';
 import {
-  DragDropContext,
-  Draggable,
-  DragStart,
-  Droppable,
-  DroppableProvided,
-  DropResult,
-  OnDragEndResponder,
-  OnDragStartResponder,
-  ResponderProvided,
-} from '@hello-pangea/dnd';
-import {
+  Box,
   Button,
-  Container,
+  darken,
   Dialog,
   DialogActions,
   DialogTitle,
   IconButton,
   Input,
   InputAdornment,
+  lighten,
   List,
   ListItem,
   ListItemButton,
   ListItemText,
   Stack,
+  styled,
+  SxProps,
+  Theme,
   Typography,
 } from '@mui/material';
-import { useTranslate } from 'react-polyglot';
-import {
-  actionDescriptionPath,
-  actionTitlePath,
-  controlBlockTitle,
-  controlDescription,
-  controlTitle,
-  label,
-} from '../../util';
-import { ActionIcon } from '../Icons/Icons';
-import React, { useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { Search } from '@mui/icons-material';
+import { useTranslate } from '../I18n/I18n';
 import { EditorContext, EditorInfo } from '../FrameEditor/FrameEditor';
+import {
+  actionDescriptionKey,
+  actionTitleKey,
+  controlBlockTitleKey,
+  controlDescriptionKey,
+  controlParameterTitleKey,
+  controlTitleKey,
+  labelKey,
+} from '../../util';
+import { ActionIcon, ConditionalIcon, ResultIcon } from '../Icons/Icons';
 import { VariableDisplay } from '../VariableDisplay/VariableDisplay';
+import { Search } from '@mui/icons-material';
+import { ContextMenu, ContextMenuAction } from '../ContextMenu/ContentMenu';
+import MenuIcon from '@mui/icons-material/Menu';
+
+const DRAG_DROP_GROUP: string = 'executables';
 
 const CONTROLS_GROUP_ID = 'controls';
 const ACTIONS_GROUP_ID = 'actions';
@@ -69,139 +77,149 @@ export interface ExecutableBlockEditorProps {
   contentKey: string;
 }
 
-type ExecutableTreeInfo = {
-  activeDrag: boolean;
-  handleSelection: ExecutableSelector;
-};
-
-const ExecutableTreeContext = React.createContext<ExecutableTreeInfo>({
-  activeDrag: false,
-  handleSelection: () => null,
-});
-
 export function ExecutableBlockEditor({ contentKey }: ExecutableBlockEditorProps) {
-  let dispatch = useDispatch();
-  const content = useSelector(selectContentByKey(contentKey));
-  if (content === undefined || content.type !== ContentType.BLOCK) {
-    return null;
-  }
+  const [draggedItemKey, setDraggedItemKey] = useState<string | undefined>();
+  const dispatch = useDispatch();
 
-  const handleSelection = useCallback(
-    (parentKey: string, name: string, type: ContentType.CONTROL | ContentType.ACTION) => {
-      dispatch(addExecutable(parentKey, name, type));
+  const handleStart = useCallback(
+    (key: string) => {
+      setDraggedItemKey(key);
     },
-    [dispatch],
+    [setDraggedItemKey],
   );
 
-  const [context, setContext] = useState({
-    activeDrag: false,
-    handleSelection,
-  } as ExecutableTreeInfo);
-
-  const handleDragStart = useCallback(
-    (start: DragStart, provided: ResponderProvided) => {
-      setContext({
-        activeDrag: true,
-        handleSelection,
-      });
-      // TODO
+  const handleEnd = useCallback(
+    (parentKey: string, newIndex: number) => {
+      if (draggedItemKey !== undefined) {
+        dispatch(moveExecutable(draggedItemKey, parentKey, newIndex));
+        setDraggedItemKey(undefined);
+      }
     },
-    [setContext],
-  );
-  const handleDragEnd = useCallback(
-    (result: DropResult, provided: ResponderProvided) => {
-      setContext({
-        activeDrag: false,
-        handleSelection,
-      });
-      // TODO
-    },
-    [setContext],
+    [draggedItemKey, setDraggedItemKey, dispatch],
   );
 
-  return (
-    <ExecutableTreeContext.Provider value={context}>
-      <RootDragDropContext
-        contentKey={contentKey}
-        handleDragEnd={handleDragEnd}
-        handleDragStart={handleDragStart}
-      />
-    </ExecutableTreeContext.Provider>
-  );
+  return <Block contentKey={contentKey} notifyStart={handleStart} notifyEnd={handleEnd} />;
 }
 
-interface RootDragDropContextProps {
+interface BlockProps {
   contentKey: string;
-  handleDragEnd: OnDragEndResponder;
-  handleDragStart: OnDragStartResponder;
+  notifyStart: (key: string) => void;
+  notifyEnd: (parentKey: string, newIndex: number) => void;
 }
 
-function RootDragDropContext({ contentKey, handleDragEnd }: RootDragDropContextProps) {
+function Block({ contentKey, notifyStart, notifyEnd }: BlockProps) {
+  const content = useSelector(selectContentByKey(contentKey));
+  if (content === undefined) {
+    throw new Error(`Missing content: ${contentKey}`);
+  }
+  if (content.type !== ContentType.BLOCK) {
+    throw new Error(`Unexpected content type: ${content.type}`);
+  }
+  const blockContent = content as BlockContent;
+
+  const [items, setItems] = useState<ExecutableProps[]>([]);
+  useEffect(() => {
+    const items = blockContent.childKeys.map((contentKey) => {
+      return {
+        contentKey,
+        id: contentKey,
+        notifyStart,
+        notifyEnd,
+      };
+    });
+    setItems(items);
+  }, [blockContent.childKeys, setItems]);
+
+  const handleStart = useCallback(
+    (event: SortableEvent) => {
+      console.info(`Start Drag from parent ${contentKey}, index ${event.oldIndex}`);
+      if (event.oldIndex !== undefined) {
+        const draggedItem = items[event.oldIndex];
+        console.info(`Dragging ${draggedItem.contentKey}`);
+        notifyStart(draggedItem.contentKey);
+      }
+    },
+    [notifyStart, items],
+  );
+
+  const handleEnd = useCallback(
+    (event: SortableEvent) => {
+      if (event.newIndex !== undefined) {
+        console.info(`End Drag to parent ${contentKey}, index ${event.newIndex}`);
+        notifyEnd(contentKey, event.newIndex);
+      }
+    },
+    [notifyEnd],
+  );
+
   return (
-    <DragDropContext onDragEnd={handleDragEnd}>
-      <BlockDroppable contentKey={contentKey} />
+    <List
+      dense
+      disablePadding
+      sx={(theme) => ({
+        backgroundColor: theme.palette.background.default,
+        py: 1,
+        m: 1,
+      })}
+    >
+      <ReactSortable
+        list={items}
+        setList={setItems}
+        onAdd={handleEnd}
+        onStart={handleStart}
+        group={DRAG_DROP_GROUP}
+        fallbackOnBody={true}
+        emptyInsertThreshold={0}
+        swapThreshold={0.75}
+        dragClass={'ExecutableBlockEditor__Item--dragGhost'}
+        ghostClass={'ExecutableBlockEditor__Item--dragGhost'}
+        animation={200}
+        style={{ minHeight: '50px' }}
+      >
+        {items.map((item) => (
+          <Executable
+            key={item.contentKey}
+            contentKey={item.contentKey}
+            id={item.contentKey}
+            notifyStart={notifyStart}
+            notifyEnd={notifyEnd}
+          />
+        ))}
+      </ReactSortable>
       <ExecutablePlaceholder parentKey={contentKey} />
-    </DragDropContext>
+    </List>
   );
 }
 
-interface BlockDroppableProps {
+interface ExecutableProps extends ItemInterface {
   contentKey: string;
+  notifyStart: (key: string) => void;
+  notifyEnd: (parentKey: string, newIndex: number) => void;
 }
 
-function BlockDroppable({ contentKey }: BlockDroppableProps) {
+function Executable({ contentKey, notifyStart, notifyEnd }: ExecutableProps) {
   const content = useSelector(selectContentByKey(contentKey));
-  if (content === undefined || content.type !== ContentType.BLOCK) {
-    return null;
+  if (content === undefined) {
+    // Due to the way the DND lib handles updates, a render is still attempted after an executable
+    // is deleted. To prevent an error in this scenario, returning an empty node
+    return <></>;
   }
-
+  if (content.type !== ContentType.ACTION && content.type !== ContentType.CONTROL) {
+    throw new Error(`Unexpected content type: ${content.type}`);
+  }
   return (
-    <Droppable droppableId={'actions'} direction={'vertical'} isDropDisabled={false}>
-      {(droppableProvided: DroppableProvided) => {
-        return (
-          <List ref={droppableProvided.innerRef}>
-            {(content as BlockContent).childKeys.map((childKey, index) => {
-              return <ExecutableContentWrapper contentKey={childKey} index={index} />;
-            })}
-          </List>
-        );
-      }}
-    </Droppable>
+    <ListItem key={contentKey}>
+      {content.type === ContentType.ACTION ? (
+        <ActionItem content={content as ActionContent} />
+      ) : (
+        <ConditionalItem
+          content={content as ConditionalContent}
+          notifyStart={notifyStart}
+          notifyEnd={notifyEnd}
+        />
+      )}
+    </ListItem>
   );
-}
-
-interface ExecutableContentWrapperProps {
-  contentKey: string;
-  index: number;
-}
-
-function ExecutableContentWrapper({ contentKey, index }: ExecutableContentWrapperProps) {
-  const content = useSelector(selectContentByKey(contentKey));
-  if (content !== undefined) {
-    if (isExecutable(content.type)) {
-      return (
-        <Draggable key={contentKey} draggableId={contentKey} index={index}>
-          {(draggableProvided) => {
-            return (
-              <ListItem
-                ref={draggableProvided.innerRef}
-                {...draggableProvided.draggableProps}
-                {...draggableProvided.dragHandleProps}
-              >
-                {content.type === ContentType.ACTION ? (
-                  <ActionItem content={content as ActionContent} />
-                ) : content.type === ContentType.CONTROL &&
-                  (content as ControlContent).controlType === ControlType.CONDITIONAL ? (
-                  <ConditionalItem content={content as ConditionalContent} />
-                ) : null}
-              </ListItem>
-            );
-          }}
-        </Draggable>
-      );
-    }
-  }
-  return null;
 }
 
 interface ActionItemProps {
@@ -209,56 +227,130 @@ interface ActionItemProps {
 }
 
 function ActionItem({ content }: ActionItemProps) {
+  const translate = useTranslate();
+  const dispatch = useDispatch();
   const { engineSpec } = useContext(EditorContext) as EditorInfo;
   const selection = useSelector(selectSelectedSubtree);
   const selected = selection !== undefined && selection.indexOf(content) >= 0;
-  const translate = useTranslate();
   const actionName = content.name;
   const actionSpec = engineSpec.actions[actionName];
-  const title = translate(actionTitlePath(actionName));
-  const description = translate(actionDescriptionPath(actionName));
+  const title = translate(actionTitleKey(actionName));
+  const description = translate(actionDescriptionKey(actionName));
+
+  const handleSelect = useCallback<MouseEventHandler<HTMLDivElement>>(
+    (e) => {
+      dispatch(setSelection(content.key));
+      e.stopPropagation(); // buttons are nested: prevent click on parent
+    },
+    [dispatch, content],
+  );
 
   return (
-    <ListItemButton selected={selected}>
-      <ActionIcon sx={{ mr: 1 }} />
-      <ListItemText primary={title} secondary={<span>{description}</span>} />
-      {content.variableContentKey !== undefined && actionSpec.outputTypeId !== null && (
-        <VariableDisplayWrapper
-          contentKey={content.variableContentKey}
-          typeId={actionSpec.outputTypeId}
-        />
-      )}
-    </ListItemButton>
+    <ExecutableWrapper>
+      <ListItemButton onClick={handleSelect} selected={selected}>
+        <Stack direction={'column'} width={'100%'}>
+          <Stack direction={'row'} sx={{ mt: 1 }} width={'100%'}>
+            <ActionIcon sx={{ mr: 1, mt: 1 }} />
+            <ListItemText
+              primary={title + ' ' + content.key}
+              secondary={<span>{description}</span>}
+            />
+            <ContextMenuButton contentKey={content.key} />
+          </Stack>
+          {content.variableContentKey !== undefined && (
+            <Box width={'100%'} className={'ExecutableBlockEditor__ItemAdditionalContent'}>
+              <Box textAlign={'center'} width={'100%'}>
+                <ResultIcon />
+              </Box>
+              <VariableDisplayWrapper contentKey={content.variableContentKey} />
+            </Box>
+          )}
+        </Stack>
+      </ListItemButton>
+    </ExecutableWrapper>
   );
 }
 
 interface ConditionalItemProps {
   content: ConditionalContent;
+  notifyStart: (key: string) => void;
+  notifyEnd: (parentKey: string, newIndex: number) => void;
 }
 
-function ConditionalItem({ content }: ConditionalItemProps) {
-  const selection = useSelector(selectSelectedSubtree);
-  const selected = selection !== undefined && selection.indexOf(content) >= 0;
+function ConditionalItem({ content, notifyStart, notifyEnd }: ConditionalItemProps) {
   const translate = useTranslate();
-  const thenTitle = translate(controlBlockTitle('conditional', 'then'));
-  const elseTitle = translate(controlBlockTitle('conditional', 'else'));
+  const dispatch = useDispatch();
+
+  const handleClick = useCallback<MouseEventHandler<HTMLDivElement>>(
+    (e) => {
+      dispatch(setSelection(content.key));
+      e.stopPropagation();
+    },
+    [dispatch, content],
+  );
+
+  const ifTitle = translate(controlParameterTitleKey('conditional', 'condition'));
+  const thenTitle = translate(controlBlockTitleKey('conditional', 'then'));
+  const elseTitle = translate(controlBlockTitleKey('conditional', 'else'));
 
   const thenChildKey = content.childKeys[0];
   const elseChildKey = content.childKeys[1];
 
+  const subheaderStyle: SxProps<Theme> = {
+    fontWeight: '900',
+  };
+
   return (
-    <ListItemButton selected={selected}>
-      <Container sx={{ pr: 1 }}>
-        <Container>
-          <Typography>{thenTitle}</Typography>
-          <BlockDroppable contentKey={thenChildKey} />
-        </Container>
-        <Container>
-          <Typography>{elseTitle}</Typography>
-          <BlockDroppable contentKey={elseChildKey} />
-        </Container>
-      </Container>
-    </ListItemButton>
+    <ExecutableWrapper>
+      <ListItemButton onClick={handleClick}>
+        <Stack direction={'column'}>
+          <Stack direction={'row'} sx={{ mt: 1 }}>
+            <ConditionalIcon sx={{ mr: 1 }} style={{ transform: 'rotate(90deg)' }} />
+            <ListItemText primary={`Conditional ${content.key}`} secondary={<span>&nbsp;</span>} />
+            <ContextMenuButton contentKey={content.key} />
+          </Stack>
+          <Box
+            sx={{ pl: 2.5 }}
+            width={'100%'}
+            className={'ExecutableBlockEditor__ItemAdditionalContent'}
+          >
+            <Box width={'100%'}>
+              <Typography sx={subheaderStyle}>{ifTitle}</Typography>
+              <Button fullWidth>{translate(labelKey('conditional-click-to-edit'))}</Button>
+            </Box>
+            <Box width={'100%'}>
+              <Typography sx={subheaderStyle}>{thenTitle}</Typography>
+              <Block contentKey={thenChildKey} notifyStart={notifyStart} notifyEnd={notifyEnd} />
+            </Box>
+            <Box width={'100%'}>
+              <Typography sx={subheaderStyle}>{elseTitle}</Typography>
+              <Block contentKey={elseChildKey} notifyStart={notifyStart} notifyEnd={notifyEnd} />
+            </Box>
+          </Box>
+        </Stack>
+      </ListItemButton>
+    </ExecutableWrapper>
+  );
+}
+
+interface VariableDisplayWrapperProps {
+  contentKey: string;
+}
+
+function VariableDisplayWrapper({ contentKey }: VariableDisplayWrapperProps) {
+  const content = useSelector(selectContentByKey(contentKey));
+  if (content === undefined || content.type !== ContentType.VARIABLE) {
+    return null;
+  }
+  const variableContent = content as VariableContent;
+  return (
+    <VariableDisplay
+      typeId={variableContent.typeId as string}
+      multi={variableContent.multi}
+      optional={false}
+      title={variableContent.title}
+      description={variableContent.description}
+    />
   );
 }
 
@@ -267,11 +359,14 @@ interface ExecutablePlaceholderProps {
 }
 
 function ExecutablePlaceholder({ parentKey }: ExecutablePlaceholderProps) {
-  const { activeDrag, handleSelection } = useContext(ExecutableTreeContext);
   const translate = useTranslate();
-  const placeholderLabel = translate(label('new-executable'));
+  const placeholderLabel = translate(labelKey('new-executable'));
 
   const [open, setOpen] = useState(false);
+
+  const handleOpen = useCallback(() => {
+    setOpen(true);
+  }, [setOpen]);
 
   const handleCancel = useCallback(() => {
     setOpen(false);
@@ -280,15 +375,66 @@ function ExecutablePlaceholder({ parentKey }: ExecutablePlaceholderProps) {
   // TODO click action
 
   return (
-    <ListItemButton selected={false} disabled={activeDrag}>
-      <ListItemText primary={placeholderLabel} />
-      <ExecutableSelectionDialog
-        parentKey={parentKey}
-        open={open}
-        cancel={handleCancel}
-        handleSelection={handleSelection}
-      />
-    </ListItemButton>
+    <ListItem>
+      <ExecutableWrapper>
+        <ListItemButton selected={false} onClick={handleOpen}>
+          <ListItemText primary={placeholderLabel} />
+        </ListItemButton>
+        <ExecutableSelectionDialog parentKey={parentKey} open={open} cancel={handleCancel} />
+      </ExecutableWrapper>
+    </ListItem>
+  );
+}
+
+interface ContextMenuButtonProps {
+  contentKey: string;
+}
+
+function ContextMenuButton({ contentKey }: ContextMenuButtonProps) {
+  const dispatch = useDispatch();
+
+  const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    setOpen(anchorEl !== null);
+  }, [anchorEl]);
+
+  const handleClickMenuHandle = useCallback(
+    (event: React.MouseEvent<HTMLElement>) => {
+      setAnchorEl(event.currentTarget);
+      event.stopPropagation();
+    },
+    [setAnchorEl],
+  );
+
+  const handleClose = useCallback(() => {
+    setOpen(false);
+    setAnchorEl(null);
+  }, [setOpen, setAnchorEl]);
+
+  const handleDelete = useCallback(() => {
+    dispatch(deleteItem(contentKey));
+  }, [dispatch, contentKey]);
+
+  const actions: ContextMenuAction[] = useMemo(
+    () => [
+      {
+        onClick: handleDelete,
+        title: 'Delete',
+        id: 'delete',
+      },
+    ],
+    [handleDelete],
+  );
+
+  return (
+    <div>
+      <IconButton edge="end" aria-label="actions" onClick={handleClickMenuHandle}>
+        <MenuIcon />
+      </IconButton>
+      <ContextMenu anchorEl={anchorEl} open={open} handleClose={handleClose} actions={actions} />
+    </div>
   );
 }
 
@@ -296,7 +442,6 @@ interface ExecutableSelectionDialogProps {
   parentKey: string;
   open: boolean;
   cancel: () => void;
-  handleSelection: ExecutableSelector;
 }
 
 type ExecutableItem = {
@@ -306,13 +451,10 @@ type ExecutableItem = {
   description: string;
 };
 
-function ExecutableSelectionDialog({
-  parentKey,
-  open,
-  cancel,
-  handleSelection,
-}: ExecutableSelectionDialogProps) {
+function ExecutableSelectionDialog(props: ExecutableSelectionDialogProps) {
+  const { parentKey, open, cancel } = props;
   const translate = useTranslate();
+  let dispatch = useDispatch();
 
   const { engineSpec } = useContext(EditorContext) as EditorInfo;
   const controls = engineSpec.controls;
@@ -324,8 +466,8 @@ function ExecutableSelectionDialog({
         return {
           group: CONTROLS_GROUP_ID,
           name: control,
-          title: translate(controlTitle(control)),
-          description: translate(controlDescription(control)),
+          title: translate(controlTitleKey(control)),
+          description: translate(controlDescriptionKey(control)),
         } as ExecutableItem;
       }),
     [controls],
@@ -337,8 +479,8 @@ function ExecutableSelectionDialog({
         return {
           group: ACTIONS_GROUP_ID,
           name: action,
-          title: translate(actionTitlePath(action)),
-          description: translate(actionDescriptionPath(action)),
+          title: translate(actionTitleKey(action)),
+          description: translate(actionDescriptionKey(action)),
         } as ExecutableItem;
       }),
     [actions],
@@ -350,14 +492,30 @@ function ExecutableSelectionDialog({
   });
 
   const [searchText, setSearchText] = useState('');
-  const [filteredItems, setFilteredItems] = useState(allItems);
   const [selectedIndex, setSelectedIndex] = useState(0);
+
+  const filteredItems = useMemo(() => {
+    const filtered: ExecutableItem[] = [];
+    allItems.forEach((item) => {
+      if (matches(searchText, item)) {
+        filtered.push(item);
+      }
+    });
+    return filtered;
+  }, [searchText, allItems]);
 
   const handleSearchTextUpdate = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
       setSearchText(event.target.value);
     },
     [setSearchText],
+  );
+
+  const handleSelection: ExecutableSelector = useCallback(
+    (parentKey: string, name: string, type: ContentType.CONTROL | ContentType.ACTION) => {
+      dispatch(addExecutable(parentKey, name, type));
+    },
+    [dispatch],
   );
 
   const handleSelect = useCallback(() => {
@@ -367,7 +525,8 @@ function ExecutableSelectionDialog({
       executableItem.name,
       executableItem.group === CONTROLS_GROUP_ID ? ContentType.CONTROL : ContentType.ACTION,
     );
-  }, [parentKey, handleSelection, selectedIndex, filteredItems]);
+    cancel();
+  }, [parentKey, selectedIndex, filteredItems, handleSelection, cancel]);
 
   const handleSearchKeyDown = useCallback(
     (event: React.KeyboardEvent<HTMLInputElement>) => {
@@ -385,17 +544,6 @@ function ExecutableSelectionDialog({
     },
     [selectedIndex, setSelectedIndex, filteredItems, handleSelect],
   );
-
-  useEffect(() => {
-    setSelectedIndex(0);
-    const filtered: ExecutableItem[] = [];
-    allItems.forEach((item) => {
-      if (matches(searchText, item)) {
-        filtered.push(item);
-      }
-    });
-    setFilteredItems(filtered);
-  }, [searchText, allItems, setSelectedIndex, filteredItems, setFilteredItems]);
 
   return (
     <Dialog open={open} title={'Add Action'} sx={{ p: 2 }}>
@@ -486,23 +634,16 @@ function matches(searchString: string, item: ExecutableItem): boolean {
   );
 }
 
-interface VariableDisplayWrapperProps {
-  contentKey: string;
-  typeId: string;
-}
-
-function VariableDisplayWrapper({ contentKey, typeId }: VariableDisplayWrapperProps) {
-  const content = useSelector(selectContentByKey(contentKey));
-  if (content === undefined || content.type !== ContentType.VARIABLE) {
-    return null;
-  }
-  const variableContent = content as VariableContent;
-  return (
-    <VariableDisplay
-      typeId={typeId}
-      optional={false}
-      title={variableContent.title}
-      description={variableContent.description}
-    />
-  );
-}
+const ExecutableWrapper = styled('div')(({ theme }) => ({
+  minWidth: '220px',
+  width: '100%',
+  backgroundColor:
+    theme.palette.mode === 'light'
+      ? darken(theme.palette.background.paper, 0.1)
+      : lighten(theme.palette.background.paper, 0.1),
+  border: '1px solid',
+  borderColor:
+    theme.palette.mode === 'light'
+      ? darken(theme.palette.background.paper, 0.15)
+      : lighten(theme.palette.background.paper, 0.15),
+}));

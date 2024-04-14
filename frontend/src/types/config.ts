@@ -2,7 +2,7 @@
  * Configs represent the serialization structure for loading/storing process data.
  */
 
-import {ControlType} from './specification';
+import { ControlType } from './specification';
 
 export enum ConfigType {
   PROCESS = 'PROCESS',
@@ -76,7 +76,11 @@ export type VariableConfig = {
   description?: string;
 };
 
-export type ExpressionConfig = ValueConfig | FunctionConfig | ConditionalReferenceConfig;
+export type ExpressionConfig =
+  | ValueConfig
+  | FunctionConfig
+  | ReferenceConfig
+  | ConditionalReferenceConfig;
 
 export type ExecutableConfig = ActionConfig | BlockConfig | ControlConfig;
 

@@ -9,10 +9,9 @@ import {
   ReferenceContent,
   VariableContent,
 } from '../../types';
-import { useTranslate } from 'react-polyglot';
 import React, { JSX, useCallback, useContext, useEffect, useState } from 'react';
 import { EditorContext, EditorInfo } from '../FrameEditor/FrameEditor';
-import { typePropertyDescription, typePropertyTitle } from '../../util';
+import { typePropertyDescriptionKey, typePropertyTitleKey } from '../../util';
 import {
   Button,
   Collapse,
@@ -23,6 +22,7 @@ import {
   Stack,
   Typography,
 } from '@mui/material';
+import { useTranslate } from '../I18n/I18n';
 
 type PropertyReferenceModel = {
   path: string[];
@@ -203,8 +203,8 @@ function buildChildPropertyReferenceModels(
   }
   return Object.values(typeSpec.properties).map((property) => {
     const propertyName = property.name;
-    const title = translate(typePropertyTitle(typeId, propertyName));
-    const description = translate(typePropertyDescription(typeId, propertyName));
+    const title = translate(typePropertyTitleKey(typeId, propertyName));
+    const description = translate(typePropertyDescriptionKey(typeId, propertyName));
     return {
       path: [...parent.path, propertyName],
       typeId,
@@ -245,8 +245,8 @@ function buildRootReference(
     // A reference to an action indicates a local variable ref
     const actionContent = referencedContent as ActionContent;
     const actionSpec = actionContent.spec;
-    const typeId = actionSpec.outputTypeId;
-    if (typeId === null) {
+    const typeId = actionSpec.output?.typeId;
+    if (!typeId) {
       throw new Error('Referenced local variable does not exist');
     }
     let title = variableContent.title;

@@ -1,0 +1,12 @@
+<svg viewBox="0 0 30 30" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    .var {
+    font: italic 40px serif;
+    fill: currentColor
+    }
+  </style>
+
+  <text x="15" y="15" text-anchor="middle" alignment-baseline="middle" dominant-baseline="middle"
+    class="var">x
+  </text>
+</svg>

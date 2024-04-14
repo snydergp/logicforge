@@ -1,28 +1,211 @@
 {
-  "actions": {
-    "set-variable": {
-      "title": "Set Variable",
-      "description": "Stores a value in the execution context using a given variable name",
-      "inputs": {
-        "value": {
-          "title": "Value",
-          "description": "The value to store"
-        },
-        "variableName": {
-          "title": "Variable Name",
-          "description": "The name to use for the stored variable"
+  "types": {
+    "io": {
+      "logicforge": {
+        "logging": {
+          "LogLevel": {
+            "title": "Log Level",
+            "description": "The level at which the message should be logged",
+            "values": {
+              "ERROR": {
+                "title": "Error"
+              },
+              "WARNING": {
+                "title": "Warning"
+              },
+              "INFO": {
+                "title": "Info"
+              },
+              "DEBUG": {
+                "title": "Debug"
+              },
+              "TRACE": {
+                "title": "Trace"
+              }
+            }
+          }
         }
       }
     },
-    "delete-variable": {
-      "title": "Delete Variable",
-      "description": "Deletes a value from the execution context",
-      "inputs": {
-        "variableName": {
-          "title": "Variable Name",
-          "description": "The name of the variable to delete"
+    "java": {
+      "lang": {
+        "Object": {
+          "title": "Any",
+          "description": "Allows any type of value"
+        },
+        "String": {
+          "title": "Text",
+          "description": "A text string"
+        },
+        "Boolean": {
+          "title": "Boolean",
+          "description": "A true/false value",
+          "values": {
+            "true": {
+              "title": "True"
+            },
+            "false": {
+              "title": "False"
+            }
+          }
+        },
+        "Long": {
+          "title": "Integer",
+          "description": "A whole number (non-decimal) value"
+        },
+        "Integer": {
+          "title": "Integer",
+          "description": "A whole number (non-decimal) value"
+        },
+        "Number": {
+          "title": "Number",
+          "description": "A whole number or decimal"
+        },
+        "Float": {
+          "title": "Decimal",
+          "description": "A decimal number"
+        },
+        "Double": {
+          "title": "Decimal",
+          "description": "A decimal number"
+        }
+      }
+    },
+    "boolean": {
+      "title": "Boolean",
+      "description": "A true/false value",
+      "values": {
+        "true": {
+          "title": "True"
+        },
+        "false": {
+          "title": "False"
+        }
+      }
+    },
+    "int": {
+      "title": "Integer",
+      "description": "A whole number (non-decimal) value"
+    },
+    "long": {
+      "title": "Integer",
+      "description": "A whole number (non-decimal) value"
+    },
+    "float": {
+      "title": "Decimal",
+      "description": "A decimal number"
+    },
+    "double": {
+      "title": "Decimal",
+      "description": "A decimal number"
+    }
+  },
+  "actions": {
+    "store-variable": {
+      "title": "Store Variable",
+      "description": "Stores a value for reuse",
+      "parameters": {
+        "value": {
+          "title": "Value",
+          "description": "The value to store"
+        }
+      }
+    },
+    "log": {
+      "title": "Log Message",
+      "description": "Outputs a log message",
+      "parameters": {
+        "message": {
+          "title": "Message",
+          "description": "The message to log"
+        },
+        "level": {
+          "title": "Level",
+          "description": "The level at which the message should be logged"
         }
       }
     }
+  },
+  "functions": {
+    "and": {
+      "title": "And",
+      "description": "Returns the boolean value \"true\" if all of its child values evaluate to \"true\"",
+      "parameters": {
+        "values": {
+          "title": "Values",
+          "description": "The list of expressions to evaluate"
+        }
+      }
+    },
+    "or": {
+      "title": "Or",
+      "description": "Returns the boolean value \"true\" if any of its child values evaluate to \"true\"",
+      "parameters": {
+        "values": {
+          "title": "Values",
+          "description": "The list of expressions to evaluate"
+        }
+      }
+    },
+    "concatenate": {
+      "title": "Concatenate",
+      "description": "Joins a list of values together into a single string of text",
+      "parameters": {
+        "values": {
+          "title": "Values",
+          "description": "The list of values to join"
+        }
+      }
+    }
+  },
+  "controls": {
+    "conditional": {
+      "title": "Conditional",
+      "description": "A control statement that executes one of two branches depending on a boolean input",
+      "parameters": {
+        "condition": {
+          "title": "If",
+          "description": "A boolean expression used to determine which block to execute."
+        }
+      },
+      "blocks": {
+        "then": {
+          "title": "Then",
+          "description": "The block executed when the condition evaluates to \"true\""
+        },
+        "else": {
+          "title": "Else",
+          "description": "The block executed when the condition evaluates to \"false\""
+        }
+      }
+    }
+  },
+  "labels": {
+    "logicforge": {
+      "enum": "Literal Options",
+      "non-literal": "Other Options"
+    },
+    "actions": "Actions",
+    "conditional-click-to-edit": "Click to edit condition",
+    "description": "Description",
+    "initial-variable": "Variable",
+    "initial-variables": "Initial Variables",
+    "new-executable": "Add Action/Condition",
+    "return-value": "Return Value",
+    "sets-variable": "Sets Variable",
+    "title": "Title",
+    "type-label": "Type:",
+    "unnamed-variable": "(Unnamed)",
+    "value-mode-FUNCTION": "function",
+    "value-mode-LITERAL": "literal",
+    "value-mode-VARIABLE": "variable",
+    "value-with-mode": "Value ({mode})",
+    "variable-output": "Variable Output",
+    "variable-editor-info": "This action will output a variable that can be used by subsequent actions. You can provide an optional title or description to clarify the variable's identity when selecting it.",
+    "error-INVALID_VALUE": "Invalid value: {message}",
+    "error-INVALID_VALUE-regex": "Must match regular expression: {regex}",
+    "error-MISSING_REQUIRED_VALUE": "Required",
+    "error-INVALID_REFERENCE_FORWARD": "Cannot reference a value before it is set",
+    "error-INVALID_REFERENCE-CONDITIONAL": "The referenced value might not be set and should be wrapped in a conditional reference."
   }
 }

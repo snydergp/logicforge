@@ -5,6 +5,19 @@ import { ConfigType, ControlType, EngineSpec, ProcessConfig, SpecType } from './
 import { FrameEditor } from './components';
 import { createTheme, CssBaseline, ThemeProvider } from '@mui/material';
 import '@fontsource/roboto';
+import translations from './i18n/en.json';
+
+const customizedTranslations = Object.assign(
+  {
+    processes: {
+      example: {
+        title: 'Example Process',
+        description: 'A process used for demonstration',
+      },
+    },
+  },
+  translations,
+);
 
 export const themeOptions = createTheme({
   palette: {
@@ -25,192 +38,54 @@ export const themeOptions = createTheme({
   },
 });
 
-// real-world usage might pull this from browser locale
-const locale = 'en';
-
-// this would likely be returned from the server or CMS in actual usage
-const messages = {
-  processes: {
-    EXAMPLE: {
-      title: 'Example Process',
-      description: 'A process used to demonstrate the frontend',
-      parameters: {
-        root: {
-          title: 'Actions',
-          description: 'The primary action list',
-        },
-      },
-    },
-  },
-  actions: {
-    'set-variable': {
-      title: 'Set Variable',
-      description: 'Stores a value in the execution context',
-      parameters: {
-        value: {
-          title: 'Value',
-          description: 'The value to store',
-        },
-        variableName: {
-          title: 'Variable Name',
-          description: 'The name to use for the stored variable',
-        },
-      },
-    },
-    'delete-variable': {
-      title: 'Delete Variable',
-      description: 'Deletes a value from the execution context',
-      parameters: {
-        variableName: {
-          title: 'Variable Name',
-          description: 'The name of the variable to delete',
-        },
-      },
-    },
-    'increment-counter': {
-      title: 'Increment Counter',
-      description: 'Increments a counter stored as a variable.',
-      parameters: {
-        variableName: {
-          title: 'Variable Name',
-          description: 'The name of the variable containing the counter',
-        },
-        count: {
-          title: 'Count',
-          description: 'The amount to increment the counter by. Defaults to 1.',
-        },
-      },
-    },
-  },
-  functions: {
-    concatenate: {
-      title: 'Concatenate',
-      description: 'Combine multiple text values into a single output string',
-      parameters: {
-        values: {
-          title: 'Values',
-          description: 'The text values to concatenate together',
-        },
-      },
-    },
-    min: {
-      title: 'Minimum',
-      description: 'Find the minimum value in a list of numbers',
-      parameters: {
-        values: {
-          title: 'Values',
-          description: 'The number values in which to find the minimum',
-        },
-      },
-    },
-    and: {
-      title: 'And',
-      description: 'Returns true only if all children also return true',
-      parameters: {
-        values: {
-          title: 'Values',
-          description: 'The child values to evaluate',
-        },
-      },
-    },
-  },
-  controls: {
-    conditional: {
-      parameters: {
-        condition: {
-          title: 'If',
-          description: 'A boolean expression. If the expression evaluates to "true"...',
-        },
-      },
-      blocks: {
-        then: {
-          title: 'Then',
-          description: '',
-        },
-        else: {
-          title: 'Else',
-          description: '',
-        },
-      },
-    },
-  },
-  types: {
-    'java.lang.String': {
-      title: 'Text',
-    },
-    'java.lang.Boolean': {
-      title: 'Boolean',
-    },
-    'java.lang.Integer': {
-      title: 'Integer (Short)',
-    },
-    'java.lang.Long': {
-      title: 'Integer (Long)',
-    },
-    'java.lang.Float': {
-      title: 'Decimal (Short)',
-    },
-    'java.lang.Decimal': {
-      title: 'Decimal (Long)',
-    },
-  },
-};
-
 // This specification struct would likely be provided by the server in actual usage
 const specification: EngineSpec = {
   type: SpecType.ENGINE,
   processes: {
     example: {
       type: SpecType.PROCESS,
-      inputs: [
-        {
+      inputs: {
+        input: {
           type: SpecType.VARIABLE,
           title: 'A text String',
           typeId: 'java.lang.String',
+          multi: false,
           optional: false,
         },
-      ],
+      },
       name: 'example',
     },
   },
   actions: {
-    'set-variable': {
+    'store-variable': {
       type: SpecType.ACTION,
+      metadata: {
+        DYNAMIC_RETURN_TYPE: 'value',
+      },
       inputs: {
         value: {
-          type: SpecType.INPUT,
-          outputTypeId: 'java.lang.Object',
+          type: SpecType.EXPRESSION,
+          typeId: 'java.lang.Object',
           multi: false,
-        },
-        variableName: {
-          type: SpecType.INPUT,
-          outputTypeId: 'java.lang.String',
-          multi: false,
+          metadata: {},
         },
       },
     },
-    'delete-variable': {
+    log: {
       type: SpecType.ACTION,
+      metadata: {},
       inputs: {
-        variableName: {
-          type: SpecType.INPUT,
-          outputTypeId: 'java.lang.String',
+        message: {
+          type: SpecType.EXPRESSION,
+          typeId: 'java.lang.String',
           multi: false,
+          metadata: {},
         },
-      },
-    },
-    'increment-counter': {
-      type: SpecType.ACTION,
-      inputs: {
-        variableName: {
-          type: SpecType.INPUT,
-          outputTypeId: 'java.lang.String',
+        level: {
+          type: SpecType.EXPRESSION,
+          typeId: 'io.logicforge.logging.LogLevel',
           multi: false,
-        },
-        count: {
-          type: SpecType.INPUT,
-          outputTypeId: 'java.lang.Integer',
-          multi: false,
+          metadata: {},
         },
       },
     },
@@ -218,71 +93,118 @@ const specification: EngineSpec = {
   functions: {
     concatenate: {
       type: SpecType.FUNCTION,
-      outputTypeId: 'java.lang.String',
+      output: {
+        type: SpecType.EXPRESSION,
+        typeId: 'java.lang.String',
+        multi: false,
+        metadata: {},
+      },
       inputs: {
         values: {
-          type: SpecType.INPUT,
+          type: SpecType.EXPRESSION,
           multi: true,
-          outputTypeId: 'java.lang.String',
-          properties: {},
+          typeId: 'java.lang.String',
+          metadata: {},
         },
       },
+      metadata: {},
     },
     min: {
       type: SpecType.FUNCTION,
-      outputTypeId: 'java.lang.Number',
+      output: {
+        type: SpecType.EXPRESSION,
+        typeId: 'java.lang.Number',
+        multi: false,
+        metadata: {},
+      },
       inputs: {
         values: {
-          type: SpecType.INPUT,
+          type: SpecType.EXPRESSION,
           multi: true,
-          outputTypeId: 'java.lang.Number',
-          properties: {},
+          typeId: 'java.lang.Number',
+          metadata: {},
         },
       },
+      metadata: {},
     },
     and: {
       type: SpecType.FUNCTION,
-      outputTypeId: 'java.lang.Boolean',
+      output: {
+        type: SpecType.EXPRESSION,
+        typeId: 'java.lang.Boolean',
+        multi: false,
+        metadata: {},
+      },
       inputs: {
         values: {
-          type: SpecType.INPUT,
+          type: SpecType.EXPRESSION,
           multi: true,
-          outputTypeId: 'java.lang.Boolean',
-          properties: {},
+          typeId: 'java.lang.Boolean',
+          metadata: {},
         },
       },
+      metadata: {},
     },
   },
   types: {
-    'java.lang.String': {
-      type: SpecType.TYPE,
-      supertypes: ['java.lang.Object'],
-      id: 'java.lang.String',
-    },
     'java.lang.Object': {
       type: SpecType.TYPE,
       supertypes: [],
       id: 'java.lang.Object',
+      properties: {},
+      valueType: false,
+    },
+    'java.lang.String': {
+      type: SpecType.TYPE,
+      supertypes: ['java.lang.Object'],
+      id: 'java.lang.String',
+      properties: {},
+      valueType: true,
     },
     'java.lang.Number': {
       type: SpecType.TYPE,
       supertypes: ['java.lang.Object'],
       id: 'java.lang.Number',
+      properties: {},
+      valueType: true,
     },
     'java.lang.Integer': {
       type: SpecType.TYPE,
       supertypes: ['java.lang.Number'],
       id: 'java.lang.Integer',
+      properties: {},
+      valueType: true,
     },
     'java.lang.Float': {
       type: SpecType.TYPE,
       supertypes: ['java.lang.Number'],
       id: 'java.lang.Float',
+      properties: {},
+      valueType: true,
     },
     'java.lang.Boolean': {
       type: SpecType.TYPE,
       supertypes: ['java.lang.Object'],
       id: 'java.lang.Boolean',
+      properties: {},
+      valueType: true,
+      values: ['true', 'false'],
+    },
+    boolean: {
+      type: SpecType.TYPE,
+      supertypes: ['java.lang.Object'],
+      id: 'boolean',
+      properties: {},
+      valueType: true,
+      values: ['true', 'false'],
+    },
+    'io.logicforge.logging.LogLevel': {
+      type: SpecType.TYPE,
+      supertypes: ['java.lang.Object'],
+      id: 'io.logicforge.logging.LogLevel',
+      properties: {},
+      valueType: true,
+      values: ['ERROR', 'WARNING', 'INFO', 'DEBUG', 'TRACE'],
     },
   },
   controls: [ControlType.CONDITIONAL],
@@ -292,15 +214,15 @@ const specification: EngineSpec = {
 //  created from an empty structure (if creating a new config)
 const process: ProcessConfig = {
   type: ConfigType.PROCESS,
-  name: 'EXAMPLE',
+  name: 'example',
   rootBlock: {
     type: ConfigType.BLOCK,
     executables: [
       {
         type: ConfigType.ACTION,
-        name: 'set-variable',
+        name: 'log',
         arguments: {
-          value: [
+          message: [
             {
               type: ConfigType.FUNCTION,
               name: 'concatenate',
@@ -311,13 +233,25 @@ const process: ProcessConfig = {
                     value: 'Hello',
                   },
                   {
+                    type: ConfigType.VALUE,
+                    value: ', ',
+                  },
+                  {
+                    type: ConfigType.VALUE,
+                    value: 'World',
+                  },
+                  {
                     type: ConfigType.FUNCTION,
                     name: 'concatenate',
                     arguments: {
                       values: [
                         {
                           type: ConfigType.VALUE,
-                          value: '!!',
+                          value: '!',
+                        },
+                        {
+                          type: ConfigType.VALUE,
+                          value: '!',
                         },
                       ],
                     },
@@ -326,40 +260,60 @@ const process: ProcessConfig = {
               },
             },
           ],
-          variableName: [
+          level: [
             {
               type: ConfigType.VALUE,
-              value: 'World',
+              value: 'INFO',
             },
           ],
         },
       },
       {
         type: ConfigType.ACTION,
-        name: 'delete-variable',
+        name: 'log',
         arguments: {
-          variableName: [
+          message: [
             {
-              type: ConfigType.VALUE,
-              value: 'World',
+              type: ConfigType.FUNCTION,
+              name: 'concatenate',
+              arguments: {
+                values: [
+                  {
+                    type: ConfigType.VALUE,
+                    value: 'Hello',
+                  },
+                  {
+                    type: ConfigType.VALUE,
+                    value: ', ',
+                  },
+                  {
+                    type: ConfigType.VALUE,
+                    value: 'World',
+                  },
+                  {
+                    type: ConfigType.FUNCTION,
+                    name: 'concatenate',
+                    arguments: {
+                      values: [
+                        {
+                          type: ConfigType.VALUE,
+                          value: '!',
+                        },
+                        {
+                          type: ConfigType.VALUE,
+                          value: '!',
+                        },
+                      ],
+                    },
+                  },
+                ],
+              },
             },
           ],
-        },
-      },
-      {
-        type: ConfigType.ACTION,
-        name: 'increment-counter',
-        arguments: {
-          variableName: [
+          level: [
             {
               type: ConfigType.VALUE,
-              value: 'counterVar',
-            },
-          ],
-          count: [
-            {
-              type: ConfigType.VALUE,
-              value: '2',
+              value: 'INFO',
             },
           ],
         },
@@ -377,8 +331,7 @@ root.render(
       <FrameEditor
         config={process}
         engineSpec={specification}
-        translations={messages}
-        locale={locale}
+        translations={customizedTranslations}
       />
     </ThemeProvider>
   </React.StrictMode>,

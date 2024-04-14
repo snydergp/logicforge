@@ -3,32 +3,29 @@ import {
   ActionContent,
   Content,
   ContentType,
+  ExpressionSpec,
   FunctionContent,
-  InputSpec,
   ListContent,
-  ValueContent,
 } from '../../types';
 import { useDispatch, useSelector } from 'react-redux';
 import {
-  addValue,
+  addInputValue,
   deleteItem,
-  reorderItem,
+  reorderInput,
   selectContentByKey,
   selectParameterSpecificationForKey,
   selectSelectedSubtree,
   setSelection,
   setValue,
 } from '../../redux/slices/editors';
-import { ParameterHeading } from '../ParameterHeading/ParameterHeading';
 import { Box, Button, IconButton, ListItemButton, ListItemText } from '@mui/material';
-import { useTranslate } from 'react-polyglot';
 import {
-  actionParameterDescriptionPath,
-  actionParameterTitlePath,
-  functionDescriptionPath,
-  functionParameterDescriptionPath,
-  functionParameterTitlePath,
-  functionTitlePath,
+  actionParameterDescriptionKey,
+  actionParameterTitleKey,
+  functionDescriptionKey,
+  functionParameterDescriptionKey,
+  functionParameterTitleKey,
+  functionTitleKey,
 } from '../../util';
 import MenuIcon from '@mui/icons-material/Menu';
 import { StoreStructure } from '../../redux';
@@ -37,6 +34,7 @@ import { DropResult } from '@hello-pangea/dnd';
 import { ReorderableContentList } from '../ReorderableContentList/ReorderableContentList';
 import { ValueEditor } from '../ValueEditor/ValueEditor';
 import { FunctionIcon } from '../Icons/Icons';
+import { useTranslate } from '../I18n/I18n';
 
 export interface InputParameterListProps {
   contentKey: string;
@@ -51,7 +49,9 @@ export function InputParameterList({ contentKey, name, parent }: InputParameterL
     selection !== undefined
       ? selection.findIndex((selectedContent) => contentKey === selectedContent.key)
       : -1;
-  const parameterSpec = useSelector(selectParameterSpecificationForKey(contentKey)) as InputSpec;
+  const parameterSpec = useSelector(
+    selectParameterSpecificationForKey(contentKey),
+  ) as ExpressionSpec;
 
   function isChildSelected(contentKey: string) {
     if (selectionDepth >= 0 && selection !== undefined && selectionDepth + 1 < selection.length) {
@@ -65,7 +65,7 @@ export function InputParameterList({ contentKey, name, parent }: InputParameterL
   const translate = useTranslate();
 
   const handleAddItem = useCallback(() => {
-    dispatch(addValue(contentKey));
+    dispatch(addInputValue(contentKey));
   }, [dispatch]);
 
   const handleDragEnd = useCallback(
@@ -73,7 +73,7 @@ export function InputParameterList({ contentKey, name, parent }: InputParameterL
       if (result.destination) {
         const startIndex = result.source.index;
         const endIndex = result.destination.index;
-        dispatch(reorderItem(contentKey, startIndex, endIndex));
+        dispatch(reorderInput(contentKey, startIndex, endIndex));
       }
     },
     [dispatch],
@@ -88,7 +88,7 @@ export function InputParameterList({ contentKey, name, parent }: InputParameterL
   }, []);
 
   if (content !== undefined && selection !== undefined) {
-    if (content.type !== ContentType.EXPRESSION_LIST) {
+    if (content.type !== ContentType.ARGUMENT) {
       throw new Error(
         `Unexpected state at key ${content.key} -- expected actions, found ${content.type}`,
       );
@@ -99,17 +99,16 @@ export function InputParameterList({ contentKey, name, parent }: InputParameterL
     let description: string;
     if (parent.type === ContentType.ACTION) {
       const actionContent = parent as ActionContent;
-      title = translate(actionParameterTitlePath(actionContent.name, name));
-      description = translate(actionParameterDescriptionPath(actionContent.name, name));
+      title = translate(actionParameterTitleKey(actionContent.name, name));
+      description = translate(actionParameterDescriptionKey(actionContent.name, name));
     } else {
       const functionContent = parent as FunctionContent;
-      title = translate(functionParameterTitlePath(functionContent.name, name));
-      description = translate(functionParameterDescriptionPath(functionContent.name, name));
+      title = translate(functionParameterTitleKey(functionContent.name, name));
+      description = translate(functionParameterDescriptionKey(functionContent.name, name));
     }
 
     return (
-      <Box sx={{ mx: 2, my: 1 }}>
-        <ParameterHeading title={title} description={description} subtitle={description} />
+      <>
         <ReorderableContentList
           parentKey={parent.key}
           onDragEnd={handleDragEnd}
@@ -123,7 +122,7 @@ export function InputParameterList({ contentKey, name, parent }: InputParameterL
             <Button onClick={handleAddItem}>Add Value</Button>
           </Box>
         )}
-      </Box>
+      </>
     );
   }
   return null;
@@ -207,8 +206,8 @@ function InputButton({ contentKey, selected }: InputButtonProps) {
     if (content.type === ContentType.FUNCTION) {
       const functionContent = content as FunctionContent;
 
-      const title = translate(functionTitlePath(functionContent.name));
-      const description = translate(functionDescriptionPath(functionContent.name));
+      const title = translate(functionTitleKey(functionContent.name));
+      const description = translate(functionDescriptionKey(functionContent.name));
 
       return (
         <ListItemButton selected={selected} onClick={handleClick}>
@@ -219,7 +218,7 @@ function InputButton({ contentKey, selected }: InputButtonProps) {
     } else if (content.type === ContentType.VALUE && parameterSpec !== undefined) {
       return (
         <ListItemButton selected={selected} onClick={handleClick}>
-          <ValueEditor parameterSpec={parameterSpec} content={content as ValueContent} />
+          <ValueEditor contentKey={contentKey} />
         </ListItemButton>
       );
     }

@@ -4,8 +4,12 @@
  * flattening the structure stored in Redux.
  */
 
-import {ActionSpec, ControlType, FunctionSpec, InputSpec, ProcessSpec} from './specification';
-import {ErrorCode} from './error-codes';
+import { ActionSpec, ControlType, FunctionSpec, ProcessSpec } from './specification';
+import { ValidationError } from './validation';
+
+export type ArgumentName = string;
+export type ContentKey = string;
+export type TypeId = string;
 
 export enum ContentType {
   PROCESS = 'PROCESS',
@@ -13,27 +17,24 @@ export enum ContentType {
   CONTROL = 'CONTROL',
   ACTION = 'ACTION',
   FUNCTION = 'FUNCTION',
-  EXPRESSION_LIST = 'EXPRESSION_LIST',
+  ARGUMENT = 'ARGUMENT',
   VALUE = 'VALUE',
   REFERENCE = 'REFERENCE',
   CONDITIONAL_REFERENCE = 'CONDITIONAL_REFERENCE',
   VARIABLE = 'VARIABLE',
 }
 
-export type MightError = {
-  errors: ErrorCode[];
-};
-
 export type ContentStore = {
   count: number;
-  data: { [key: string]: Content };
-  rootConfigKey?: string;
+  data: { [key: ContentKey]: Content };
+  rootConfigKey: string;
 };
 
 export type Content = {
-  key: string;
+  key: ContentKey;
   type: ContentType;
-  parentKey?: string;
+  parentKey: ContentKey | null;
+  errors: ValidationError[];
 };
 
 export type ExpressionContent = Content & {
@@ -42,37 +43,44 @@ export type ExpressionContent = Content & {
     | ContentType.ACTION
     | ContentType.FUNCTION
     | ContentType.REFERENCE
-    | ContentType.VALUE;
-  outputTypeId: string | null;
+    | ContentType.CONDITIONAL_REFERENCE
+    | ContentType.VALUE
+    | ContentType.VARIABLE;
+  multi: boolean;
+  typeId: TypeId | null;
+};
+
+export type ExecutableContent = Content & {
+  type: ContentType.ACTION | ContentType.BLOCK | ContentType.CONTROL;
 };
 
 export type NodeContent = {
-  childKeys: { [key: string]: string };
+  childKeyMap: { [key: ArgumentName]: ContentKey };
 } & Content;
 
 export type ListContent = {
-  childKeys: string[];
+  childKeys: ContentKey[];
 } & Content;
 
 export type ProcessContent = Content &
   ExpressionContent & {
     type: ContentType.PROCESS;
     name: string;
-    rootBlockKey: string;
-    returnExpressionKey?: string;
+    rootBlockKey?: ContentKey;
+    returnArgumentKey?: ContentKey;
     spec: ProcessSpec;
-    inputVariableKeys: string[];
+    inputVariableKeys: ContentKey[];
   };
 
-export type ControlContent = ListContent & {
-  type: ContentType.CONTROL;
-  controlType: ControlType;
-};
+export type ControlContent = ListContent &
+  NodeContent & {
+    type: ContentType.CONTROL;
+    controlType: ControlType;
+  };
 
 export type ConditionalContent = ControlContent & {
   type: ContentType.CONTROL;
   controlType: ControlType.CONDITIONAL;
-  conditionalExpressionKey: string;
 };
 
 export type BlockContent = ListContent & {
@@ -84,7 +92,7 @@ export type ActionContent = NodeContent &
     type: ContentType.ACTION;
     name: string;
     spec: ActionSpec;
-    variableContentKey?: string;
+    variableContentKey?: ContentKey;
   };
 
 export type FunctionContent = NodeContent &
@@ -94,41 +102,57 @@ export type FunctionContent = NodeContent &
     name: string;
   };
 
-export type InputsContent = ListContent & {
-  type: ContentType.EXPRESSION_LIST;
-  name: string;
-  spec: InputSpec;
+/**
+ * Arguments represent an input to a function, action, or control. Each argument has a type, based
+ * on the input's declared type. Expressions provided to the argument must satisfy that type
+ * requirement with the declared type, a subtype, or a type convertable to the declared type.
+ * Arguments will only allow multiple children when the "allowMulti" flag is true.
+ *
+ * In addition to the declared type, this model tracks the actual type supplied by child
+ * expressions to allow parent actions/functions to dynamically set their output types.
+ */
+export type ArgumentContent = ListContent & {
+  type: ContentType.ARGUMENT;
+  allowMulti: boolean;
+  allowedTypeIds: TypeId[];
+  declaredTypeId: TypeId;
+  calculatedTypeId: TypeId | null;
+  propagateTypeChanges: boolean;
 };
 
 export type ValueContent = Content &
-  MightError &
   ExpressionContent & {
     type: ContentType.VALUE;
     value: string;
+    availableFunctionIds: string[];
+    availableVariables: { key: ContentKey; conditional: boolean }[];
   };
 
 export type ReferenceContent = Content &
-  MightError &
   ExpressionContent & {
     type: ContentType.REFERENCE;
-    referenceKey: string;
+    referenceKey: ContentKey;
     path: string[];
   };
 
-export type ConditionalReferenceContent = ListContent & {
-  type: ContentType.CONDITIONAL_REFERENCE;
-  expressionKey: string;
-  fallbackKey: string;
-};
+export type ConditionalReferenceContent = ListContent &
+  ExpressionContent & {
+    type: ContentType.CONDITIONAL_REFERENCE;
+    /** Only undefined during construction */
+    expressionKey?: ContentKey;
+    /** Only undefined during construction */
+    fallbackKey?: ContentKey;
+  };
 
-export type VariableContent = Content & {
-  type: ContentType.VARIABLE;
-  title: string;
-  description?: string;
-  basePath?: string;
-  optional: boolean;
-  typeId: string;
-};
+export type VariableContent = Content &
+  ExpressionContent & {
+    type: ContentType.VARIABLE;
+    title: string;
+    description: string;
+    basePath?: string;
+    optional: boolean;
+    referenceKeys: ContentKey[];
+  };
 
 export function isExecutable(type: ContentType) {
   return type === ContentType.CONTROL || type === ContentType.BLOCK || type === ContentType.ACTION;

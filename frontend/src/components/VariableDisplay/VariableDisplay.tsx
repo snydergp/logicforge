@@ -1,11 +1,12 @@
-import { useTranslate } from 'react-polyglot';
-import { label, typeTitlePath } from '../../util';
-import { Container, Stack, Typography } from '@mui/material';
-import { Info } from '../Info/Info';
+import { labelKey, typeTitleKey } from '../../util';
+import { Box, Stack, Typography } from '@mui/material';
 import React from 'react';
+import { useTranslate } from '../I18n/I18n';
+import { VariableIcon } from '../Icons/Icons';
 
 export interface VariableDisplayProps {
   typeId: string;
+  multi: boolean;
   optional: boolean;
   initial?: boolean;
   title: string;
@@ -14,6 +15,7 @@ export interface VariableDisplayProps {
 
 export function VariableDisplay({
   typeId,
+  multi,
   optional,
   initial = false,
   title,
@@ -21,30 +23,37 @@ export function VariableDisplay({
 }: VariableDisplayProps) {
   const translate = useTranslate();
 
-  const superTitleMain = translate(label(initial ? 'initial-variable' : 'variable'));
-  const optionalLabel = optional ? label('optional') + ' ' : '';
-  const superTitleType = translate(typeTitlePath(typeId));
+  const superTitleMain = translate(labelKey(initial ? 'initial-variable' : 'sets-variable'));
+  const optionalLabel = optional ? labelKey('optional') + ' ' : '';
+  const multiLabel = multi ? translate(labelKey('multiple')) + ' ' : '';
+  const typeLabel = translate(typeTitleKey(typeId));
   const superTitle = (
-    <Container>
-      <Typography>{superTitleMain}</Typography>&nbsp;
-      <Typography>
-        ({optionalLabel} {superTitleType})
+    <Typography variant={'body2'} sx={{ width: '100%' }}>
+      {superTitleMain}&nbsp;
+      <Typography
+        variant={'body2'}
+        display={'inline'}
+        color={(theme) => theme.palette.text.secondary}
+      >
+        ({optionalLabel}
+        {multiLabel}
+        {typeLabel})
       </Typography>
-    </Container>
+    </Typography>
   );
   const mainTitle = (
-    <Container>
-      <Typography>
-        {title}
-        {description !== undefined && <Info text={description} />}
-      </Typography>
-    </Container>
+    <Typography variant={'body2'} color={(theme) => theme.palette.text.secondary}>
+      <span>{title || translate(labelKey('unnamed-variable'))}</span>
+    </Typography>
   );
 
   return (
-    <Stack direction={'column'}>
-      {superTitle}
-      {mainTitle}
+    <Stack direction={'row'} sx={{ mt: 1, width: '100%' }}>
+      <VariableIcon sx={{ mr: 1 }} />
+      <Box sx={{ width: '100%', p: 0, mb: 1 }}>
+        {superTitle}
+        {mainTitle}
+      </Box>
     </Stack>
   );
 }
