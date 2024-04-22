@@ -1,3 +1,5 @@
+import { ErrorCode } from '../types';
+
 export function processTitleKey(processName: string) {
   return `processes.${processName}.title`;
 }
@@ -92,6 +94,10 @@ export function controlBlockTitleKey(controlName: string, blockName: string) {
 
 export function controlBlockDescriptionKey(controlName: string, blockName: string) {
   return `controls.${controlName}.blocks.${blockName}.description`;
+}
+
+export function errorKey(errorCode: ErrorCode) {
+  return `errors.${errorCode}`;
 }
 
 export function labelKey(name: string) {

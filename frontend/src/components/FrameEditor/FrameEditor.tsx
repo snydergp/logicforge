@@ -1,54 +1,54 @@
 import { Provider, useSelector } from 'react-redux';
-import { Box, Container, Divider, Paper, Stack, SxProps, Theme, Typography } from '@mui/material';
+import { Box, Container, Divider, Slide, Stack, SxProps, Theme, Typography } from '@mui/material';
 import {
   ActionContent,
-  ConditionalContent,
+  ArgumentContent,
+  Content,
   ContentType,
   ControlContent,
-  ControlType,
   EngineSpec,
   FunctionContent,
   LogicForgeConfig,
+  PROCESS_RETURN_PROP,
   ProcessConfig,
   ProcessContent,
 } from '../../types';
-import { initEditor, selectSelectedSubtree } from '../../redux/slices/editors';
-import React, { useContext, useEffect, useMemo } from 'react';
+import {
+  initEditor,
+  selectContent,
+  selectEngineSpec,
+  selectSelectedSubtree,
+} from '../../redux/slices/editors';
+import React, { useEffect, useMemo, useRef } from 'react';
 import {
   actionDescriptionKey,
+  actionParameterDescriptionKey,
   actionParameterTitleKey,
   actionTitleKey,
-  controlDescriptionKey,
-  controlTitleKey,
+  contentEqual,
   functionDescriptionKey,
+  functionParameterDescriptionKey,
+  functionParameterTitleKey,
   functionTitleKey,
-  generateTypeMapping,
   labelKey,
   processDescriptionKey,
   processTitleKey,
-  TypeInfo,
+  typeTitleKey,
 } from '../../util';
 import { Info } from '../Info/Info';
 import { ActionIcon, FunctionIcon, ProcessIcon } from '../Icons/Icons';
 import { getStore, StoreStructure } from '../../redux';
-import { InputParameterList } from '../InputParameterList/InputParameterList';
 import { InitialVariablesDisplay } from '../InitialVariablesDisplay/InitialVariablesDisplay';
 import { I18n, MessageTree, useTranslate } from '../I18n/I18n';
 import { FrameSection } from '../FrameSection/FrameSection';
 import { ExecutableBlockEditor } from '../ExecutableBlockEditor/ExecutableBlockEditor';
 import { VariableEditor } from '../VariableEditor/VariableEditor';
-
-export type EditorInfo = {
-  engineSpec: EngineSpec;
-  typeMappings: { [key: string]: TypeInfo };
-};
-export const EditorContext = React.createContext<EditorInfo | undefined>(undefined);
+import { ArgumentEditor } from '../ArgumentEditor/ArgumentEditor';
 
 enum FrameType {
   PROCESS,
   ACTION,
   FUNCTION,
-  CONTROL,
 }
 
 const FRAME_WIDTH = '400px';
@@ -71,26 +71,17 @@ export function FrameEditor({ config, engineSpec, translations }: FrameEditorPro
     store.dispatch(initEditor(config as ProcessConfig, engineSpec));
   }, []);
 
-  const typeMappings = generateTypeMapping(engineSpec.types);
-
-  const editorInfo: EditorInfo = {
-    engineSpec,
-    typeMappings,
-  };
-
   return (
     <Provider store={store}>
-      <EditorContext.Provider value={editorInfo}>
-        <I18n translations={translations}>
-          <FrameEditorInternal />
-        </I18n>
-      </EditorContext.Provider>
+      <I18n translations={translations}>
+        <FrameEditorInternal />
+      </I18n>
     </Provider>
   );
 }
 
 function FrameEditorInternal() {
-  const selection = useSelector((state: StoreStructure) => selectSelectedSubtree(state));
+  const selection = useSelector<StoreStructure, Content[]>(selectSelectedSubtree, contentEqual);
 
   const childFrames = useMemo(() => {
     const children: React.JSX.Element[] = [];
@@ -104,11 +95,6 @@ function FrameEditorInternal() {
           contentType === ContentType.FUNCTION
         ) {
           children.push(<Frame content={content as FrameContent} key={content.key}></Frame>);
-        } else if (contentType === ContentType.CONTROL) {
-          // Only show a frame for conditionals when directly selected or editing the condition
-          if (i === selection.length - 1 || selection[i + 1].type !== ContentType.BLOCK) {
-            children.push(<Frame content={content as FrameContent} key={content.key}></Frame>);
-          }
         }
       }
     }
@@ -116,7 +102,14 @@ function FrameEditorInternal() {
   }, [selection]);
 
   return (
-    <Stack direction="row" spacing={0} divider={<Divider orientation="vertical" flexItem />}>
+    <Stack
+      direction="row"
+      flexWrap={'nowrap'}
+      overflow={'scroll'}
+      sx={{ overflowX: 'scroll', width: '100%', height: '100%' }}
+      spacing={0}
+      divider={<Divider orientation="vertical" flexItem />}
+    >
       {childFrames}
     </Stack>
   );
@@ -138,17 +131,11 @@ function Frame({ content }: FrameProps) {
     case ContentType.FUNCTION:
       renderedFrameContents = <FunctionFrame content={content} />;
       break;
-    case ContentType.CONTROL:
-      if (content.controlType === ControlType.CONDITIONAL) {
-        renderedFrameContents = <ControlFrame content={content as ConditionalContent} />;
-      } else {
-        throw new Error(`Unknown control type: ${content.controlType}`);
-      }
-      break;
   }
 
   const sx: SxProps<Theme> = {
     my: 1,
+    flexShrink: 0,
   };
   // Since the process frame can nest deeply, allow it to expand as needed. Constrain all other frames.
   if (content.type === ContentType.PROCESS) {
@@ -157,10 +144,19 @@ function Frame({ content }: FrameProps) {
     sx.width = FRAME_WIDTH;
   }
 
+  const containerRef = useRef<HTMLDivElement>(null);
+
   return (
-    <div className={'logicforgeFrameEditor__frame'}>
-      <Container sx={sx}>{renderedFrameContents}</Container>
-    </div>
+    <Box ref={containerRef} sx={{ ...sx, overflow: 'hidden' }}>
+      <Slide
+        direction={'right'}
+        in={true}
+        container={containerRef.current}
+        appear={content.type !== ContentType.PROCESS}
+      >
+        <Container>{renderedFrameContents}</Container>
+      </Slide>
+    </Box>
   );
 }
 
@@ -169,33 +165,34 @@ interface ProcessFrameProps extends FrameProps {
 }
 
 function ProcessFrame({ content }: ProcessFrameProps) {
-  const editorInfo = useContext(EditorContext) as EditorInfo;
+  const engineSpec = useSelector(selectEngineSpec);
 
   const processName = content.name;
-  const specification = editorInfo.engineSpec.processes[processName];
+  const specification = engineSpec.processes[processName];
 
   const translate = useTranslate();
   const title = translate(processTitleKey(processName));
   const description = translate(processDescriptionKey(processName));
+  const subtitle = translate(labelKey('process'));
+
   const initVarsTitle = translate(labelKey('initial-variables'));
   const actionsTitle = translate(labelKey('actions'));
   const returnValueTitle = translate(labelKey('return-value'));
 
   return (
-    <Stack spacing={1} className={'logicforgeFrameEditor__processFrame'}>
-      <FrameHeading
-        title={title}
-        description={description}
-        subtitle={'Process'}
-        type={FrameType.PROCESS}
-      />
+    <Stack spacing={1}>
+      <FrameHeading type={FrameType.PROCESS} {...{ title, description, subtitle }} />
       <FrameSection title={initVarsTitle}>
         <InitialVariablesDisplay initialVariables={Object.values(specification.inputs)} />
       </FrameSection>
       <FrameSection title={actionsTitle}>
         <ExecutableBlockEditor contentKey={content.rootBlockKey as string} />
       </FrameSection>
-      {specification.output && <FrameSection title={returnValueTitle}></FrameSection>}
+      {specification.output && content.childKeyMap.hasOwnProperty(PROCESS_RETURN_PROP) && (
+        <FrameSection title={returnValueTitle}>
+          <ArgumentEditor contentKey={content.childKeyMap[PROCESS_RETURN_PROP]} />
+        </FrameSection>
+      )}
     </Stack>
   );
 }
@@ -205,32 +202,30 @@ interface ActionFrameProps extends FrameProps {
 }
 
 function ActionFrame({ content }: ActionFrameProps) {
-  const editorInfo = useContext(EditorContext) as EditorInfo;
+  const engineSpec = useSelector(selectEngineSpec);
+  const allContent = useSelector(selectContent);
 
   const actionName = content.name;
-  const specification = editorInfo.engineSpec.actions[actionName];
+  const specification = engineSpec.actions[actionName];
 
   const translate = useTranslate();
   const title = translate(actionTitleKey(actionName));
   const description = translate(actionDescriptionKey(actionName));
+  const subtitle = translate(labelKey('action'));
 
   return (
-    <Stack spacing={1} className={'logicforgeFrameEditor__actionFrame'}>
-      <FrameHeading
-        title={title}
-        subtitle={'Action'}
-        description={description}
-        type={FrameType.ACTION}
-      />
-      {Object.entries(specification.inputs)?.map(([name]) => {
+    <Stack spacing={1}>
+      <FrameHeading type={FrameType.ACTION} {...{ title, description, subtitle }} />
+      {Object.entries(specification.inputs)?.map(([name, spec]) => {
+        const argContent = allContent[content.childKeyMap[name]] as ArgumentContent;
         const title = translate(actionParameterTitleKey(actionName, name));
+        const description = translate(actionParameterDescriptionKey(actionName, name));
+        const subtitle =
+          (spec.multi ? translate(labelKey('multiple')) + ' ' : '') +
+          translate(typeTitleKey(argContent.calculatedTypeId as string));
         return (
-          <FrameSection key={name} title={title}>
-            <InputParameterList
-              contentKey={content.childKeyMap[name]}
-              name={name}
-              parent={content}
-            />
+          <FrameSection key={name} {...{ title, description, subtitle }}>
+            <ArgumentEditor contentKey={content.childKeyMap[name]} />
           </FrameSection>
         );
       })}
@@ -246,7 +241,7 @@ export interface FunctionFrameProps extends FrameProps {
 }
 
 export function FunctionFrame({ content }: FunctionFrameProps) {
-  const { engineSpec } = useContext(EditorContext) as EditorInfo;
+  const engineSpec = useSelector(selectEngineSpec);
 
   const functionName = content.name;
   const specification = engineSpec.functions[functionName];
@@ -254,67 +249,24 @@ export function FunctionFrame({ content }: FunctionFrameProps) {
   const translate = useTranslate();
   const title = translate(functionTitleKey(functionName));
   const description = translate(functionDescriptionKey(functionName));
+  const subtitle = translate(labelKey('function'));
 
   return (
-    <div className={'logicforgeFrameEditor__functionFrame'}>
-      <FrameHeading
-        title={title}
-        subtitle={'Function'}
-        description={description}
-        type={FrameType.FUNCTION}
-      />
-      <Stack spacing={1}>
-        {Object.entries(specification.inputs)?.map(([name]) => {
-          return (
-            <Paper key={name}>
-              <InputParameterList
-                contentKey={content.childKeyMap[name]}
-                name={name}
-                parent={content}
-              />
-            </Paper>
-          );
-        })}
-      </Stack>
-    </div>
-  );
-}
-
-interface ConditionalFrameProps {
-  content: ConditionalContent;
-}
-
-function ControlFrame({ content }: ConditionalFrameProps) {
-  const controlType = content.controlType;
-  const conditionalArgKey = content.childKeyMap['condition'];
-  if (conditionalArgKey === undefined) {
-    throw new Error(
-      `Conditional content ${content.key} in illegal state: missing 'condition' argument.`,
-    );
-  }
-
-  const translate = useTranslate();
-  const title = translate(controlTitleKey(controlType));
-  const description = translate(controlDescriptionKey(controlType));
-
-  return (
-    <div className={'logicforgeFrameEditor__controlFrame'}>
-      <FrameHeading
-        title={title}
-        subtitle={'Conditional'}
-        description={description}
-        type={FrameType.CONTROL}
-      />
-      <Stack spacing={1}>
-        <Paper>
-          <InputParameterList
-            contentKey={conditionalArgKey}
-            name={'conditional'}
-            parent={content}
-          />
-        </Paper>
-      </Stack>
-    </div>
+    <Stack spacing={1}>
+      <FrameHeading type={FrameType.FUNCTION} {...{ title, description, subtitle }} />
+      {Object.entries(specification.inputs)?.map(([name, spec]) => {
+        const title = translate(functionParameterTitleKey(functionName, name));
+        const description = translate(functionParameterDescriptionKey(functionName, name));
+        const subtitle =
+          (spec.multi ? translate(labelKey('multiple')) + ' ' : '') +
+          translate(typeTitleKey(spec.typeId));
+        return (
+          <FrameSection key={name} {...{ title, description, subtitle }}>
+            <ArgumentEditor contentKey={content.childKeyMap[name]} />
+          </FrameSection>
+        );
+      })}
+    </Stack>
   );
 }
 
@@ -327,26 +279,24 @@ export interface FrameHeadingProps {
 
 export function FrameHeading({ title, description, subtitle, type }: FrameHeadingProps) {
   return (
-    <Stack direction="row">
-      <Box sx={{ mb: 1.5 }}>
-        <Typography variant={'h4'} fontSize={'1.5rem'}>
-          {title}
-          {description !== undefined && <Info text={description} />}
+    <Box sx={{ mb: 1.5 }}>
+      <Typography variant={'h4'} fontSize={'1.5rem'}>
+        {title}
+        {description !== undefined && <Info text={description} />}
+      </Typography>
+      {subtitle !== undefined && (
+        <Typography
+          variant={'h5'}
+          color={(theme) => theme.palette.primary.main}
+          fontSize={'1rem'}
+          fontWeight={500}
+          style={{ fontVariant: 'all-small-caps' }}
+        >
+          {FrameIcon({ type })}
+          {subtitle}
         </Typography>
-        {subtitle !== undefined && (
-          <Typography
-            variant={'h5'}
-            color={'#37ac8f'}
-            fontSize={'1rem'}
-            fontWeight={500}
-            style={{ fontVariant: 'all-small-caps' }}
-          >
-            {FrameIcon({ type })}
-            {subtitle}
-          </Typography>
-        )}
-      </Box>
-    </Stack>
+      )}
+    </Box>
   );
 }
 

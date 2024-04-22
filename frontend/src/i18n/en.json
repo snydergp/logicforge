@@ -1,32 +1,5 @@
 {
   "types": {
-    "io": {
-      "logicforge": {
-        "logging": {
-          "LogLevel": {
-            "title": "Log Level",
-            "description": "The level at which the message should be logged",
-            "values": {
-              "ERROR": {
-                "title": "Error"
-              },
-              "WARNING": {
-                "title": "Warning"
-              },
-              "INFO": {
-                "title": "Info"
-              },
-              "DEBUG": {
-                "title": "Debug"
-              },
-              "TRACE": {
-                "title": "Trace"
-              }
-            }
-          }
-        }
-      }
-    },
     "java": {
       "lang": {
         "Object": {
@@ -37,37 +10,9 @@
           "title": "Text",
           "description": "A text string"
         },
-        "Boolean": {
-          "title": "Boolean",
-          "description": "A true/false value",
-          "values": {
-            "true": {
-              "title": "True"
-            },
-            "false": {
-              "title": "False"
-            }
-          }
-        },
-        "Long": {
-          "title": "Integer",
-          "description": "A whole number (non-decimal) value"
-        },
-        "Integer": {
-          "title": "Integer",
-          "description": "A whole number (non-decimal) value"
-        },
         "Number": {
           "title": "Number",
           "description": "A whole number or decimal"
-        },
-        "Float": {
-          "title": "Decimal",
-          "description": "A decimal number"
-        },
-        "Double": {
-          "title": "Decimal",
-          "description": "A decimal number"
         }
       }
     },
@@ -159,7 +104,7 @@
     }
   },
   "controls": {
-    "conditional": {
+    "CONDITIONAL": {
       "title": "Conditional",
       "description": "A control statement that executes one of two branches depending on a boolean input",
       "parameters": {
@@ -180,17 +125,37 @@
       }
     }
   },
+  "errors": {
+    "INVALID_VALUE": "Invalid Value: {message}",
+    "INVALID_VALUE_NO_LITERAL": "The required type ({i18n:types.[typeId].title}) cannot be provided from a literal value. Select a function or reference to use.",
+    "UNSATISFIED_INPUT_TYPE_MISMATCH": "The provided type ({i18n:types.[typeId].title}) is not compatible with the required type ({i18n:types.[requiredTypeId].title})",
+    "messages": {
+      "integer": "A valid integer (whole number) value is required",
+      "required": "Required"
+    }
+  },
   "labels": {
     "logicforge": {
       "enum": "Literal Options",
       "non-literal": "Other Options"
     },
+    "action": "Action",
     "actions": "Actions",
+    "add-input": "Add Input",
+    "child-errors": "Child Errors",
+    "child-warnings": "Child Warnings",
+    "control": "Control",
     "conditional-click-to-edit": "Click to edit condition",
     "description": "Description",
+    "errors": "Errors",
+    "function": "Function",
     "initial-variable": "Variable",
     "initial-variables": "Initial Variables",
     "new-executable": "Add Action/Condition",
+    "multiple": "multi",
+    "process": "Process",
+    "property": "Property",
+    "reference": "Reference",
     "return-value": "Return Value",
     "sets-variable": "Sets Variable",
     "title": "Title",
@@ -200,12 +165,9 @@
     "value-mode-LITERAL": "literal",
     "value-mode-VARIABLE": "variable",
     "value-with-mode": "Value ({mode})",
+    "variable": "Variable",
     "variable-output": "Variable Output",
     "variable-editor-info": "This action will output a variable that can be used by subsequent actions. You can provide an optional title or description to clarify the variable's identity when selecting it.",
-    "error-INVALID_VALUE": "Invalid value: {message}",
-    "error-INVALID_VALUE-regex": "Must match regular expression: {regex}",
-    "error-MISSING_REQUIRED_VALUE": "Required",
-    "error-INVALID_REFERENCE_FORWARD": "Cannot reference a value before it is set",
-    "error-INVALID_REFERENCE-CONDITIONAL": "The referenced value might not be set and should be wrapped in a conditional reference."
+    "warnings": "Warnings"
   }
 }

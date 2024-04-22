@@ -1,5 +1,6 @@
 import React from 'react';
-import { Box, Paper, Typography } from '@mui/material';
+import { Box, darken, lighten, Typography, useTheme } from '@mui/material';
+import { Info } from '../Info/Info';
 
 export interface FrameSectionProps {
   title: string;
@@ -13,20 +14,34 @@ export function FrameSection({
   subtitle,
   children,
 }: React.PropsWithChildren<FrameSectionProps>) {
+  const theme = useTheme();
+
+  const baseColor = theme.palette.background.paper;
+  const coefficient = 0.15;
+  const backgroundColor =
+    theme.palette.mode === 'light'
+      ? darken(baseColor, coefficient)
+      : lighten(baseColor, coefficient);
+  const borderRadius = '0.4rem';
   return (
-    <Paper sx={{ mx: 2, my: 1 }}>
+    <Box sx={{ mx: 2, my: 1, backgroundColor, borderRadius }}>
       <Box sx={{ mx: 2, my: 1 }}>
-        {subtitle && (
-          <Typography className={'logicForge-frameSection__subtitle'}>{subtitle}</Typography>
-        )}
-        <Typography
-          className={'logicForge-frameSection__title'}
-          sx={{ fontWeight: 700, fontSize: '1.15rem' }}
-        >
+        <Typography sx={{ fontWeight: 700, fontSize: '1.15rem' }}>
           {title}
+          {description !== undefined && <Info text={description} />}
         </Typography>
+        {subtitle && (
+          <Typography
+            fontSize={theme.typography.body2.fontSize}
+            lineHeight={1}
+            color={theme.palette.text.secondary}
+            sx={{ fontVariant: 'all-small-caps' }}
+          >
+            {subtitle}
+          </Typography>
+        )}
       </Box>
       {children}
-    </Paper>
+    </Box>
   );
 }

@@ -13,13 +13,14 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import React, { useCallback, useContext, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import {
   convertValueToFunction,
   convertValueToReference,
   selectAvailableVariables,
   selectContentByKey,
+  selectEngineSpec,
   updateValue,
   updateValueType,
   VariableModel,
@@ -32,7 +33,8 @@ import {
   typeTitleKey,
 } from '../../util';
 import { useTranslate } from '../I18n/I18n';
-import { EditorContext, EditorInfo } from '../FrameEditor/FrameEditor';
+import { StoreStructure } from '../../redux';
+import { useContent } from '../../hooks/useContent';
 
 export interface ValueEditorProps {
   contentKey: string;
@@ -106,14 +108,11 @@ function buildFunctionOptions(
   ];
 }
 
-function buildVariableOptions(
-  availableVariable: VariableModel[],
-  translateFunction: (key: string) => string,
-): Option[] {
+function buildVariableOptions(availableVariable: VariableModel[]): Option[] {
   return [
-    ...availableVariable.map((model) => {
+    ...availableVariable.map((model, index) => {
       return {
-        id: model.key,
+        id: index.toString(),
         groupId: VARIABLE_OPTION_ID,
         label: model.title,
       } as Option;
@@ -122,16 +121,23 @@ function buildVariableOptions(
   ];
 }
 
+function variableModelEqual(a: VariableModel[], b: VariableModel[]) {
+  return a.length === b.length && a.every((model, index) => model.key === b[index].key);
+}
+
 export function ValueEditor({ contentKey }: ValueEditorProps) {
-  const { engineSpec } = useContext(EditorContext) as EditorInfo;
+  const content = useContent<ValueContent>(contentKey);
+  const engineSpec = useSelector(selectEngineSpec);
   const dispatch = useDispatch();
   const translate = useTranslate();
 
-  const content = useSelector(selectContentByKey(contentKey)) as ValueContent;
   const argumentContent = useSelector(
     selectContentByKey(content.parentKey as string),
   ) as ArgumentContent;
-  const availableVariables = useSelector(selectAvailableVariables(contentKey));
+  const availableVariables = useSelector<StoreStructure, VariableModel[]>(
+    selectAvailableVariables(contentKey),
+    variableModelEqual,
+  );
 
   // tracks the input mode, used to show context-dependent options
   const [mode, setMode] = useState(Mode.LITERAL);
@@ -145,9 +151,9 @@ export function ValueEditor({ contentKey }: ValueEditorProps) {
       case Mode.FUNCTION:
         return buildFunctionOptions(content.availableFunctionIds, translate);
       case Mode.VARIABLE:
-        return buildVariableOptions(availableVariables, translate);
+        return buildVariableOptions(availableVariables);
     }
-  }, [mode, content, engineSpec, translate]);
+  }, [mode, content, engineSpec, translate, availableVariables]);
 
   // shortcut mode allows users to move between modes via keypress.
   //  - Enter FUNCTION from LITERAL by typing '=' when input is empty
@@ -243,13 +249,15 @@ export function ValueEditor({ contentKey }: ValueEditorProps) {
           if (id === LITERAL_OPTION_ID) {
             setMode(Mode.LITERAL);
           } else {
-            dispatch(convertValueToReference(content.key, id));
+            const variableIndex = parseInt(id);
+            const selectedVariable = availableVariables[variableIndex];
+            dispatch(convertValueToReference(content.key, selectedVariable.key));
           }
         }
         setShortcutMode(false);
       }
     },
-    [mode, setMode, setShortcutMode, dispatch, setInputValue, setOpen],
+    [mode, setMode, setShortcutMode, dispatch, setInputValue, setOpen, availableVariables],
   );
 
   const handleKeyDown = useCallback(
@@ -301,12 +309,6 @@ export function ValueEditor({ contentKey }: ValueEditorProps) {
               {...params}
               label={label}
               variant={'standard'}
-              error={content.errors !== undefined && content.errors.length > 0}
-              helperText={
-                content.errors !== undefined && content.errors.length > 0
-                  ? content.errors.map((error) => error.code).join(', ')
-                  : null
-              }
               InputProps={{
                 ...params.InputProps,
                 type: 'search',
@@ -326,6 +328,7 @@ export function ValueEditor({ contentKey }: ValueEditorProps) {
           open={open}
           inputValue={inputValue}
           value={inputValue}
+          isOptionEqualToValue={(option, value) => option.id === option.id}
           onKeyDown={handleKeyDown}
           fullWidth={true}
         />
@@ -419,7 +422,12 @@ function TypeDisplay({ typeId }: TypeDisplayProps) {
   const description = translate(typeDescriptionKey(typeId));
   return (
     <Box>
-      <Typography>{title}</Typography>
+      <Typography
+        color={(theme) => theme.palette.text.secondary}
+        sx={{ fontVariant: 'all-small-caps' }}
+      >
+        {title}
+      </Typography>
     </Box>
   );
 }

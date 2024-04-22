@@ -1,0 +1,109 @@
+{
+  "type": "PROCESS",
+  "name": "example",
+  "rootBlock": {
+    "type": "BLOCK",
+    "executables": [
+      {
+        "type": "ACTION",
+        "name": "log",
+        "arguments": {
+          "message": [
+            {
+              "type": "FUNCTION",
+              "name": "concatenate",
+              "arguments": {
+                "values": [
+                  {
+                    "type": "VALUE",
+                    "value": "Hello"
+                  },
+                  {
+                    "type": "VALUE",
+                    "value": ", "
+                  },
+                  {
+                    "type": "VALUE",
+                    "value": "World"
+                  },
+                  {
+                    "type": "FUNCTION",
+                    "name": "concatenate",
+                    "arguments": {
+                      "values": [
+                        {
+                          "type": "VALUE",
+                          "value": "!"
+                        },
+                        {
+                          "type": "VALUE",
+                          "value": "!"
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "level": [
+            {
+              "type": "VALUE",
+              "value": "INFO"
+            }
+          ]
+        }
+      },
+      {
+        "type": "ACTION",
+        "name": "log",
+        "arguments": {
+          "message": [
+            {
+              "type": "FUNCTION",
+              "name": "concatenate",
+              "arguments": {
+                "values": [
+                  {
+                    "type": "VALUE",
+                    "value": "Hello"
+                  },
+                  {
+                    "type": "VALUE",
+                    "value": ", "
+                  },
+                  {
+                    "type": "VALUE",
+                    "value": "World"
+                  },
+                  {
+                    "type": "FUNCTION",
+                    "name": "concatenate",
+                    "arguments": {
+                      "values": [
+                        {
+                          "type": "VALUE",
+                          "value": "!"
+                        },
+                        {
+                          "type": "VALUE",
+                          "value": "!"
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "level": [
+            {
+              "type": "VALUE",
+              "value": "INFO"
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

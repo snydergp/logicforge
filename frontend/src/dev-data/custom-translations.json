@@ -1,0 +1,63 @@
+{
+  "processes": {
+    "example": {
+      "title": "Example Process",
+      "description": "A process used for demonstration"
+    }
+  },
+  "types": {
+    "io": {
+      "logicforge": {
+        "logging": {
+          "LogLevel": {
+            "title": "Log Level",
+            "description": "The level at which the message should be logged",
+            "values": {
+              "ERROR": {
+                "title": "Error"
+              },
+              "WARNING": {
+                "title": "Warning"
+              },
+              "INFO": {
+                "title": "Info"
+              },
+              "DEBUG": {
+                "title": "Debug"
+              },
+              "TRACE": {
+                "title": "Trace"
+              }
+            }
+          }
+        },
+        "http": {
+          "HttpRequest": {
+            "title": "HTTP Request",
+            "description": "An HTTP Request"
+          },
+          "HttpResponse": {
+            "title": "HTTP Response",
+            "description": "An HTTP Response"
+          }
+        }
+      }
+    }
+  },
+  "functions": {
+    "newHttpResponse": {
+      "title": "New HTTP Response",
+      "description": "Generates a new HTTP Response",
+      "parameters": {
+        "status": {
+          "title": "Status",
+          "description": "The HTTP Status"
+        },
+        "body": {
+          "title": "Body",
+          "description": "The HTTP Body"
+        }
+      }
+    }
+  }
+}

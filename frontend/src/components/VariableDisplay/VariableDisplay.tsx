@@ -31,6 +31,7 @@ export function VariableDisplay({
     <Typography variant={'body2'} sx={{ width: '100%' }}>
       {superTitleMain}&nbsp;
       <Typography
+        component={'span'}
         variant={'body2'}
         display={'inline'}
         color={(theme) => theme.palette.text.secondary}
@@ -49,8 +50,8 @@ export function VariableDisplay({
 
   return (
     <Stack direction={'row'} sx={{ mt: 1, width: '100%' }}>
-      <VariableIcon sx={{ mr: 1 }} />
-      <Box sx={{ width: '100%', p: 0, mb: 1 }}>
+      <VariableIcon />
+      <Box sx={{ width: '100%', p: 0, mb: 1, ml: 1 }}>
         {superTitle}
         {mainTitle}
       </Box>

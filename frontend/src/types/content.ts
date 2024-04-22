@@ -26,9 +26,11 @@ export enum ContentType {
 
 export type ContentStore = {
   count: number;
-  data: { [key: ContentKey]: Content };
+  indexedContent: IndexedContent;
   rootConfigKey: string;
 };
+
+export type IndexedContent = { [key: ContentKey]: Content };
 
 export type Content = {
   key: ContentKey;
@@ -62,12 +64,11 @@ export type ListContent = {
   childKeys: ContentKey[];
 } & Content;
 
-export type ProcessContent = Content &
+export type ProcessContent = NodeContent &
   ExpressionContent & {
     type: ContentType.PROCESS;
     name: string;
     rootBlockKey?: ContentKey;
-    returnArgumentKey?: ContentKey;
     spec: ProcessSpec;
     inputVariableKeys: ContentKey[];
   };
@@ -131,7 +132,7 @@ export type ValueContent = Content &
 export type ReferenceContent = Content &
   ExpressionContent & {
     type: ContentType.REFERENCE;
-    referenceKey: ContentKey;
+    variableKey: ContentKey;
     path: string[];
   };
 
@@ -151,9 +152,6 @@ export type VariableContent = Content &
     description: string;
     basePath?: string;
     optional: boolean;
+    initial: boolean;
     referenceKeys: ContentKey[];
   };
-
-export function isExecutable(type: ContentType) {
-  return type === ContentType.CONTROL || type === ContentType.BLOCK || type === ContentType.ACTION;
-}

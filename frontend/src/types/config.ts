@@ -67,7 +67,7 @@ export type ProcessConfig = {
   type: ConfigType.PROCESS;
   name: string;
   rootBlock: BlockConfig;
-  returnExpression?: ExpressionConfig;
+  returnExpression?: ExpressionConfig[];
 };
 
 export type VariableConfig = {

@@ -89,7 +89,7 @@ export class MessageTranslator {
   }
 
   private performReplacement(input: string, data?: { [key: string]: string }): string {
-    const tokenRegex = /([^{])?(\{([a-zA-z]+)})/g;
+    const tokenRegex = /([^{])?(\{([a-zA-Z0-9:\[\].-]+)})/g;
     let value = input;
     let capture = tokenRegex.exec(value);
     const replacedContent = [];
@@ -101,14 +101,22 @@ export class MessageTranslator {
       replacedContent.push(value.slice(0, startIndex));
       replacedContent.push(prefix);
       let replacementValue = data?.[tokenKey];
-      if (replacementValue === undefined) {
-        replacementValue = tokenKey;
-      } else if (replacementValue.startsWith(RECURSIVE_I18N_PREFIX)) {
-        const recursiveTranslationKey = replacementValue.slice(RECURSIVE_I18N_PREFIX.length);
+      if (tokenKey.startsWith(RECURSIVE_I18N_PREFIX)) {
+        const recursiveTranslationKeyWithTokens = tokenKey
+          .slice(RECURSIVE_I18N_PREFIX.length)
+          .replaceAll('[', '{')
+          .replaceAll(']', '}');
+        const recursiveTranslationKey = this.performReplacement(
+          recursiveTranslationKeyWithTokens,
+          data,
+        );
         replacementValue = this.translate(recursiveTranslationKey, data);
+      } else if (replacementValue === undefined) {
+        replacementValue = tokenKey;
       }
       replacedContent.push(replacementValue);
       value = following;
+      tokenRegex.lastIndex = 0;
       capture = tokenRegex.exec(value);
     }
     return replacedContent.join('') + value;

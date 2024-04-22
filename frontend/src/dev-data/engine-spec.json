@@ -1,0 +1,264 @@
+{
+  "type": "ENGINE",
+  "processes": {
+    "example": {
+      "type": "PROCESS",
+      "inputs": {
+        "request": {
+          "type": "VARIABLE",
+          "title": "Incoming Request",
+          "description": "The incoming HTTP Request",
+          "typeId": "io.logicforge.http.HttpRequest",
+          "multi": false,
+          "optional": false
+        }
+      },
+      "output": {
+        "type": "EXPRESSION",
+        "typeId": "io.logicforge.http.HttpResponse",
+        "multi": false,
+        "metadata": {}
+      },
+      "name": "example"
+    }
+  },
+  "actions": {
+    "store-variable": {
+      "type": "ACTION",
+      "metadata": {
+        "DYNAMIC_RETURN_TYPE": "value"
+      },
+      "inputs": {
+        "value": {
+          "type": "EXPRESSION",
+          "typeId": "java.lang.Object",
+          "multi": false,
+          "metadata": {}
+        }
+      }
+    },
+    "log": {
+      "type": "ACTION",
+      "metadata": {},
+      "inputs": {
+        "message": {
+          "type": "EXPRESSION",
+          "typeId": "java.lang.String",
+          "multi": false,
+          "metadata": {}
+        },
+        "level": {
+          "type": "EXPRESSION",
+          "typeId": "io.logicforge.logging.LogLevel",
+          "multi": false,
+          "metadata": {}
+        }
+      }
+    }
+  },
+  "functions": {
+    "concatenate": {
+      "type": "FUNCTION",
+      "output": {
+        "type": "EXPRESSION",
+        "typeId": "java.lang.String",
+        "multi": false,
+        "metadata": {}
+      },
+      "inputs": {
+        "values": {
+          "type": "EXPRESSION",
+          "multi": true,
+          "typeId": "java.lang.String",
+          "metadata": {}
+        }
+      },
+      "metadata": {}
+    },
+    "min": {
+      "type": "FUNCTION",
+      "output": {
+        "type": "EXPRESSION",
+        "typeId": "java.lang.Number",
+        "multi": false,
+        "metadata": {}
+      },
+      "inputs": {
+        "values": {
+          "type": "EXPRESSION",
+          "multi": true,
+          "typeId": "java.lang.Number",
+          "metadata": {}
+        }
+      },
+      "metadata": {}
+    },
+    "and": {
+      "type": "FUNCTION",
+      "output": {
+        "type": "EXPRESSION",
+        "typeId": "boolean",
+        "multi": false,
+        "metadata": {}
+      },
+      "inputs": {
+        "values": {
+          "type": "EXPRESSION",
+          "multi": true,
+          "typeId": "boolean",
+          "metadata": {}
+        }
+      },
+      "metadata": {}
+    },
+    "newHttpResponse": {
+      "type": "FUNCTION",
+      "output": {
+        "type": "EXPRESSION",
+        "typeId": "io.logicforge.http.HttpResponse",
+        "multi": false,
+        "metadata": {}
+      },
+      "inputs": {
+        "status": {
+          "type": "EXPRESSION",
+          "multi": false,
+          "typeId": "int",
+          "metadata": {}
+        },
+        "body": {
+          "type": "EXPRESSION",
+          "multi": false,
+          "typeId": "java.lang.String",
+          "metadata": {}
+        }
+      },
+      "metadata": {}
+    }
+  },
+  "types": {
+    "java.lang.Object": {
+      "type": "TYPE",
+      "supertypes": [],
+      "id": "java.lang.Object",
+      "properties": {},
+      "valueType": false
+    },
+    "java.lang.String": {
+      "type": "TYPE",
+      "supertypes": [
+        "java.lang.Object"
+      ],
+      "id": "java.lang.String",
+      "properties": {},
+      "valueType": true
+    },
+    "java.lang.Number": {
+      "type": "TYPE",
+      "supertypes": [
+        "java.lang.Object"
+      ],
+      "id": "java.lang.Number",
+      "properties": {},
+      "valueType": true
+    },
+    "int": {
+      "type": "TYPE",
+      "supertypes": [
+        "java.lang.Number"
+      ],
+      "id": "int",
+      "properties": {},
+      "valueType": true
+    },
+    "float": {
+      "type": "TYPE",
+      "supertypes": [
+        "java.lang.Number"
+      ],
+      "id": "float",
+      "properties": {},
+      "valueType": true
+    },
+    "boolean": {
+      "type": "TYPE",
+      "supertypes": [
+        "java.lang.Object"
+      ],
+      "id": "boolean",
+      "properties": {},
+      "valueType": true,
+      "values": [
+        "true",
+        "false"
+      ]
+    },
+    "io.logicforge.logging.LogLevel": {
+      "type": "TYPE",
+      "supertypes": [
+        "java.lang.Object"
+      ],
+      "id": "io.logicforge.logging.LogLevel",
+      "properties": {},
+      "valueType": true,
+      "values": [
+        "ERROR",
+        "WARNING",
+        "INFO",
+        "DEBUG",
+        "TRACE"
+      ]
+    },
+    "io.logicforge.http.HttpRequest": {
+      "type": "TYPE",
+      "supertypes": [
+        "java.lang.Object"
+      ],
+      "id": "io.logicforge.http.HttpRequest",
+      "properties": {
+        "method": {
+          "type": "TYPE_PROPERTY",
+          "name": "method",
+          "typeId": "java.lang.String",
+          "multi": false,
+          "optional": false
+        },
+        "path": {
+          "type": "TYPE_PROPERTY",
+          "name": "path",
+          "typeId": "java.lang.String",
+          "multi": false,
+          "optional": false
+        }
+      },
+      "valueType": false
+    },
+    "io.logicforge.http.HttpResponse": {
+      "type": "TYPE",
+      "supertypes": [
+        "java.lang.Object"
+      ],
+      "id": "io.logicforge.http.HttpResponse",
+      "properties": {
+        "method": {
+          "type": "TYPE_PROPERTY",
+          "name": "status",
+          "typeId": "int",
+          "multi": false,
+          "optional": false
+        },
+        "path": {
+          "type": "TYPE_PROPERTY",
+          "name": "body",
+          "typeId": "java.lang.String",
+          "multi": false,
+          "optional": false
+        }
+      },
+      "valueType": false
+    }
+  },
+  "controls": [
+    "CONDITIONAL"
+  ]
+}

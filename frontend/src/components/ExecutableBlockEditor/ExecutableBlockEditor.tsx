@@ -2,27 +2,22 @@ import './ExecutableBlockEditor.scss';
 import { useDispatch, useSelector } from 'react-redux';
 import {
   addExecutable,
-  deleteItem,
   moveExecutable,
   selectContentByKey,
+  selectEngineSpec,
   selectSelectedSubtree,
   setSelection,
 } from '../../redux/slices/editors';
 import {
   ActionContent,
   BlockContent,
+  CONDITIONAL_CONDITION_PROP,
   ConditionalContent,
   ContentType,
+  ControlType,
   VariableContent,
 } from '../../types';
-import React, {
-  MouseEventHandler,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-} from 'react';
+import React, { MouseEventHandler, useCallback, useEffect, useMemo, useState } from 'react';
 import { ItemInterface, ReactSortable, SortableEvent } from 'react-sortablejs';
 import {
   Box,
@@ -46,7 +41,6 @@ import {
   Typography,
 } from '@mui/material';
 import { useTranslate } from '../I18n/I18n';
-import { EditorContext, EditorInfo } from '../FrameEditor/FrameEditor';
 import {
   actionDescriptionKey,
   actionTitleKey,
@@ -56,11 +50,11 @@ import {
   controlTitleKey,
   labelKey,
 } from '../../util';
-import { ActionIcon, ConditionalIcon, ResultIcon } from '../Icons/Icons';
+import { ActionIcon, AddIcon, ConditionalIcon, ResultIcon } from '../Icons/Icons';
 import { VariableDisplay } from '../VariableDisplay/VariableDisplay';
 import { Search } from '@mui/icons-material';
-import { ContextMenu, ContextMenuAction } from '../ContextMenu/ContentMenu';
-import MenuIcon from '@mui/icons-material/Menu';
+import { ArgumentEditor } from '../ArgumentEditor/ArgumentEditor';
+import { ContextActions } from '../ContextActions/ContextActions';
 
 const DRAG_DROP_GROUP: string = 'executables';
 
@@ -132,10 +126,8 @@ function Block({ contentKey, notifyStart, notifyEnd }: BlockProps) {
 
   const handleStart = useCallback(
     (event: SortableEvent) => {
-      console.info(`Start Drag from parent ${contentKey}, index ${event.oldIndex}`);
       if (event.oldIndex !== undefined) {
         const draggedItem = items[event.oldIndex];
-        console.info(`Dragging ${draggedItem.contentKey}`);
         notifyStart(draggedItem.contentKey);
       }
     },
@@ -145,7 +137,6 @@ function Block({ contentKey, notifyStart, notifyEnd }: BlockProps) {
   const handleEnd = useCallback(
     (event: SortableEvent) => {
       if (event.newIndex !== undefined) {
-        console.info(`End Drag to parent ${contentKey}, index ${event.newIndex}`);
         notifyEnd(contentKey, event.newIndex);
       }
     },
@@ -158,7 +149,7 @@ function Block({ contentKey, notifyStart, notifyEnd }: BlockProps) {
       disablePadding
       sx={(theme) => ({
         backgroundColor: theme.palette.background.default,
-        py: 1,
+        py: 0.5,
         m: 1,
       })}
     >
@@ -208,7 +199,7 @@ function Executable({ contentKey, notifyStart, notifyEnd }: ExecutableProps) {
     throw new Error(`Unexpected content type: ${content.type}`);
   }
   return (
-    <ListItem key={contentKey}>
+    <ListItem key={contentKey} sx={{ px: 1 }}>
       {content.type === ContentType.ACTION ? (
         <ActionItem content={content as ActionContent} />
       ) : (
@@ -229,11 +220,9 @@ interface ActionItemProps {
 function ActionItem({ content }: ActionItemProps) {
   const translate = useTranslate();
   const dispatch = useDispatch();
-  const { engineSpec } = useContext(EditorContext) as EditorInfo;
   const selection = useSelector(selectSelectedSubtree);
   const selected = selection !== undefined && selection.indexOf(content) >= 0;
   const actionName = content.name;
-  const actionSpec = engineSpec.actions[actionName];
   const title = translate(actionTitleKey(actionName));
   const description = translate(actionDescriptionKey(actionName));
 
@@ -255,7 +244,7 @@ function ActionItem({ content }: ActionItemProps) {
               primary={title + ' ' + content.key}
               secondary={<span>{description}</span>}
             />
-            <ContextMenuButton contentKey={content.key} />
+            <ContextActions contentKey={content.key} />
           </Stack>
           {content.variableContentKey !== undefined && (
             <Box width={'100%'} className={'ExecutableBlockEditor__ItemAdditionalContent'}>
@@ -289,9 +278,9 @@ function ConditionalItem({ content, notifyStart, notifyEnd }: ConditionalItemPro
     [dispatch, content],
   );
 
-  const ifTitle = translate(controlParameterTitleKey('conditional', 'condition'));
-  const thenTitle = translate(controlBlockTitleKey('conditional', 'then'));
-  const elseTitle = translate(controlBlockTitleKey('conditional', 'else'));
+  const ifTitle = translate(controlParameterTitleKey(ControlType.CONDITIONAL, 'condition'));
+  const thenTitle = translate(controlBlockTitleKey(ControlType.CONDITIONAL, 'then'));
+  const elseTitle = translate(controlBlockTitleKey(ControlType.CONDITIONAL, 'else'));
 
   const thenChildKey = content.childKeys[0];
   const elseChildKey = content.childKeys[1];
@@ -303,12 +292,12 @@ function ConditionalItem({ content, notifyStart, notifyEnd }: ConditionalItemPro
   return (
     <ExecutableWrapper>
       <ListItemButton onClick={handleClick}>
-        <Stack direction={'column'}>
-          <Stack direction={'row'} sx={{ mt: 1 }}>
+        <Stack direction={'column'} width={'100%'}>
+          <ListItemButton disableRipple disableTouchRipple sx={{ p: 0, pointerEvents: 'none' }}>
             <ConditionalIcon sx={{ mr: 1 }} style={{ transform: 'rotate(90deg)' }} />
             <ListItemText primary={`Conditional ${content.key}`} secondary={<span>&nbsp;</span>} />
-            <ContextMenuButton contentKey={content.key} />
-          </Stack>
+            <ContextActions contentKey={content.key} />
+          </ListItemButton>
           <Box
             sx={{ pl: 2.5 }}
             width={'100%'}
@@ -316,7 +305,7 @@ function ConditionalItem({ content, notifyStart, notifyEnd }: ConditionalItemPro
           >
             <Box width={'100%'}>
               <Typography sx={subheaderStyle}>{ifTitle}</Typography>
-              <Button fullWidth>{translate(labelKey('conditional-click-to-edit'))}</Button>
+              <ArgumentEditor contentKey={content.childKeyMap[CONDITIONAL_CONDITION_PROP]} />
             </Box>
             <Box width={'100%'}>
               <Typography sx={subheaderStyle}>{thenTitle}</Typography>
@@ -375,66 +364,15 @@ function ExecutablePlaceholder({ parentKey }: ExecutablePlaceholderProps) {
   // TODO click action
 
   return (
-    <ListItem>
+    <ListItem sx={{ px: 1 }}>
       <ExecutableWrapper>
         <ListItemButton selected={false} onClick={handleOpen}>
+          <AddIcon fontSize={'small'} sx={{ mr: 1 }} />
           <ListItemText primary={placeholderLabel} />
         </ListItemButton>
         <ExecutableSelectionDialog parentKey={parentKey} open={open} cancel={handleCancel} />
       </ExecutableWrapper>
     </ListItem>
-  );
-}
-
-interface ContextMenuButtonProps {
-  contentKey: string;
-}
-
-function ContextMenuButton({ contentKey }: ContextMenuButtonProps) {
-  const dispatch = useDispatch();
-
-  const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
-  const [open, setOpen] = useState(false);
-
-  useEffect(() => {
-    setOpen(anchorEl !== null);
-  }, [anchorEl]);
-
-  const handleClickMenuHandle = useCallback(
-    (event: React.MouseEvent<HTMLElement>) => {
-      setAnchorEl(event.currentTarget);
-      event.stopPropagation();
-    },
-    [setAnchorEl],
-  );
-
-  const handleClose = useCallback(() => {
-    setOpen(false);
-    setAnchorEl(null);
-  }, [setOpen, setAnchorEl]);
-
-  const handleDelete = useCallback(() => {
-    dispatch(deleteItem(contentKey));
-  }, [dispatch, contentKey]);
-
-  const actions: ContextMenuAction[] = useMemo(
-    () => [
-      {
-        onClick: handleDelete,
-        title: 'Delete',
-        id: 'delete',
-      },
-    ],
-    [handleDelete],
-  );
-
-  return (
-    <div>
-      <IconButton edge="end" aria-label="actions" onClick={handleClickMenuHandle}>
-        <MenuIcon />
-      </IconButton>
-      <ContextMenu anchorEl={anchorEl} open={open} handleClose={handleClose} actions={actions} />
-    </div>
   );
 }
 
@@ -456,7 +394,7 @@ function ExecutableSelectionDialog(props: ExecutableSelectionDialogProps) {
   const translate = useTranslate();
   let dispatch = useDispatch();
 
-  const { engineSpec } = useContext(EditorContext) as EditorInfo;
+  const engineSpec = useSelector(selectEngineSpec);
   const controls = engineSpec.controls;
   const actions = Object.keys(engineSpec.actions);
 
@@ -466,8 +404,8 @@ function ExecutableSelectionDialog(props: ExecutableSelectionDialogProps) {
         return {
           group: CONTROLS_GROUP_ID,
           name: control,
-          title: translate(controlTitleKey(control)),
-          description: translate(controlDescriptionKey(control)),
+          title: translate(controlTitleKey(control as string)),
+          description: translate(controlDescriptionKey(control as string)),
         } as ExecutableItem;
       }),
     [controls],

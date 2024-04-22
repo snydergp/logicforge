@@ -18,13 +18,14 @@ export enum SpecType {
 }
 
 export enum ControlType {
-  CONDITIONAL = 'conditional',
+  CONDITIONAL = 'CONDITIONAL',
 }
 
 export type TypePropertySpec = {
   type: SpecType.TYPE_PROPERTY;
   name: string;
   typeId: string;
+  multi: boolean;
   optional: boolean;
 };
 
@@ -89,13 +90,23 @@ export type ControlSpec = {
   inputs: { [key: string]: ExpressionSpec };
 };
 
+/**
+ * The hardcoded name of the input used to control a conditional statement
+ */
+export const CONDITIONAL_CONDITION_PROP = 'condition';
+
+/**
+ * The hardcoded name of the input used to define a process' return statement
+ */
+export const PROCESS_RETURN_PROP = 'return';
+
 // controls are not extensible. This hard-coded type provides the structure needed to reuse the
 // input code used by actions/functions for controls
 export const CONDITIONAL_CONTROL_SPEC: ControlSpec = {
   type: SpecType.CONTROL,
   controlType: ControlType.CONDITIONAL,
   inputs: {
-    condition: {
+    [CONDITIONAL_CONDITION_PROP]: {
       type: SpecType.EXPRESSION,
       typeId: WellKnownType.BOOLEAN,
       multi: false,

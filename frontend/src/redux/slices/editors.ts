@@ -7,6 +7,7 @@ import {
   ArgumentContent,
   BlockConfig,
   BlockContent,
+  CONDITIONAL_CONDITION_PROP,
   CONDITIONAL_CONTROL_SPEC,
   ConditionalConfig,
   ConditionalContent,
@@ -31,12 +32,15 @@ import {
   FunctionConfig,
   FunctionContent,
   FunctionSpec,
+  IndexedContent,
   ListContent,
   LogicForgeConfig,
+  PROCESS_RETURN_PROP,
   ProcessConfig,
   ProcessContent,
   ReferenceConfig,
   ReferenceContent,
+  unsatisfiedInputTypeMismatch,
   validateValue,
   ValidationError,
   ValueConfig,
@@ -46,11 +50,14 @@ import {
 } from '../../types';
 import {
   areCoordinatesPredecessor,
-  collectSubtypes,
   Coordinates,
-  generateTypeMapping,
+  generateTypeSystem,
   getCoordinatesSharedAncestor,
-  TypeMapping,
+  nextKey,
+  recurseDown,
+  recurseUp,
+  resolveContent,
+  TypeSystem,
 } from '../../util';
 import { WellKnownType } from '../../constant/well-known-type';
 import { MetadataProperties } from '../../constant/metadata-properties';
@@ -59,7 +66,7 @@ export type EditorState = {
   selection: string;
   engineSpec: EngineSpec;
   contentStore: ContentStore;
-  typeMapping: TypeMapping;
+  typeSystem: TypeSystem;
 };
 
 const editorsSlice = createSlice({
@@ -73,11 +80,11 @@ const editorsSlice = createSlice({
         state.engineSpec = engineSpec;
         const contentStore: ContentStore = {
           count: 0,
-          data: {},
+          indexedContent: {},
           rootConfigKey: '',
         };
         state.contentStore = contentStore;
-        state.typeMapping = generateTypeMapping(engineSpec.types);
+        state.typeSystem = generateTypeSystem(engineSpec.types);
         loadRootContent(config, state);
         state.selection = contentStore.rootConfigKey;
         return state;
@@ -90,7 +97,7 @@ const editorsSlice = createSlice({
       reducer(state, action: PayloadAction<string>) {
         const key = action.payload;
         const { contentStore } = state;
-        const contentToSelect = contentStore.data[key];
+        const contentToSelect = contentStore.indexedContent[key];
         // verify that the key is valid before changing the selection
         if (contentToSelect !== undefined) {
           state.selection = key;
@@ -113,33 +120,30 @@ const editorsSlice = createSlice({
       },
     },
     convertValueToReference: {
-      reducer(state, action: PayloadAction<string, string, { variableKey: string }>) {
-        const { variableKey } = action.meta;
+      reducer(
+        state,
+        action: PayloadAction<
+          string,
+          string,
+          {
+            variableKey: string;
+            path?: string;
+          }
+        >,
+      ) {
+        const { variableKey, path } = action.meta;
         const key = action.payload;
-        replaceValueWithReference(key, variableKey, state);
+        replaceValueWithReference(key, variableKey, path, state);
         return state;
       },
-      prepare(key: string, variableKey: string) {
-        return { payload: key, meta: { variableKey } };
-      },
-    },
-    setValue: {
-      reducer(state, action: PayloadAction<string, string, { key: string }>) {
-        const { contentStore } = state;
-        const value = action.payload;
-        const key = action.meta.key;
-        const valueContent = resolveContent<ValueContent>(key, contentStore);
-        valueContent.value = value;
-        return state;
-      },
-      prepare(payload: string, key: string) {
-        return { payload, meta: { key } };
+      prepare(key: string, variableKey: string, path?: string) {
+        return { payload: key, meta: { variableKey, path } };
       },
     },
     addInputValue: {
       reducer(state, action: PayloadAction<string>) {
         const parentKey = action.payload;
-        addNewValue(parentKey, '', state);
+        doAddInputValue(parentKey, '', state);
         return state;
       },
       prepare(payload: string) {
@@ -183,7 +187,12 @@ const editorsSlice = createSlice({
       ) {
         const parentKey = action.payload;
         const contentStore = state.contentStore;
-        reorderList(contentStore, parentKey, action.meta.oldIndex, action.meta.newIndex);
+        reorderList(
+          contentStore.indexedContent,
+          parentKey,
+          action.meta.oldIndex,
+          action.meta.newIndex,
+        );
         return state;
       },
       prepare(payload: string, oldIndex: number, newIndex: number) {
@@ -192,30 +201,8 @@ const editorsSlice = createSlice({
     },
     deleteItem: {
       reducer(state, action: PayloadAction<string>) {
-        const { contentStore, selection } = state;
-        const selectedSubtree = getContentAndAncestors(contentStore, selection);
         const keyToDelete = action.payload;
-        const selectedContent = selectedSubtree.find((content) => content.key === keyToDelete);
-        const parentKey = selectedContent?.parentKey;
-        if (selectedContent !== undefined && parentKey !== undefined) {
-          // If the content being deleted is also currently selected, we move the selection up to its parent node
-          state.selection = parentKey as string;
-        }
-        const contentToDelete = contentStore.data[keyToDelete];
-        deleteListItem(keyToDelete, contentStore);
-        if (
-          contentToDelete.type !== ContentType.ACTION &&
-          contentToDelete.type !== ContentType.CONTROL
-        ) {
-          const parameterSpec = resolveParameterSpecForKey(keyToDelete, state);
-          if (parameterSpec.multi && parentKey !== undefined) {
-            const valueConfig: ValueConfig = {
-              type: ConfigType.VALUE,
-              value: '',
-            };
-            addInput(parentKey as string, valueConfig, state);
-          }
-        }
+        doDeleteItem(keyToDelete, state);
         return state;
       },
       prepare(payload: string) {
@@ -302,21 +289,100 @@ const selectContentStore = (state: StoreStructure) => {
 
 export const selectSelectedSubtree = createSelector(
   [selectEditorSelection, selectContentStore],
-  (selection, contentStore) => {
+  (selection, contentStore): Content[] => {
     if (selection !== undefined && contentStore !== undefined) {
       return getContentAndAncestors(contentStore, selection);
     }
+    return [];
   },
 );
 
-export const selectContentByKey = (key?: string) => (state: StoreStructure) => {
-  if (key !== undefined) {
-    const contentStore = state['LOGICFORGE']?.contentStore;
-    if (contentStore !== undefined) {
-      return contentStore.data[key];
-    }
+export const selectContentByKey = (key: ContentKey) => (state: StoreStructure) => {
+  const contentStore = state['LOGICFORGE']?.contentStore;
+  if (contentStore === undefined) {
+    throw new Error('Illegal state: content store is not defined');
   }
+  return contentStore.indexedContent[key];
 };
+
+export const selectIsInSelectedPath = (key: ContentKey) => (state: StoreStructure) => {
+  const contentStore = state['LOGICFORGE']?.contentStore;
+  const selection = state['LOGICFORGE']?.selection;
+  if (contentStore === undefined) {
+    throw new Error('Illegal state: content store is not defined');
+  }
+  if (selection === undefined) {
+    throw new Error('Illegal state: selection is not defined');
+  }
+  let selected = false;
+  recurseUp(
+    contentStore.indexedContent,
+    (content) => {
+      if (content.key === key) {
+        selected = true;
+      }
+    },
+    selection,
+  );
+  return selected;
+};
+
+export const selectContent = (state: StoreStructure) => {
+  const contentStore = state['LOGICFORGE']?.contentStore;
+  if (contentStore === undefined) {
+    throw new Error('Illegal state: content store is not defined');
+  }
+  return contentStore.indexedContent;
+};
+
+export const selectTypeSystem = (state: StoreStructure) => {
+  const typeSystem = state['LOGICFORGE']?.typeSystem;
+  if (typeSystem === undefined) {
+    throw new Error('Illegal state: type system is not defined');
+  }
+  return typeSystem;
+};
+
+export const selectEngineSpec = (state: StoreStructure) => {
+  const engineSpec = state['LOGICFORGE']?.engineSpec;
+  if (engineSpec === undefined) {
+    throw new Error('Illegal state: engine spec is not defined');
+  }
+  return engineSpec;
+};
+
+export const selectTypeSpec = (typeId: string) => (state: StoreStructure) => {
+  const engineSpec = state['LOGICFORGE']?.engineSpec;
+  if (engineSpec === undefined) {
+    throw new Error('Illegal state: engine spec is not defined');
+  }
+  return engineSpec.types[typeId];
+};
+
+export const selectActionSpec = (actionName: string) => (state: StoreStructure) => {
+  const engineSpec = state['LOGICFORGE']?.engineSpec;
+  if (engineSpec === undefined) {
+    throw new Error('Illegal state: engine spec is not defined');
+  }
+  return engineSpec.actions[actionName];
+};
+
+export const selectFunctionSpec = (functionName: string) => (state: StoreStructure) => {
+  const engineSpec = state['LOGICFORGE']?.engineSpec;
+  if (engineSpec === undefined) {
+    throw new Error('Illegal state: engine spec is not defined');
+  }
+  return engineSpec.functions[functionName];
+};
+
+export const selectFunctionInputSpec =
+  (functionName: string, inputName: string) => (state: StoreStructure) => {
+    const engineSpec = state['LOGICFORGE']?.engineSpec;
+    if (engineSpec === undefined) {
+      throw new Error('Illegal state: engine spec is not defined');
+    }
+    return engineSpec.functions[functionName].inputs[inputName];
+  };
 
 export const selectAvailableVariables = (key: string) => (state: StoreStructure) => {
   return findAvailableVariables(key, state.LOGICFORGE as EditorState);
@@ -331,13 +397,21 @@ export const selectParameterSpecificationForKey = (key?: string) => (state: Stor
   }
 };
 
-function nextKey(contentStore: ContentStore) {
-  return `${contentStore.count++}`;
-}
-
-function resolveContent<T extends Content | undefined>(key: string, contentStore: ContentStore): T {
-  return contentStore.data[key] as T;
-}
+export const selectSubTreeErrors = (key: string) => (state: StoreStructure) => {
+  const { contentStore } = state['LOGICFORGE'] as EditorState;
+  const indexedContent = contentStore.indexedContent;
+  const errors: { [key: ContentKey]: ValidationError[] } = {};
+  recurseDown(
+    indexedContent,
+    (content) => {
+      if (content.errors.length > 1) {
+        errors[content.key] = content.errors;
+      }
+    },
+    key,
+  );
+  return errors;
+};
 
 function removeChildKey(content: ListContent, key: string) {
   content.childKeys.splice(content.childKeys.indexOf(key), 1);
@@ -382,9 +456,47 @@ function newConditionalConfig(): ConditionalConfig {
   };
 }
 
-function addNewValue(parentKey: string, value: string, state: EditorState) {
+function doDeleteItem(keyToDelete: string, state: EditorState) {
+  const { contentStore, selection } = state;
+
+  const selectedSubtree = getContentAndAncestors(contentStore, selection);
+  const selectedContent = selectedSubtree.find((content) => content.key === keyToDelete);
+  const selectedContentParentKey = selectedContent?.parentKey;
+  if (selectedContent !== undefined && selectedContentParentKey !== undefined) {
+    // If the content being deleted is also currently selected, we move the selection up to its parent node
+    state.selection = selectedContentParentKey as string;
+  }
+  const contentToDelete = contentStore.indexedContent[keyToDelete];
+  deleteListItem(keyToDelete, contentStore);
+  if (
+    contentToDelete.type !== ContentType.ACTION &&
+    contentToDelete.type !== ContentType.CONTROL &&
+    typeof contentToDelete.parentKey === 'string'
+  ) {
+    const parentArgContent = resolveContent<ArgumentContent>(
+      contentToDelete.parentKey,
+      contentStore.indexedContent,
+    );
+    const expressionSpec = resolveParameterSpec(parentArgContent, state);
+    if (!expressionSpec.multi) {
+      // when deleting a single argument expression, replace it with a new empty value
+      const replacementValue = constructValue(
+        {
+          type: ConfigType.VALUE,
+          value: '',
+        },
+        contentToDelete.parentKey,
+        state,
+      );
+      parentArgContent.childKeys.push(replacementValue.key);
+    }
+  }
+}
+
+function doAddInputValue(parentKey: string, value: string, state: EditorState) {
   const { contentStore, engineSpec } = state;
-  const argumentContent = resolveContent<ArgumentContent>(parentKey, contentStore);
+  const indexedContent = contentStore.indexedContent;
+  const argumentContent = resolveContent<ArgumentContent>(parentKey, indexedContent);
   const { allowMulti, declaredTypeId } = argumentContent;
   let typeId = declaredTypeId;
   if (typeId === WellKnownType.OBJECT) {
@@ -401,6 +513,7 @@ function addNewValue(parentKey: string, value: string, state: EditorState) {
   const valueContent = {
     type: ContentType.VALUE,
     key: nextKey(contentStore),
+    parentKey,
     multi: false,
     value,
     typeId,
@@ -408,32 +521,49 @@ function addNewValue(parentKey: string, value: string, state: EditorState) {
     availableVariables,
     errors: validateValue(value, typeId, engineSpec),
   } as ValueContent;
-  contentStore.data[valueContent.key] = valueContent;
+  indexedContent[valueContent.key] = valueContent;
+
+  const parentContent = resolveContent<ArgumentContent>(parentKey, indexedContent);
+  parentContent.childKeys = [...parentContent.childKeys, valueContent.key];
+
   return valueContent;
 }
 
 function replaceValueWithReference(
   valueKey: ContentKey,
   variableKey: ContentKey,
+  path: string | undefined,
   state: EditorState,
 ) {
-  const { contentStore, selection } = state;
-  const existingValueContent = resolveContent<ValueContent>(valueKey, contentStore);
+  const { contentStore, selection, typeSystem } = state;
+  let indexedContent = contentStore.indexedContent;
+  const existingValueContent = resolveContent<ValueContent>(valueKey, indexedContent);
   const parentArgContent = resolveContent<ArgumentContent>(
     existingValueContent.parentKey as string,
-    contentStore,
+    indexedContent,
   );
-  const variableContent = resolveContent<VariableContent>(variableKey, contentStore);
+  const variableContent = resolveContent<VariableContent>(variableKey, indexedContent);
   const referenceKey = nextKey(contentStore);
-  contentStore.data[referenceKey] = {
+  const referencePath = [...(path !== undefined ? [path] : [])];
+  const { typeId, multi } = resolveTypeForReference(variableKey, referencePath, state);
+  parentArgContent.calculatedTypeId = typeId;
+  const errors: ValidationError[] = [];
+  if (
+    typeId !== parentArgContent.declaredTypeId &&
+    (typeSystem.descendants[parentArgContent.declaredTypeId] === undefined ||
+      typeSystem.descendants[parentArgContent.declaredTypeId].indexOf(typeId) < 0)
+  ) {
+    errors.push(unsatisfiedInputTypeMismatch(parentArgContent.declaredTypeId, typeId));
+  }
+  indexedContent[referenceKey] = {
     key: referenceKey,
     type: ContentType.REFERENCE,
     parentKey: existingValueContent.parentKey,
-    referenceKey: variableKey,
-    path: [],
-    errors: [], // TODO validate initial state
-    typeId: variableContent.typeId,
-    multi: variableContent.multi,
+    variableKey,
+    path: referencePath,
+    errors, // TODO validate initial state
+    typeId,
+    multi,
   } as ReferenceContent;
   const oldIndex = parentArgContent.childKeys.indexOf(valueKey);
   parentArgContent.childKeys[oldIndex] = referenceKey;
@@ -442,15 +572,16 @@ function replaceValueWithReference(
   if (selection === valueKey) {
     state.selection = referenceKey;
   }
+  propagateTypeUpdate(referenceKey, state);
 }
 
 function replaceValueWithFunction(valueKey: ContentKey, functionName: string, state: EditorState) {
-  const { engineSpec, contentStore, selection, typeMapping } = state;
+  const { engineSpec, contentStore, selection, typeSystem } = state;
 
-  const existingValueContent = resolveContent<ValueContent>(valueKey, contentStore);
+  const existingValueContent = resolveContent<ValueContent>(valueKey, contentStore.indexedContent);
   const existingArgContent = resolveContent<ArgumentContent>(
     existingValueContent.parentKey as string,
-    contentStore,
+    contentStore.indexedContent,
   );
   const existingIndex = existingArgContent.childKeys.indexOf(valueKey);
 
@@ -467,7 +598,7 @@ function replaceValueWithFunction(valueKey: ContentKey, functionName: string, st
     errors: [],
     childKeyMap: {},
   };
-  contentStore.data[functionKey] = functionContent;
+  contentStore.indexedContent[functionKey] = functionContent;
 
   existingArgContent.childKeys[existingIndex] = functionKey;
 
@@ -476,7 +607,7 @@ function replaceValueWithFunction(valueKey: ContentKey, functionName: string, st
   Object.entries(functionSpec.inputs).forEach(([inputName, inputSpec]) => {
     const argKey = nextKey(contentStore);
     const typeId = inputSpec.typeId;
-    contentStore.data[argKey] = {
+    contentStore.indexedContent[argKey] = {
       key: argKey,
       type: ContentType.ARGUMENT,
       parentKey: functionKey,
@@ -485,12 +616,12 @@ function replaceValueWithFunction(valueKey: ContentKey, functionName: string, st
       declaredTypeId: typeId,
       calculatedTypeId: typeId,
       propagateTypeChanges: inputName === dynamicReturnProperty,
-      allowedTypeIds: [...typeMapping[typeId].subtypes],
+      allowedTypeIds: [...(typeSystem.descendants[typeId] || []), typeId],
       childKeys: [],
     } as ArgumentContent;
     functionContent.childKeyMap[inputName] = argKey;
 
-    addNewValue(argKey, '', state);
+    doAddInputValue(argKey, '', state);
   });
   if (selection === valueKey) {
     state.selection = functionKey;
@@ -499,26 +630,27 @@ function replaceValueWithFunction(valueKey: ContentKey, functionName: string, st
 
 function propagateTypeUpdate(expressionKey: string, state: EditorState) {
   const { contentStore } = state;
-  const updatedExpression = resolveContent<ExpressionContent>(expressionKey, contentStore);
+  let indexedContent = contentStore.indexedContent;
+  const updatedExpression = resolveContent<ExpressionContent>(expressionKey, indexedContent);
   const typeId = updatedExpression.typeId as string;
   const multi = updatedExpression.multi;
   const parentArgument = resolveContent<ArgumentContent>(
     updatedExpression.parentKey as string,
-    contentStore,
+    indexedContent,
   );
   parentArgument.calculatedTypeId = typeId;
   const parent = resolveContent<FunctionContent | ActionContent>(
     parentArgument.parentKey as string,
-    contentStore,
+    indexedContent,
   );
   if (parentArgument.allowedTypeIds.indexOf(typeId) < 0 || (multi && !parentArgument.allowMulti)) {
     ensureErrorByCode(parent.errors, {
-      code: ErrorCode.UNSATISFIED_INPUT,
+      code: ErrorCode.UNSATISFIED_INPUT_TYPE_MISMATCH,
       level: ErrorLevel.ERROR,
       data: {},
     });
   } else {
-    removeErrorsByCode(parent.errors, ErrorCode.UNSATISFIED_INPUT);
+    removeErrorsByCode(parent.errors, ErrorCode.UNSATISFIED_INPUT_TYPE_MISMATCH);
     // continue propagation upward only if there are no errors
     if (parentArgument.propagateTypeChanges) {
       parent.typeId = typeId;
@@ -530,12 +662,12 @@ function propagateTypeUpdate(expressionKey: string, state: EditorState) {
         if (actionParent.variableContentKey !== undefined) {
           const variableContent = resolveContent<VariableContent>(
             actionParent.variableContentKey as string,
-            contentStore,
+            indexedContent,
           );
           variableContent.typeId = typeId;
           variableContent.multi = multi;
-          variableContent.referenceKeys.forEach((referenceKey) => {
-            const referenceContent = resolveContent<ReferenceContent>(referenceKey, contentStore);
+          variableContent.referenceKeys.forEach((referenceKey: ContentKey) => {
+            const referenceContent = resolveContent<ReferenceContent>(referenceKey, indexedContent);
             referenceContent.typeId = typeId;
             referenceContent.multi = multi;
             propagateTypeUpdate(referenceKey, state);
@@ -546,129 +678,9 @@ function propagateTypeUpdate(expressionKey: string, state: EditorState) {
   }
 }
 
-/**
- * To be called when a change has been made to an action that might impact references to its output.
- * For example, if it is moved. The current implementation performs a re-scan of all content and
- * adds reference options where the reference becomes available (and sets errors if it is referenced
- * somewhere where it is no longer available).
- * @param updatedActionKey
- * @param contentStore
- */
-function fixVariableReferences(updatedActionKey: string, contentStore: ContentStore) {
-  // TODO:
-  //  - get the action's output variable
-  //  - collect all references to the action
-  //  - if it exists, collect all references to the action, for each
-  //    - ensure the type matches the new type
-  //      - if changing type, propagate if necessary
-  //      - if changing type, ensure path is acceptable
-  //    - ensure the variable is reachable
-  //      - if not, set errors
-  //  - recalculate the available variables for all values
-  const actionCoordinates = getCoordinatesForContent(updatedActionKey, contentStore);
-  const actionContent = resolveContent<ActionContent>(updatedActionKey, contentStore);
-  const actionVariableKey = actionContent.variableContentKey;
-  const actionVariableContent =
-    actionVariableKey !== undefined
-      ? resolveContent<VariableContent>(actionVariableKey, contentStore)
-      : undefined;
-  const actionVariableTypeId =
-    actionVariableContent !== undefined ? actionVariableContent.typeId : null;
-  const actionVariableMulti =
-    actionVariableContent !== undefined ? actionVariableContent.multi : false;
-
-  const values: ValueContent[] = [];
-  const references: ReferenceContent[] = [];
-  recurseDown(
-    contentStore,
-    (content) => {
-      if (content.type === ContentType.VALUE) {
-        values.push(content as ValueContent);
-      } else if (content.type === ContentType.REFERENCE) {
-        references.push(content as ReferenceContent);
-      }
-    },
-    contentStore.rootConfigKey as string,
-  );
-  values.forEach((valueContent) => {
-    const valueCoordinates = getCoordinatesForContent(valueContent.key, contentStore);
-    let foundIndex: number | undefined;
-    for (let i = 0; i < valueContent.availableVariables.length; i++) {
-      const availableVariableRef = valueContent.availableVariables[i];
-      if (availableVariableRef.key === actionVariableKey) {
-        foundIndex = i;
-        break;
-      }
-    }
-    const relationship = findVariableRelationship(valueCoordinates, actionCoordinates);
-    switch (relationship) {
-      case VariableRelationship.UNREACHABLE:
-        if (foundIndex !== undefined) {
-          valueContent.availableVariables.splice(foundIndex, 1);
-        }
-        break;
-      case VariableRelationship.CONDITIONAL:
-        if (foundIndex !== undefined) {
-          valueContent.availableVariables[foundIndex].conditional = true;
-        } else if (actionVariableKey !== undefined) {
-          valueContent.availableVariables.push({ key: actionVariableKey, conditional: true });
-        }
-        break;
-      case VariableRelationship.REACHABLE:
-        if (foundIndex !== undefined) {
-          valueContent.availableVariables[foundIndex].conditional = false;
-        } else if (actionVariableKey !== undefined) {
-          valueContent.availableVariables.push({ key: actionVariableKey, conditional: false });
-        }
-        break;
-    }
-  });
-  references.forEach((referenceContent) => {
-    referenceContent.typeId = actionVariableTypeId as string;
-    referenceContent.multi = actionVariableMulti;
-    const referenceCoordinates = getCoordinatesForContent(referenceContent.key, contentStore);
-    const referencedVarKey = referenceContent.referenceKey;
-    const referencedCoordinates = getCoordinatesForContent(referencedVarKey, contentStore);
-    const relationship = findVariableRelationship(referenceCoordinates, referencedCoordinates);
-    if (relationship === VariableRelationship.UNREACHABLE) {
-      removeErrorsByCode(referenceContent.errors, ErrorCode.UNCHECKED_REFERENCE);
-      ensureErrorByCode(referenceContent.errors, {
-        code: ErrorCode.INVALID_REFERENCE,
-        level: ErrorLevel.ERROR,
-        data: {},
-      });
-    } else if (relationship === VariableRelationship.CONDITIONAL) {
-      removeErrorsByCode(referenceContent.errors, ErrorCode.INVALID_REFERENCE);
-      const conditionalReferences: ConditionalReferenceContent[] = [];
-      recurseUp(
-        contentStore,
-        (content) => {
-          if (content.type === ContentType.CONDITIONAL_REFERENCE) {
-            conditionalReferences.push(content as ConditionalReferenceContent);
-          }
-        },
-        referenceContent.key,
-      );
-      let isWrapped = false;
-      for (let conditionalReference of conditionalReferences) {
-        if (conditionalReference.childKeys.indexOf(referencedVarKey) >= 0) {
-          isWrapped = true;
-          break;
-        }
-      }
-      if (isWrapped) {
-        removeErrorsByCode(referenceContent.errors, ErrorCode.UNCHECKED_REFERENCE);
-      }
-    } else {
-      removeErrorsByCode(referenceContent.errors, ErrorCode.UNCHECKED_REFERENCE);
-      removeErrorsByCode(referenceContent.errors, ErrorCode.INVALID_REFERENCE);
-    }
-  });
-}
-
 function doUpdateValue(value: string, key: string, state: EditorState) {
   const { contentStore, engineSpec } = state;
-  const valueContent = resolveContent<ValueContent>(key, contentStore);
+  const valueContent = resolveContent<ValueContent>(key, contentStore.indexedContent);
   const { typeId, errors } = valueContent;
   valueContent.value = value;
   const newErrors = validateValue(value, typeId as string, engineSpec);
@@ -679,10 +691,11 @@ function doUpdateValue(value: string, key: string, state: EditorState) {
 
 function doUpdateValueType(newTypeId: string, key: string, state: EditorState) {
   const { contentStore, engineSpec } = state;
-  const valueContent = resolveContent<ValueContent>(key, contentStore);
+  const indexedContent = contentStore.indexedContent;
+  const valueContent = resolveContent<ValueContent>(key, indexedContent);
   const argumentContent = resolveContent<ArgumentContent>(
     valueContent.parentKey as string,
-    contentStore,
+    indexedContent,
   );
   const { value, errors } = valueContent;
   valueContent.typeId = newTypeId;
@@ -699,21 +712,22 @@ function doUpdateValueType(newTypeId: string, key: string, state: EditorState) {
 
 function doMoveExecutable(key: string, newParentKey: string, newIndex: number, state: EditorState) {
   const { contentStore } = state;
-  const executableContent = resolveContent<ExecutableContent>(key, contentStore);
+  const indexedContent = contentStore.indexedContent;
+  const executableContent = resolveContent<ExecutableContent>(key, indexedContent);
   const oldParentKey = executableContent.parentKey as string;
-  const oldParentBlock = resolveContent<BlockContent>(oldParentKey, contentStore);
+  const oldParentBlock = resolveContent<BlockContent>(oldParentKey, indexedContent);
   removeChildKey(oldParentBlock, key);
   const newParentBlock =
     oldParentKey === newParentKey
       ? oldParentBlock
-      : resolveContent<BlockContent>(newParentKey, contentStore);
+      : resolveContent<BlockContent>(newParentKey, indexedContent);
   addChildKey(newParentBlock, key, newIndex);
   executableContent.parentKey = newParentKey;
 }
 
 function doUpdateVariable(key: string, title: string, description: string, state: EditorState) {
   const { contentStore } = state;
-  const variableContent = resolveContent<VariableContent>(key, contentStore);
+  const variableContent = resolveContent<VariableContent>(key, contentStore.indexedContent);
   variableContent.title = title;
   variableContent.description = description;
 }
@@ -735,15 +749,18 @@ function ensureErrorByCode(errors: ValidationError[], error: ValidationError) {
 }
 
 function findFunctionsMatchingTypeConstraints(typeId: string, multi: boolean, state: EditorState) {
-  const { engineSpec, typeMapping } = state;
+  const { engineSpec, typeSystem } = state;
   const matchingFunctions: { [key: string]: FunctionSpec } = {};
-  if (typeMapping !== undefined && engineSpec !== undefined) {
-    const subtypes = collectSubtypes(typeId, typeMapping);
+  if (typeSystem !== undefined && engineSpec !== undefined) {
+    const subtypes = typeSystem.descendants[typeId];
     Object.entries(engineSpec.functions).forEach(([key, functionSpec]) => {
       const functionOutput = functionSpec.output;
       const functionOutputTypeId = functionOutput.typeId;
       // function output must be of the same type or able to be converted/coerced into the type
-      if (subtypes[functionOutputTypeId] !== undefined) {
+      if (
+        typeId === functionOutputTypeId ||
+        (subtypes !== undefined && subtypes.indexOf(functionOutputTypeId) >= 0)
+      ) {
         const functionOutputMultiple = functionOutput.multi;
         // functions with multi outputs are only allowed if the required type is multi itself
         if (multi || !functionOutputMultiple) {
@@ -761,11 +778,12 @@ export type VariableModel = VariableContent & {
 
 function findAvailableVariables(key: string, state: EditorState): VariableModel[] {
   const { contentStore } = state;
+  const indexedContent = contentStore.indexedContent;
   const variables: VariableModel[] = [];
 
   let rootActionContent: ExecutableContent | undefined;
   recurseUp(
-    contentStore,
+    indexedContent,
     (content) => {
       if (
         (content.type === ContentType.ACTION || content.type === ContentType.CONTROL) &&
@@ -776,16 +794,13 @@ function findAvailableVariables(key: string, state: EditorState): VariableModel[
     },
     key,
   );
-  if (rootActionContent === undefined) {
-    throw new Error(`Illegal content configuration: key ${key} is not a descendant of any action`);
-  }
 
   const rootContent = resolveContent<ProcessContent>(
     contentStore.rootConfigKey as string,
-    contentStore,
+    indexedContent,
   );
   for (let inputVariableKey of rootContent.inputVariableKeys) {
-    const inputVariableContent = resolveContent<VariableContent>(inputVariableKey, contentStore);
+    const inputVariableContent = resolveContent<VariableContent>(inputVariableKey, indexedContent);
     variables.push({
       ...(inputVariableContent as VariableContent),
       conditional: false,
@@ -800,7 +815,7 @@ function findAvailableVariables(key: string, state: EditorState): VariableModel[
     if (actionContent.variableContentKey) {
       const variableContent = resolveContent<VariableContent>(
         actionContent.variableContentKey,
-        contentStore,
+        contentStore.indexedContent,
       );
       return {
         ...variableContent,
@@ -813,22 +828,23 @@ function findAvailableVariables(key: string, state: EditorState): VariableModel[
     controlContent: ControlContent,
     contentStore: ContentStore,
   ): VariableModel[] => {
+    const indexedContent = contentStore.indexedContent;
     if (controlContent.controlType !== ControlType.CONDITIONAL) {
       throw new Error(`Unknown control type: ${controlContent.controlType}`);
     }
     const conditionalContent = controlContent as ConditionalContent;
     const thenBlockContent = resolveContent<BlockContent>(
       conditionalContent.childKeys[0],
-      contentStore,
+      indexedContent,
     );
     const elseBlockContent = resolveContent<BlockContent>(
       conditionalContent.childKeys[0],
-      contentStore,
+      indexedContent,
     );
     const allChildKeys = [...thenBlockContent.childKeys, ...elseBlockContent.childKeys];
     return allChildKeys
       .map((key) => {
-        const executableContent = resolveContent<ExecutableContent>(key, contentStore);
+        const executableContent = resolveContent<ExecutableContent>(key, indexedContent);
         if (executableContent.type === ContentType.ACTION) {
           const actionContent = executableContent as ActionContent;
           return getActionVariable(actionContent, contentStore, true);
@@ -843,14 +859,27 @@ function findAvailableVariables(key: string, state: EditorState): VariableModel[
       .flat() as VariableModel[];
   };
 
-  let childContent: ExecutableContent = rootActionContent;
-  let parentBlock = resolveContent<BlockContent>(childContent.parentKey as string, contentStore);
-  let childIndex = parentBlock.childKeys.indexOf(childContent.key);
+  /**
+   * This code is written to handle the special case (rootActionContent === undefined) where we are
+   * finding the available variables for the return expression, which is not a descendant of any
+   * action, and which has access to every variable stored during the process execution
+   */
+  let childContent: ExecutableContent | undefined = rootActionContent;
+  const processContent = resolveContent<ProcessContent>(contentStore.rootConfigKey, indexedContent);
+  const blockKey =
+    childContent !== undefined
+      ? (childContent.parentKey as string)
+      : (processContent.rootBlockKey as string);
+  let parentBlock = resolveContent<BlockContent>(blockKey, indexedContent);
+  let childIndex =
+    childContent !== undefined
+      ? parentBlock.childKeys.indexOf(childContent.key)
+      : parentBlock.childKeys.length;
   while (true) {
     for (let i = childIndex - 1; i >= 0; i--) {
       const siblingContent = resolveContent<ExecutableContent>(
         parentBlock.childKeys[i],
-        contentStore,
+        indexedContent,
       );
       if (siblingContent.type === ContentType.ACTION) {
         const variableModel = getActionVariable(
@@ -871,11 +900,11 @@ function findAvailableVariables(key: string, state: EditorState): VariableModel[
     }
     const grandparentContent = resolveContent<Content>(
       parentBlock.parentKey as string,
-      contentStore,
+      indexedContent,
     );
     if (grandparentContent.type === ContentType.CONTROL) {
       childContent = grandparentContent as ControlContent;
-      parentBlock = resolveContent<BlockContent>(childContent.key, contentStore);
+      parentBlock = resolveContent<BlockContent>(childContent.key, indexedContent);
       childIndex = parentBlock.childKeys.indexOf(childContent.key);
     } else {
       break;
@@ -908,10 +937,10 @@ function findVariableRelationship(source: Coordinates, target: Coordinates) {
   }
 }
 
-function getCoordinatesForContent(contentKey: string, contentStore: ContentStore) {
+function getCoordinatesForContent(contentKey: string, indexedContent: IndexedContent) {
   let rootActionContent: ActionContent | undefined;
   recurseUp(
-    contentStore,
+    indexedContent,
     (content) => {
       if (content.type === ContentType.ACTION && rootActionContent === undefined) {
         rootActionContent = content as ActionContent;
@@ -931,7 +960,7 @@ function getCoordinatesForContent(contentKey: string, contentStore: ContentStore
     key = content.key;
     coordinates.push(coordinate);
   };
-  recurseUp(contentStore, visitContent, contentKey);
+  recurseUp(indexedContent, visitContent, contentKey);
   return coordinates.reverse();
 }
 
@@ -963,9 +992,10 @@ function constructProcess(config: ProcessConfig, state: EditorState) {
     typeId: outputTypeId !== undefined ? outputTypeId : null,
     multi: outputMulti !== undefined ? outputMulti : false,
     inputVariableKeys: [],
+    childKeyMap: {},
     errors: [],
   };
-  contentStore.data[processContent.key] = processContent;
+  contentStore.indexedContent[processContent.key] = processContent;
 
   // set process as root content
   contentStore.rootConfigKey = processKey;
@@ -976,13 +1006,22 @@ function constructProcess(config: ProcessConfig, state: EditorState) {
   processContent.rootBlockKey = rootBlockContent.key;
 
   // if process has return, define the return arg content and link to process
-  const returnArgContent =
-    config.returnExpression !== undefined && outputTypeId !== undefined
-      ? constructArgument([config.returnExpression], processKey, outputTypeId, outputMulti, state)
-      : undefined;
-  if (returnArgContent !== undefined) {
+  if (outputTypeId !== undefined) {
+    const returnExpressionConfig = config.returnExpression || [
+      {
+        type: ConfigType.VALUE,
+        value: '',
+      } as ValueConfig,
+    ];
+    const returnArgContent = constructArgument(
+      returnExpressionConfig,
+      processKey,
+      outputTypeId,
+      outputMulti,
+      state,
+    );
     returnArgContent.parentKey = processKey;
-    processContent.returnArgumentKey = returnArgContent.key;
+    processContent.childKeyMap[PROCESS_RETURN_PROP] = returnArgContent.key;
   }
 
   // construct input var content and link to process
@@ -995,7 +1034,14 @@ function constructProcess(config: ProcessConfig, state: EditorState) {
       } as VariableConfig;
       const typeId = variableSpec.typeId;
       const multi = variableSpec.multi;
-      const variableContent = constructVariable(variableConfig, processKey, typeId, multi, state);
+      const variableContent = constructVariable(
+        variableConfig,
+        processKey,
+        typeId,
+        multi,
+        true,
+        state,
+      );
       variableContent.parentKey = processKey;
       variableContent.basePath = name;
       variableContent.optional = variableSpec.optional;
@@ -1013,9 +1059,9 @@ function constructArgument(
   multi: boolean,
   state: EditorState,
 ) {
-  const { contentStore, typeMapping } = state;
+  const { contentStore, typeSystem } = state;
   const declaredTypeId = typeId;
-  const allowedTypeIds = [...typeMapping[declaredTypeId].subtypes];
+  const allowedTypeIds = [typeId, ...(typeSystem.descendants[declaredTypeId] || [])];
   const key = nextKey(contentStore);
 
   const calculatedTypeId = typeId === WellKnownType.OBJECT ? WellKnownType.STRING : typeId;
@@ -1033,7 +1079,7 @@ function constructArgument(
     childKeys: [],
     errors: [],
   };
-  contentStore.data[key] = argContent;
+  contentStore.indexedContent[key] = argContent;
 
   // Construct child expression(s) and link to parent
   configs
@@ -1074,7 +1120,7 @@ function constructBlock(config: BlockConfig, parentKey: string, state: EditorSta
     childKeys: [],
     errors: [],
   };
-  contentStore.data[blockKey] = blockContent;
+  contentStore.indexedContent[blockKey] = blockContent;
 
   // Construct child executables and link to block
   config.executables.forEach((child) => {
@@ -1119,7 +1165,7 @@ function constructControl(config: ControlConfig, parentKey: string, state: Edito
     controlType: ControlType.CONDITIONAL,
     errors: [],
   };
-  contentStore.data[controlStatementKey] = conditionalContent;
+  contentStore.indexedContent[controlStatementKey] = conditionalContent;
 
   // Construct conditional arg and link to parent
   const conditionSpec = CONDITIONAL_CONTROL_SPEC.inputs.condition;
@@ -1145,13 +1191,16 @@ function constructControl(config: ControlConfig, parentKey: string, state: Edito
 
 function constructValue(config: ValueConfig, parentKey: string, state: EditorState): ValueContent {
   const { contentStore, engineSpec } = state;
+  const indexedContent = contentStore.indexedContent;
   const { value } = config;
-  const argContent = resolveContent<ArgumentContent>(parentKey, contentStore);
+  const argContent = resolveContent<ArgumentContent>(parentKey, indexedContent);
   let typeId = argContent.declaredTypeId;
   if (typeId === WellKnownType.OBJECT) {
     // default new values of unspecified type to string input mode
     typeId = WellKnownType.STRING;
   }
+
+  const errors: ValidationError[] = [];
 
   // Construct value content and add to store
   const valueContent = {
@@ -1163,9 +1212,9 @@ function constructValue(config: ValueConfig, parentKey: string, state: EditorSta
     value,
     availableFunctionIds: [],
     availableVariables: [],
-    errors: [],
+    errors,
   } as ValueContent;
-  contentStore.data[valueContent.key] = valueContent;
+  contentStore.indexedContent[valueContent.key] = valueContent;
 
   // Find available functions and update content
   const availableFunctions = findFunctionsMatchingTypeConstraints(
@@ -1212,7 +1261,7 @@ function constructAction(config: ActionConfig, parentKey: ContentKey, state: Edi
     childKeyMap: {},
     errors: [],
   };
-  contentStore.data[actionContent.key] = actionContent;
+  contentStore.indexedContent[actionContent.key] = actionContent;
 
   // Construct child args and link to parent
   Object.entries(config.arguments).forEach(([argName, expressionConfigs]) => {
@@ -1228,7 +1277,7 @@ function constructAction(config: ActionConfig, parentKey: ContentKey, state: Edi
   // Construct child variable and link to parent
   const varContent =
     calculatedTypeId !== null
-      ? constructVariable(config.output, key, calculatedTypeId, multi, state)
+      ? constructVariable(config.output, key, calculatedTypeId, multi, false, state)
       : undefined;
   if (varContent !== undefined) {
     actionContent.variableContentKey = varContent.key;
@@ -1238,7 +1287,8 @@ function constructAction(config: ActionConfig, parentKey: ContentKey, state: Edi
 }
 
 function constructFunction(config: FunctionConfig, parentKey: ContentKey, state: EditorState) {
-  const { contentStore, engineSpec } = state;
+  const { contentStore, engineSpec, typeSystem } = state;
+  const indexedContent = contentStore.indexedContent;
   const key = nextKey(contentStore);
   const name = config.name;
   const spec = engineSpec.functions[name];
@@ -1246,6 +1296,17 @@ function constructFunction(config: FunctionConfig, parentKey: ContentKey, state:
   const outputTypeInputName = spec.metadata[MetadataProperties.DYNAMIC_RETURN_TYPE];
   let calculatedTypeId = spec.output?.typeId || null;
   const multi = spec.output?.multi || false;
+
+  const argumentContent = resolveContent<ArgumentContent>(parentKey, indexedContent);
+  const parentDeclaredTypeId = argumentContent.declaredTypeId;
+
+  const returnTypeInBounds =
+    calculatedTypeId === parentDeclaredTypeId ||
+    typeSystem.descendants[parentDeclaredTypeId].indexOf(calculatedTypeId as string) > 0;
+  if (returnTypeInBounds) {
+    calculatedTypeId = parentDeclaredTypeId;
+  }
+  // TODO: Error if function output has no overlap.
 
   // Construct function content and add to store
   const functionContent: FunctionContent = {
@@ -1259,7 +1320,7 @@ function constructFunction(config: FunctionConfig, parentKey: ContentKey, state:
     childKeyMap: {},
     errors: [],
   };
-  contentStore.data[functionContent.key] = functionContent;
+  contentStore.indexedContent[functionContent.key] = functionContent;
 
   // Construct child arg content and link to parent
   Object.entries(config.arguments).forEach(([argName, expressionConfigs]) => {
@@ -1280,7 +1341,8 @@ function constructConditionalReference(
   state: EditorState,
 ) {
   const { contentStore } = state;
-  const parentArg = resolveContent<ArgumentContent>(parentKey, contentStore);
+  const indexedContent = contentStore.indexedContent;
+  const parentArg = resolveContent<ArgumentContent>(parentKey, indexedContent);
   const { declaredTypeId } = parentArg;
   const referenceKey = nextKey(contentStore);
 
@@ -1294,7 +1356,7 @@ function constructConditionalReference(
     multi: false,
     errors: [],
   };
-  contentStore.data[referenceKey] = referenceContent;
+  contentStore.indexedContent[referenceKey] = referenceContent;
 
   // Resolve all references and link to content
   config.references.forEach((coordinates) => {
@@ -1312,7 +1374,7 @@ function constructConditionalReference(
 
     const referencedVarContent = resolveContent<VariableContent>(
       referencedActionContent.variableContentKey as string,
-      contentStore,
+      indexedContent,
     );
     referencedVarContent.referenceKeys.push(referenceKey);
     referenceContent.childKeys.push(referencedVarContent.key);
@@ -1360,20 +1422,20 @@ function constructReference(config: ReferenceConfig, parentKey: ContentKey, stat
   const actionContent = referencedContent as ActionContent;
   const variableContent = resolveContent<VariableContent>(
     actionContent.variableContentKey as string,
-    contentStore,
+    contentStore.indexedContent,
   );
   const referenceContent: ReferenceContent = {
     type: ContentType.REFERENCE,
     key: nextKey(contentStore),
     parentKey,
-    referenceKey: referencedContent.variableContentKey as string,
+    variableKey: referencedContent.variableContentKey as string,
     typeId: referencedContent.typeId,
     multi: referencedContent.multi,
     path: ref.path,
     errors: [],
   };
   variableContent.referenceKeys.push(referenceContent.key);
-  contentStore.data[referenceContent.key] = referenceContent;
+  contentStore.indexedContent[referenceContent.key] = referenceContent;
   return referenceContent;
 }
 
@@ -1382,9 +1444,12 @@ function constructVariable(
   parentKey: ContentKey,
   typeId: string,
   multi: boolean,
+  initial: boolean,
   state: EditorState,
 ) {
   const { contentStore } = state;
+
+  const referenceKeys: ContentKey[] = [];
   const variableContent: VariableContent = {
     type: ContentType.VARIABLE,
     key: nextKey(contentStore),
@@ -1394,10 +1459,11 @@ function constructVariable(
     optional: false,
     typeId,
     multi,
-    referenceKeys: [],
+    initial,
+    referenceKeys,
     errors: [],
   };
-  contentStore.data[variableContent.key] = variableContent;
+  contentStore.indexedContent[variableContent.key] = variableContent;
   return variableContent;
 }
 
@@ -1406,17 +1472,17 @@ function constructVariable(
  * does not remove this state as a child reference from any parent node -- this should be done by the caller. Also note
  * that this function only deletes the descendant states from the store, it does not remove their links to each other.
  * @param contentStore the store from which the state should be deleted
- * @param stateKeyToDelete the key for the state to be recursively deleted from the store
+ * @param keyToDelete the key for the state to be recursively deleted from the store
  */
-export function recursiveDelete(contentStore: ContentStore, stateKeyToDelete: string) {
+export function recursiveDelete(contentStore: ContentStore, keyToDelete: string) {
   recurseDown(
-    contentStore,
-    (state) => {
-      if (contentStore.data.hasOwnProperty(state.key)) {
-        delete contentStore.data[state.key];
+    contentStore.indexedContent,
+    (content) => {
+      if (contentStore.indexedContent.hasOwnProperty(content.key)) {
+        delete contentStore.indexedContent[content.key];
       }
     },
-    stateKeyToDelete,
+    keyToDelete,
     true,
   );
 }
@@ -1427,7 +1493,7 @@ export function addNewExecutable(
   state: EditorState,
 ) {
   let { contentStore } = state;
-  const blockContent = resolveContent<BlockContent>(parentKey, contentStore);
+  const blockContent = resolveContent<BlockContent>(parentKey, contentStore.indexedContent);
   if (blockContent.type !== ContentType.BLOCK) {
     throw new Error(
       `Attempted to add a new action on an illegal content type: ${blockContent.type}`,
@@ -1440,10 +1506,13 @@ export function addNewExecutable(
 }
 
 export function deleteListItem(key: string, contentStore: ContentStore) {
-  const content = resolveContent(key, contentStore);
+  const content = resolveContent(key, contentStore.indexedContent);
   if (content !== undefined) {
-    const parentKey = content.parentKey as string;
-    const parentContent = resolveContent<BlockContent | ArgumentContent>(parentKey, contentStore);
+    const parentKey = content.parentKey as ContentKey;
+    const parentContent = resolveContent<BlockContent | ArgumentContent>(
+      parentKey,
+      contentStore.indexedContent,
+    );
     const parentType = parentContent.type;
     if (parentType !== ContentType.BLOCK && parentType !== ContentType.ARGUMENT) {
       throw new Error(
@@ -1452,37 +1521,19 @@ export function deleteListItem(key: string, contentStore: ContentStore) {
     }
     const currentIndex = parentContent.childKeys.indexOf(key);
     parentContent.childKeys.splice(currentIndex, 1);
+    parentContent.childKeys = [...parentContent.childKeys];
+    contentStore.indexedContent[parentKey] = { ...parentContent };
     recursiveDelete(contentStore, key);
   }
 }
 
-export function addInput(
-  parentKey: string,
-  newConfig: FunctionConfig | ValueConfig,
-  state: EditorState,
-) {
-  let { contentStore } = state;
-  const content = resolveContent<ArgumentContent>(parentKey, contentStore);
-  if (content.type !== ContentType.ARGUMENT) {
-    throw new Error(`Attempted to add a new input on an illegal content type: ${content.type}`);
-  }
-  const expressionList: ArgumentContent = content as ArgumentContent;
-  const parameterSpec = resolveParameterSpecForInput(expressionList, state);
-  if (!parameterSpec.multi) {
-    throw new Error(`Attempted to add an additional value to a non-multi parameter`);
-  }
-  const newChildState = constructExpression(newConfig, parentKey, state);
-  newChildState.parentKey = expressionList.key;
-  expressionList.childKeys.push(newChildState.key);
-}
-
 export function reorderList(
-  contentStore: ContentStore,
+  indexedContent: IndexedContent,
   parentKey: string,
   oldIndex: number,
   newIndex: number,
 ) {
-  const listContent = resolveContent<ListContent>(parentKey, contentStore);
+  const listContent = resolveContent<ListContent>(parentKey, indexedContent);
   if (
     listContent.type !== ContentType.BLOCK &&
     listContent.type !== ContentType.ARGUMENT &&
@@ -1506,7 +1557,7 @@ export function reorderList(
 export function getContentAndAncestors(contentStore: ContentStore, key: string) {
   const ancestorPath: Content[] = [];
   recurseUp(
-    contentStore,
+    contentStore.indexedContent,
     (content: Content) => {
       ancestorPath.push(content);
     },
@@ -1521,15 +1572,15 @@ function findExecutableContent<T extends BlockContent | ControlContent | ActionC
   coordinates: number[],
 ): T {
   const processKey = contentStore.rootConfigKey as string;
-  const process = resolveContent<ProcessContent>(processKey, contentStore);
+  const process = resolveContent<ProcessContent>(processKey, contentStore.indexedContent);
   let pointer: ListContent = resolveContent<BlockContent>(
     process.rootBlockKey as string,
-    contentStore,
+    contentStore.indexedContent,
   );
   for (let i = 0; i < coordinates.length; i++) {
     const coordinate = coordinates[i];
     const childKey = pointer.childKeys[coordinate];
-    pointer = resolveContent<ListContent>(childKey, contentStore);
+    pointer = resolveContent<ListContent>(childKey, contentStore.indexedContent);
   }
   return pointer as T;
 }
@@ -1538,7 +1589,7 @@ function resolveParameterSpecForInput(inputsContent: ArgumentContent, state: Edi
   let { contentStore, engineSpec } = state;
   const parentContent = resolveContent<FunctionContent | ActionContent>(
     inputsContent.parentKey as string,
-    contentStore,
+    contentStore.indexedContent,
   );
   const parameterName = Object.entries(parentContent.childKeyMap).find(
     ([, key]) => key === inputsContent.key,
@@ -1552,115 +1603,72 @@ function resolveParameterSpecForInput(inputsContent: ArgumentContent, state: Edi
 export function resolveParameterSpecForKey(key: string, state: EditorState) {
   let { contentStore } = state;
   return resolveParameterSpec(
-    resolveContent<ArgumentContent | FunctionContent | ValueContent>(key, contentStore),
+    resolveContent<ArgumentContent | FunctionContent | ValueContent>(
+      key,
+      contentStore.indexedContent,
+    ),
     state,
   );
 }
 
 export function resolveParameterSpec(
-  expressionContent: ArgumentContent | FunctionContent | ValueContent,
+  expressionContent: ArgumentContent | FunctionContent | ValueContent | ReferenceContent,
   state: EditorState,
 ) {
-  const { contentStore } = state;
+  const { contentStore, engineSpec } = state;
   let pointer: Content = expressionContent;
   while (pointer.parentKey !== undefined && pointer.type !== ContentType.ARGUMENT) {
-    pointer = resolveContent(pointer.parentKey as string, contentStore);
+    pointer = resolveContent(pointer.parentKey as string, contentStore.indexedContent);
   }
   if (pointer.type !== ContentType.ARGUMENT) {
     throw new Error('Unexpected state structure encountered');
   }
   const argContent = pointer as ArgumentContent;
-  return {
-    typeId: argContent.declaredTypeId,
-    multi: argContent.allowMulti,
-  };
+  const argParent = resolveContent<
+    FunctionContent | ActionContent | ControlContent | ProcessContent
+  >(argContent.parentKey as string, contentStore.indexedContent);
+
+  const argName = Object.entries(argParent.childKeyMap).find(
+    ([name, key]) => key === argContent.key,
+  )?.[0];
+  if (argName === undefined) {
+    throw new Error(`Failed to find arg name for key ${argContent.key}`);
+  }
+
+  if (argParent.type === ContentType.FUNCTION) {
+    const functionContent = argParent as FunctionContent;
+    return engineSpec.functions[functionContent.name].inputs[argName];
+  } else if (argParent.type === ContentType.ACTION) {
+    const actionContent = argParent as ActionContent;
+    return engineSpec.actions[actionContent.name].inputs[argName];
+  } else if (argParent.type === ContentType.CONTROL && argName === CONDITIONAL_CONDITION_PROP) {
+    return CONDITIONAL_CONTROL_SPEC.inputs[CONDITIONAL_CONDITION_PROP];
+  } else if (argParent.type === ContentType.PROCESS && argName === PROCESS_RETURN_PROP) {
+    const processContent = argParent as ProcessContent;
+    return engineSpec.processes[processContent.name].output as ExpressionSpec;
+  }
+  throw new Error('Unexpected error: unable to resolve parameter spec');
 }
 
-/**
- * Utility method for traversing up the content tree
- * @param contentStore the store
- * @param func a function to execute against each node
- * @param initialKey the key representing the node to start recursing at
- * @param ancestorsFirst execute the function starting with the root node and working down to the node represented by the supplied key
- */
-function recurseUp(
-  contentStore: ContentStore,
-  func: (state: Content) => void,
-  initialKey: string,
-  ancestorsFirst: boolean = false,
-) {
-  const content = resolveContent(initialKey, contentStore);
-  if (content === undefined) {
-    return;
-  }
+function resolveTypeForReference(variableKey: ContentKey, path: string[], state: EditorState) {
+  const {
+    contentStore: { indexedContent },
+    engineSpec: { types },
+  } = state;
 
-  if (!ancestorsFirst) {
-    func(content);
+  const variableContent = resolveContent<VariableContent>(variableKey, indexedContent);
+  let typeId = variableContent.typeId as string;
+  let multi = variableContent.multi;
+  for (let i = 0; i < path.length; i++) {
+    const pathSegment = path[i];
+    const property = types[typeId]?.properties[pathSegment];
+    if (property === undefined) {
+      throw new Error(`Failed to resolve path ${path.join('/')} for root type ${typeId}`);
+    }
+    typeId = property.typeId;
+    multi = multi || property.multi;
   }
-
-  if (content.parentKey !== undefined) {
-    recurseUp(contentStore, func, content.parentKey as string, ancestorsFirst);
-  }
-
-  if (ancestorsFirst) {
-    func(content);
-  }
-}
-
-/**
- * Utility method for traversing down the content tree
- * @param contentStore the store
- * @param func a function to execute against each node
- * @param initialKey the key representing the node to start recursing at
- * @param descendantsFirst execute the function starting with descendants and working up to the node represented by the supplied key
- */
-function recurseDown(
-  contentStore: ContentStore,
-  func: (state: Content) => void,
-  initialKey: string,
-  descendantsFirst: boolean = false,
-) {
-  const content = resolveContent(
-    initialKey || (contentStore.rootConfigKey as string),
-    contentStore,
-  );
-  if (content === undefined) {
-    return;
-  }
-
-  if (!descendantsFirst) {
-    func(content);
-  }
-
-  switch (content.type) {
-    case ContentType.FUNCTION:
-      const functionContent = content as FunctionContent;
-      Object.entries(functionContent.childKeyMap).forEach(([, childKey]) => {
-        recurseDown(contentStore, func, childKey, descendantsFirst);
-      });
-      break;
-    case ContentType.ACTION:
-      const actionContent = content as ActionContent;
-      Object.entries(actionContent.childKeyMap).forEach(([, childKey]) => {
-        recurseDown(contentStore, func, childKey, descendantsFirst);
-      });
-      break;
-    case ContentType.PROCESS:
-    case ContentType.BLOCK:
-    case ContentType.ARGUMENT:
-      const listContent = content as ListContent;
-      listContent.childKeys.forEach((childKey) => {
-        recurseDown(contentStore, func, childKey, descendantsFirst);
-      });
-      break;
-    case ContentType.VALUE:
-      // no children
-      break;
-  }
-
-  if (descendantsFirst) {
-    func(content);
-  }
+  return { typeId, multi };
 }
 
 export const {
@@ -1668,7 +1676,6 @@ export const {
   setSelection,
   convertValueToFunction,
   convertValueToReference,
-  setValue,
   addInputValue,
   addExecutable,
   reorderInput,
