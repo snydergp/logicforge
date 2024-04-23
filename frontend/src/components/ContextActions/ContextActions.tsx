@@ -14,6 +14,14 @@ export interface ContextActionsProps {
   contentKey: string;
 }
 
+enum ErrorDisplayMode {
+  DIRECT_ERROR,
+  INDIRECT_ERROR,
+  DIRECT_WARNING,
+  INDIRECT_WARNING,
+  NONE,
+}
+
 export function ContextActions({ contentKey }: ContextActionsProps) {
   const dispatch = useDispatch();
 
@@ -29,7 +37,7 @@ export function ContextActions({ contentKey }: ContextActionsProps) {
       allContent,
       (content) => {
         const key = content.key;
-        if (key != contentKey) {
+        if (key !== contentKey) {
           indirectErrors.push(...content.errors.filter((err) => err.level === ErrorLevel.ERROR));
           indirectWarnings.push(
             ...content.errors.filter((err) => err.level === ErrorLevel.WARNING),
@@ -101,7 +109,7 @@ function ErrorDisplay(categorizedErrors: CategorizedErrors) {
     } else {
       return ErrorDisplayMode.NONE;
     }
-  }, [categorizedErrors]);
+  }, [directErrors, directWarnings, indirectErrors, indirectWarnings]);
 
   const translate = useTranslate();
   const tooltipContent = useMemo(() => {
@@ -114,17 +122,13 @@ function ErrorDisplay(categorizedErrors: CategorizedErrors) {
     directErrors.forEach(translateError);
     directWarnings.forEach(translateError);
     if (indirectErrors.length > 0) {
-      lines.push(
-        `${translate(labelKey('child-errors'))}: ${categorizedErrors.indirectErrors.length}`,
-      );
+      lines.push(`${translate(labelKey('child-errors'))}: ${indirectErrors.length}`);
     }
     if (indirectWarnings.length > 0) {
-      lines.push(
-        `${translate(labelKey('child-warnings'))}: ${categorizedErrors.indirectWarnings.length}`,
-      );
+      lines.push(`${translate(labelKey('child-warnings'))}: ${indirectWarnings.length}`);
     }
     return lines.join('\n');
-  }, [categorizedErrors]);
+  }, [translate, directErrors, directWarnings, indirectErrors, indirectWarnings]);
 
   return (
     <>
@@ -162,11 +166,3 @@ type CategorizedErrors = {
   indirectErrors: ValidationError[];
   indirectWarnings: ValidationError[];
 };
-
-enum ErrorDisplayMode {
-  DIRECT_ERROR,
-  INDIRECT_ERROR,
-  DIRECT_WARNING,
-  INDIRECT_WARNING,
-  NONE,
-}

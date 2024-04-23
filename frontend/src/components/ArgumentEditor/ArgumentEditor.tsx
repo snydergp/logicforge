@@ -38,7 +38,6 @@ import { ItemInterface, ReactSortable, SortableEvent } from 'react-sortablejs';
 import { RefEditor } from '../RefEditor/RefEditor';
 import { SubTreeView } from '../SubTreeView/SubTreeView';
 
-import './ArgumentEditor.scss';
 import { ContextActions } from '../ContextActions/ContextActions';
 
 export interface ArgumentEditorProps {
@@ -88,7 +87,7 @@ function SingleArgumentEditor({ content }: InternalArgumentEditorProps) {
     >
       <ListItem sx={{ px: 1 }} key={childKey}>
         <ItemWrapper>
-          <ExpressionEditor content={childContent} id={childKey} />
+          <ExpressionEditor content={childContent} id={childKey} hideOverflow={false} />
         </ItemWrapper>
       </ListItem>
     </List>
@@ -109,10 +108,11 @@ function MultiArgumentEditor({ content }: InternalArgumentEditorProps) {
       return {
         content: allContent[key] as FunctionContent | ReferenceContent | ValueContent,
         id: content.key,
+        hideOverflow: false,
       };
     });
     setItems(updatedItems);
-  }, [content, setItems]);
+  }, [content, setItems, allContent, childKeys]);
 
   const handleStart = useCallback(
     (event: SortableEvent) => {
@@ -120,10 +120,10 @@ function MultiArgumentEditor({ content }: InternalArgumentEditorProps) {
         setDragStartIndex(event.oldIndex);
       }
     },
-    [setDragStartIndex, items],
+    [setDragStartIndex],
   );
 
-  const handleEnd = useCallback(
+  const handleUpdate = useCallback(
     (event: SortableEvent) => {
       const startIndex = dragStartIndex;
       setDragStartIndex(undefined);
@@ -133,6 +133,10 @@ function MultiArgumentEditor({ content }: InternalArgumentEditorProps) {
     },
     [dragStartIndex, setDragStartIndex, content, dispatch],
   );
+
+  const handleComplete = useCallback(() => {
+    setDragStartIndex(undefined);
+  }, [setDragStartIndex]);
 
   const handleAdd = useCallback(() => {
     dispatch(addInputValue(content.key));
@@ -154,18 +158,17 @@ function MultiArgumentEditor({ content }: InternalArgumentEditorProps) {
       <ReactSortable
         list={items}
         setList={setItems}
-        onAdd={handleEnd}
+        onUpdate={handleUpdate}
         onStart={handleStart}
+        onEnd={handleComplete}
         group={content.key}
         fallbackOnBody={false}
         emptyInsertThreshold={0}
         swapThreshold={0.5}
-        dragClass={'ArgumentEditor__Item--dragGhost'}
-        ghostClass={'ArgumentEditor__Item--dragGhost'}
         animation={200}
         style={{ minHeight: '50px' }}
       >
-        {items.map((props) => {
+        {items.map((props, index) => {
           const key = props.content.key;
           // Due to the way the DND library handles updates, it's possible a child has been removed
           //  but the items list has not yet been updated. Check each child to ensure it still
@@ -173,7 +176,7 @@ function MultiArgumentEditor({ content }: InternalArgumentEditorProps) {
           return allContent.hasOwnProperty(key) ? (
             <ListItem key={key} sx={{ px: 1 }}>
               <ItemWrapper>
-                <ExpressionEditor {...props} />
+                <ExpressionEditor {...props} hideOverflow={index === dragStartIndex} />
               </ItemWrapper>
             </ListItem>
           ) : (
@@ -195,10 +198,13 @@ function MultiArgumentEditor({ content }: InternalArgumentEditorProps) {
 
 export interface ExpressionEditorProps extends ItemInterface {
   content: FunctionContent | ReferenceContent | ValueContent;
+  hideOverflow: boolean;
 }
 
-export function ExpressionEditor({ content }: ExpressionEditorProps) {
+export function ExpressionEditor({ content, hideOverflow }: ExpressionEditorProps) {
   const dispatch = useDispatch();
+
+  const selected = useSelector(selectIsInSelectedPath(content.key));
 
   const handleSelect = useCallback(() => {
     dispatch(setSelection(content.key));
@@ -208,9 +214,7 @@ export function ExpressionEditor({ content }: ExpressionEditorProps) {
     dispatch(deleteItem(content.key));
   }, [content, dispatch]);
 
-  const selected = useSelector(selectIsInSelectedPath(content.key));
-
-  const additionalProps = { selected, handleSelect, handleDelete };
+  const additionalProps = { selected, handleSelect, handleDelete, hideOverflow };
 
   if (content.type === ContentType.FUNCTION) {
     return <FunctionItemView content={content as FunctionContent} {...additionalProps} />;
@@ -226,6 +230,7 @@ interface ViewProps<TYPE extends Content> {
   selected: boolean;
   handleSelect: () => void;
   handleDelete: () => void;
+  hideOverflow: boolean;
 }
 
 function ValueItemView({ content, handleSelect, selected }: ViewProps<ValueContent>) {
@@ -237,7 +242,12 @@ function ValueItemView({ content, handleSelect, selected }: ViewProps<ValueConte
   );
 }
 
-function FunctionItemView({ content, handleSelect, selected }: ViewProps<FunctionContent>) {
+function FunctionItemView({
+  content,
+  handleSelect,
+  selected,
+  hideOverflow,
+}: ViewProps<FunctionContent>) {
   const translate = useTranslate();
   const functionName = content.name;
 
@@ -256,9 +266,11 @@ function FunctionItemView({ content, handleSelect, selected }: ViewProps<Functio
           <ListItemText primary={title} secondary={<span>{description}</span>} />
           <ContextActions contentKey={content.key} />
         </ListItemButton>
-        <Box width={'100%'} className={'ArgumentEditor__ItemAdditionalContent'}>
-          <SubTreeView contentKey={content.key} />
-        </Box>
+        {!hideOverflow && (
+          <Box width={'100%'}>
+            <SubTreeView contentKey={content.key} />
+          </Box>
+        )}
       </Stack>
     </ListItemButton>
   );

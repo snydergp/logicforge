@@ -52,7 +52,8 @@ public class LogicForgeConfig {
   }
 
   @Bean
-  public ProcessBuilder processBuilder(final EngineSpec engineSpec, final ProcessCompiler processCompiler) {
+  public ProcessBuilder processBuilder(final EngineSpec engineSpec,
+      final ProcessCompiler processCompiler) {
     return new CompilationProcessBuilder(engineSpec, processCompiler);
   }
 

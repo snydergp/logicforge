@@ -36,14 +36,14 @@ export function VariableEditor({ contentKey }: VariableEditorProps) {
     (event: ChangeEvent<HTMLInputElement>) => {
       dispatch(updateVariable(contentKey, event.target.value, variableContent.description));
     },
-    [dispatch, content],
+    [dispatch, contentKey, variableContent.description],
   );
 
   const handleDescriptionUpdate = useCallback(
     (event: ChangeEvent<HTMLInputElement>) => {
       dispatch(updateVariable(contentKey, variableContent.title, event.target.value));
     },
-    [dispatch, content],
+    [dispatch, contentKey, variableContent.title],
   );
 
   return (

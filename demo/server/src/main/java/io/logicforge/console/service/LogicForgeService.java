@@ -25,7 +25,8 @@ public class LogicForgeService {
   private final ProcessConfigDAO processConfigDAO;
 
   @Autowired
-  public LogicForgeService(final EngineSpec engineSpec, final ProcessCompiler compiler, final ProcessConfigDAO processConfigDAO) {
+  public LogicForgeService(final EngineSpec engineSpec, final ProcessCompiler compiler,
+      final ProcessConfigDAO processConfigDAO) {
     this.engineSpec = engineSpec;
     this.builder = new CompilationProcessBuilder(engineSpec, compiler);
     this.processConfigDAO = processConfigDAO;

@@ -32,9 +32,8 @@ public class DocumentMapper {
   }
 
   public ProcessConfigDocument internal(final ExtendedProcessConfig external) {
-    return ProcessConfigDocument.builder().id(external.getId())
-        .actions(
-            external.getExecutables().stream().map(this::actionInternal).collect(Collectors.toList()))
+    return ProcessConfigDocument.builder().id(external.getId()).actions(
+        external.getExecutables().stream().map(this::actionInternal).collect(Collectors.toList()))
         .build();
   }
 

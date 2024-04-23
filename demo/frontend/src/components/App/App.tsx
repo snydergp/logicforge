@@ -1,6 +1,7 @@
 import api from '../../api/api';
 import React, { useEffect, useState } from 'react';
-import { ConfigType, EngineSpec, FrameEditor, ProcessConfig } from 'logicforge';
+import { ConfigType, en, EngineSpec, FrameEditor, ProcessConfig } from 'logicforge';
+import { MessageTree } from 'logicforge/dist/components/I18n/I18n';
 
 enum State {
   LOADING = 'LOADING',
@@ -8,12 +9,9 @@ enum State {
   FAILED = 'FAILED',
 }
 
-export interface AppProps {
-  translations: object;
-  locale: string;
-}
+export interface AppProps {}
 
-export function App({ translations, locale }: AppProps) {
+export function App({}: AppProps) {
   const [spec, setSpec] = useState<EngineSpec | undefined>();
   const [process, setProcess] = useState<ProcessConfig | undefined>();
   const [state, setState] = useState<State>(State.LOADING);
@@ -32,7 +30,8 @@ export function App({ translations, locale }: AppProps) {
             setProcess({
               type: ConfigType.PROCESS,
               name: 'example',
-              actions: [],
+              returnExpression: [],
+              rootBlock: { type: ConfigType.BLOCK, executables: [] },
             }),
         );
       });
@@ -49,8 +48,7 @@ export function App({ translations, locale }: AppProps) {
       <FrameEditor
         config={process as ProcessConfig}
         engineSpec={spec as EngineSpec}
-        translations={translations}
-        locale={locale}
+        translations={en as MessageTree}
       ></FrameEditor>
     </div>
   ) : state === State.LOADING ? (

@@ -89,7 +89,7 @@ export class MessageTranslator {
   }
 
   private performReplacement(input: string, data?: { [key: string]: string }): string {
-    const tokenRegex = /([^{])?(\{([a-zA-Z0-9:\[\].-]+)})/g;
+    const tokenRegex = /(^|[^{])(\{([a-zA-Z0-9:[\].-]+)})/g;
     let value = input;
     let capture = tokenRegex.exec(value);
     const replacedContent = [];

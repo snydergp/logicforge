@@ -1,11 +1,10 @@
-import './ExecutableBlockEditor.scss';
 import { useDispatch, useSelector } from 'react-redux';
 import {
   addExecutable,
   moveExecutable,
   selectContentByKey,
   selectEngineSpec,
-  selectSelectedSubtree,
+  selectIsInSelectedPath,
   setSelection,
 } from '../../redux/slices/editors';
 import {
@@ -92,16 +91,45 @@ export function ExecutableBlockEditor({ contentKey }: ExecutableBlockEditorProps
     [draggedItemKey, setDraggedItemKey, dispatch],
   );
 
-  return <Block contentKey={contentKey} notifyStart={handleStart} notifyEnd={handleEnd} />;
+  const handleComplete = useCallback(() => {
+    if (draggedItemKey !== undefined) {
+      setDraggedItemKey(undefined);
+    }
+  }, [draggedItemKey, setDraggedItemKey]);
+
+  const handlers: Handlers = useMemo(
+    () => ({
+      notifyStart: handleStart,
+      notifyEnd: handleEnd,
+      notifyComplete: handleComplete,
+    }),
+    [handleStart, handleEnd, handleComplete],
+  );
+
+  return (
+    <Block
+      {...{
+        contentKey,
+        draggedItemKey,
+        handlers,
+      }}
+    />
+  );
+}
+
+interface Handlers {
+  notifyStart: (key: string) => void;
+  notifyEnd: (parentKey: string, newIndex: number) => void;
+  notifyComplete: () => void;
 }
 
 interface BlockProps {
   contentKey: string;
-  notifyStart: (key: string) => void;
-  notifyEnd: (parentKey: string, newIndex: number) => void;
+  handlers: Handlers;
+  draggedItemKey: string | undefined;
 }
 
-function Block({ contentKey, notifyStart, notifyEnd }: BlockProps) {
+function Block({ contentKey, handlers, draggedItemKey }: BlockProps) {
   const content = useSelector(selectContentByKey(contentKey));
   if (content === undefined) {
     throw new Error(`Missing content: ${contentKey}`);
@@ -117,30 +145,37 @@ function Block({ contentKey, notifyStart, notifyEnd }: BlockProps) {
       return {
         contentKey,
         id: contentKey,
-        notifyStart,
-        notifyEnd,
+        handlers,
+        draggedItemKey,
       };
     });
     setItems(items);
-  }, [blockContent.childKeys, setItems]);
+  }, [blockContent.childKeys, setItems, handlers, draggedItemKey]);
 
   const handleStart = useCallback(
     (event: SortableEvent) => {
       if (event.oldIndex !== undefined) {
         const draggedItem = items[event.oldIndex];
-        notifyStart(draggedItem.contentKey);
+        handlers.notifyStart(draggedItem.contentKey);
       }
     },
-    [notifyStart, items],
+    [handlers, items],
   );
 
   const handleEnd = useCallback(
     (event: SortableEvent) => {
       if (event.newIndex !== undefined) {
-        notifyEnd(contentKey, event.newIndex);
+        handlers.notifyEnd(contentKey, event.newIndex);
       }
     },
-    [notifyEnd],
+    [handlers, contentKey],
+  );
+
+  const handleComplete = useCallback(
+    (event: SortableEvent) => {
+      handlers.notifyComplete();
+    },
+    [handlers],
   );
 
   return (
@@ -156,14 +191,13 @@ function Block({ contentKey, notifyStart, notifyEnd }: BlockProps) {
       <ReactSortable
         list={items}
         setList={setItems}
-        onAdd={handleEnd}
+        onUpdate={handleEnd}
         onStart={handleStart}
+        onEnd={handleComplete}
         group={DRAG_DROP_GROUP}
         fallbackOnBody={true}
         emptyInsertThreshold={0}
         swapThreshold={0.75}
-        dragClass={'ExecutableBlockEditor__Item--dragGhost'}
-        ghostClass={'ExecutableBlockEditor__Item--dragGhost'}
         animation={200}
         style={{ minHeight: '50px' }}
       >
@@ -172,8 +206,8 @@ function Block({ contentKey, notifyStart, notifyEnd }: BlockProps) {
             key={item.contentKey}
             contentKey={item.contentKey}
             id={item.contentKey}
-            notifyStart={notifyStart}
-            notifyEnd={notifyEnd}
+            handlers={handlers}
+            draggedItemKey={draggedItemKey}
           />
         ))}
       </ReactSortable>
@@ -184,11 +218,11 @@ function Block({ contentKey, notifyStart, notifyEnd }: BlockProps) {
 
 interface ExecutableProps extends ItemInterface {
   contentKey: string;
-  notifyStart: (key: string) => void;
-  notifyEnd: (parentKey: string, newIndex: number) => void;
+  handlers: Handlers;
+  draggedItemKey: string | undefined;
 }
 
-function Executable({ contentKey, notifyStart, notifyEnd }: ExecutableProps) {
+function Executable({ contentKey, handlers, draggedItemKey }: ExecutableProps) {
   const content = useSelector(selectContentByKey(contentKey));
   if (content === undefined) {
     // Due to the way the DND lib handles updates, a render is still attempted after an executable
@@ -201,12 +235,12 @@ function Executable({ contentKey, notifyStart, notifyEnd }: ExecutableProps) {
   return (
     <ListItem key={contentKey} sx={{ px: 1 }}>
       {content.type === ContentType.ACTION ? (
-        <ActionItem content={content as ActionContent} />
+        <ActionItem content={content as ActionContent} draggedItemKey={draggedItemKey} />
       ) : (
         <ConditionalItem
           content={content as ConditionalContent}
-          notifyStart={notifyStart}
-          notifyEnd={notifyEnd}
+          handlers={handlers}
+          draggedItemKey={draggedItemKey}
         />
       )}
     </ListItem>
@@ -215,13 +249,13 @@ function Executable({ contentKey, notifyStart, notifyEnd }: ExecutableProps) {
 
 interface ActionItemProps {
   content: ActionContent;
+  draggedItemKey: string | undefined;
 }
 
-function ActionItem({ content }: ActionItemProps) {
+function ActionItem({ content, draggedItemKey }: ActionItemProps) {
   const translate = useTranslate();
   const dispatch = useDispatch();
-  const selection = useSelector(selectSelectedSubtree);
-  const selected = selection !== undefined && selection.indexOf(content) >= 0;
+  const selected = useSelector(selectIsInSelectedPath(content.key));
   const actionName = content.name;
   const title = translate(actionTitleKey(actionName));
   const description = translate(actionDescriptionKey(actionName));
@@ -246,8 +280,8 @@ function ActionItem({ content }: ActionItemProps) {
             />
             <ContextActions contentKey={content.key} />
           </Stack>
-          {content.variableContentKey !== undefined && (
-            <Box width={'100%'} className={'ExecutableBlockEditor__ItemAdditionalContent'}>
+          {content.variableContentKey !== undefined && draggedItemKey !== content.key && (
+            <Box width={'100%'}>
               <Box textAlign={'center'} width={'100%'}>
                 <ResultIcon />
               </Box>
@@ -262,11 +296,11 @@ function ActionItem({ content }: ActionItemProps) {
 
 interface ConditionalItemProps {
   content: ConditionalContent;
-  notifyStart: (key: string) => void;
-  notifyEnd: (parentKey: string, newIndex: number) => void;
+  handlers: Handlers;
+  draggedItemKey: string | undefined;
 }
 
-function ConditionalItem({ content, notifyStart, notifyEnd }: ConditionalItemProps) {
+function ConditionalItem({ content, handlers, draggedItemKey }: ConditionalItemProps) {
   const translate = useTranslate();
   const dispatch = useDispatch();
 
@@ -298,24 +332,30 @@ function ConditionalItem({ content, notifyStart, notifyEnd }: ConditionalItemPro
             <ListItemText primary={`Conditional ${content.key}`} secondary={<span>&nbsp;</span>} />
             <ContextActions contentKey={content.key} />
           </ListItemButton>
-          <Box
-            sx={{ pl: 2.5 }}
-            width={'100%'}
-            className={'ExecutableBlockEditor__ItemAdditionalContent'}
-          >
-            <Box width={'100%'}>
-              <Typography sx={subheaderStyle}>{ifTitle}</Typography>
-              <ArgumentEditor contentKey={content.childKeyMap[CONDITIONAL_CONDITION_PROP]} />
+          {draggedItemKey !== content.key && (
+            <Box sx={{ pl: 2.5 }} width={'100%'}>
+              <Box width={'100%'}>
+                <Typography sx={subheaderStyle}>{ifTitle}</Typography>
+                <ArgumentEditor contentKey={content.childKeyMap[CONDITIONAL_CONDITION_PROP]} />
+              </Box>
+              <Box width={'100%'}>
+                <Typography sx={subheaderStyle}>{thenTitle}</Typography>
+                <Block
+                  contentKey={thenChildKey}
+                  handlers={handlers}
+                  draggedItemKey={draggedItemKey}
+                />
+              </Box>
+              <Box width={'100%'}>
+                <Typography sx={subheaderStyle}>{elseTitle}</Typography>
+                <Block
+                  contentKey={elseChildKey}
+                  handlers={handlers}
+                  draggedItemKey={draggedItemKey}
+                />
+              </Box>
             </Box>
-            <Box width={'100%'}>
-              <Typography sx={subheaderStyle}>{thenTitle}</Typography>
-              <Block contentKey={thenChildKey} notifyStart={notifyStart} notifyEnd={notifyEnd} />
-            </Box>
-            <Box width={'100%'}>
-              <Typography sx={subheaderStyle}>{elseTitle}</Typography>
-              <Block contentKey={elseChildKey} notifyStart={notifyStart} notifyEnd={notifyEnd} />
-            </Box>
-          </Box>
+          )}
         </Stack>
       </ListItemButton>
     </ExecutableWrapper>
@@ -408,7 +448,7 @@ function ExecutableSelectionDialog(props: ExecutableSelectionDialogProps) {
           description: translate(controlDescriptionKey(control as string)),
         } as ExecutableItem;
       }),
-    [controls],
+    [controls, translate],
   );
 
   const actionItems = useMemo(
@@ -421,10 +461,10 @@ function ExecutableSelectionDialog(props: ExecutableSelectionDialogProps) {
           description: translate(actionDescriptionKey(action)),
         } as ExecutableItem;
       }),
-    [actions],
+    [actions, translate],
   );
 
-  const allItems = [...controlItems, ...actionItems];
+  const allItems = useMemo(() => [...controlItems, ...actionItems], [controlItems, actionItems]);
   allItems.sort((a, b) => {
     return b.name.localeCompare(a.name) || a.title.localeCompare(b.title);
   });

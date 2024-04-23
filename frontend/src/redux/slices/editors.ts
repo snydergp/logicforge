@@ -49,10 +49,7 @@ import {
   VariableContent,
 } from '../../types';
 import {
-  areCoordinatesPredecessor,
-  Coordinates,
   generateTypeSystem,
-  getCoordinatesSharedAncestor,
   nextKey,
   recurseDown,
   recurseUp,
@@ -742,7 +739,7 @@ function removeErrorsByCode(errors: ValidationError[], errorCode: ErrorCode) {
 }
 
 function ensureErrorByCode(errors: ValidationError[], error: ValidationError) {
-  const foundError = errors.find((err) => err.code === err.code);
+  const foundError = errors.find((err) => err.code === error.code);
   if (foundError === undefined) {
     errors.push(error);
   }
@@ -850,9 +847,12 @@ function findAvailableVariables(key: string, state: EditorState): VariableModel[
           return getActionVariable(actionContent, contentStore, true);
         } else if (executableContent.type === ContentType.CONTROL) {
           const controlContent = executableContent as ControlContent;
-          if (controlContent.controlType === ControlType.CONDITIONAL) {
-            return collectControlVariables(controlContent as ConditionalContent, contentStore);
+          if (controlContent.controlType !== ControlType.CONDITIONAL) {
+            throw new Error(`Unsupported control type: ${controlContent.controlType}`);
           }
+          return collectControlVariables(controlContent as ConditionalContent, contentStore);
+        } else {
+          throw new Error(`Unexpected child type: ${executableContent.type}`);
         }
       })
       .filter((value) => value !== undefined)
@@ -912,56 +912,6 @@ function findAvailableVariables(key: string, state: EditorState): VariableModel[
   }
 
   return variables;
-}
-
-enum VariableRelationship {
-  UNREACHABLE,
-  REACHABLE,
-  CONDITIONAL,
-}
-
-function findVariableRelationship(source: Coordinates, target: Coordinates) {
-  const ancestor = getCoordinatesSharedAncestor(source, target);
-  const ancestorLength = ancestor.length;
-  if (ancestorLength !== 0 && ancestorLength % 2 === 0) {
-    // coordinate share a conditional but in different blocks
-    return VariableRelationship.UNREACHABLE;
-  } else if (areCoordinatesPredecessor(source, target)) {
-    if (target.length > source.length) {
-      return VariableRelationship.CONDITIONAL;
-    } else {
-      return VariableRelationship.REACHABLE;
-    }
-  } else {
-    return VariableRelationship.UNREACHABLE;
-  }
-}
-
-function getCoordinatesForContent(contentKey: string, indexedContent: IndexedContent) {
-  let rootActionContent: ActionContent | undefined;
-  recurseUp(
-    indexedContent,
-    (content) => {
-      if (content.type === ContentType.ACTION && rootActionContent === undefined) {
-        rootActionContent = content as ActionContent;
-      }
-    },
-    contentKey,
-  );
-
-  if (rootActionContent === undefined) {
-    throw new Error('Attempted to find coordinates outside of executable context');
-  }
-
-  const coordinates: number[] = [];
-  let key = rootActionContent.key;
-  const visitContent = (content: Content) => {
-    let coordinate = (content as ListContent).childKeys.indexOf(key);
-    key = content.key;
-    coordinates.push(coordinate);
-  };
-  recurseUp(indexedContent, visitContent, contentKey);
-  return coordinates.reverse();
 }
 
 export function loadRootContent(config: LogicForgeConfig, state: EditorState) {
@@ -1583,21 +1533,6 @@ function findExecutableContent<T extends BlockContent | ControlContent | ActionC
     pointer = resolveContent<ListContent>(childKey, contentStore.indexedContent);
   }
   return pointer as T;
-}
-
-function resolveParameterSpecForInput(inputsContent: ArgumentContent, state: EditorState) {
-  let { contentStore, engineSpec } = state;
-  const parentContent = resolveContent<FunctionContent | ActionContent>(
-    inputsContent.parentKey as string,
-    contentStore.indexedContent,
-  );
-  const parameterName = Object.entries(parentContent.childKeyMap).find(
-    ([, key]) => key === inputsContent.key,
-  )?.[0] as string;
-  const parentName = parentContent.name;
-  return parentContent.type === ContentType.FUNCTION
-    ? engineSpec.functions[parentName].inputs[parameterName]
-    : (engineSpec.actions[parentName].inputs[parameterName] as ExpressionSpec);
 }
 
 export function resolveParameterSpecForKey(key: string, state: EditorState) {

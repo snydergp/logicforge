@@ -167,7 +167,7 @@
     "value-with-mode": "Value ({mode})",
     "variable": "Variable",
     "variable-output": "Variable Output",
-    "variable-editor-info": "This action will output a variable that can be used by subsequent actions. You can provide an optional title or description to clarify the variable's identity when selecting it.",
+    "variable-editor-info": "This action will output a variable which can be used by subsequent actions. You can provide an optional title or description to clarify the variable's identity when selecting it.",
     "warnings": "Warnings"
   }
 }

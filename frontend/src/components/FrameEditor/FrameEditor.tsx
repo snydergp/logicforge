@@ -69,7 +69,7 @@ export function FrameEditor({ config, engineSpec, translations }: FrameEditorPro
 
   useEffect(() => {
     store.dispatch(initEditor(config as ProcessConfig, engineSpec));
-  }, []);
+  }, [store, config, engineSpec]);
 
   return (
     <Provider store={store}>

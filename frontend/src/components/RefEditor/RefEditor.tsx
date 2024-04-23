@@ -1,6 +1,6 @@
 import { ContentKey, ContentType, ReferenceContent, VariableContent } from '../../types';
 import { useContent } from '../../hooks/useContent';
-import { useDispatch, useSelector } from 'react-redux';
+import { useSelector } from 'react-redux';
 import { useTranslate } from '../I18n/I18n';
 import { selectEngineSpec } from '../../redux/slices/editors';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -12,7 +12,6 @@ export interface RefEditorProps {
 }
 
 export function RefEditor({ contentKey }: RefEditorProps) {
-  const dispatch = useDispatch();
   const translate = useTranslate();
   const engineSpec = useSelector(selectEngineSpec);
 
@@ -44,7 +43,7 @@ export function RefEditor({ contentKey }: RefEditorProps) {
   );
 
   // For initial variables, the first segment is internal-only and should be hidden from the user
-  const [selectedPath, setSelectedPath] = useState(
+  const [selectedPath /*, setSelectedPath*/] = useState(
     variableContent.initial ? referenceContent.path.slice(1) : referenceContent.path,
   );
 
@@ -81,11 +80,11 @@ export function RefEditor({ contentKey }: RefEditorProps) {
         children.forEach((newChildViewModel) => {
           const childKey = pathToKey(newChildViewModel.model.path);
           mapCopy[childKey] = newChildViewModel;
-          mapUpdated = true;
           if (childKey === subPathKey) {
             childViewModel = newChildViewModel;
           }
         });
+        mapUpdated = true;
         parentViewModel.children = children;
         if (childViewModel === undefined) {
           const missingPropertyName = subPath[subPath.length - 1];
@@ -118,7 +117,7 @@ export function RefEditor({ contentKey }: RefEditorProps) {
       const { title, description } = viewModel.model;
       return { title, description };
     });
-  }, [selectedPath, nodeMap, mapInitialized]);
+  }, [contentKey, selectedPath, nodeMap, mapInitialized]);
 
   const descriptionText = useMemo(() => {
     return segmentViewModels.map((viewModel) => viewModel.title).join(' > ');

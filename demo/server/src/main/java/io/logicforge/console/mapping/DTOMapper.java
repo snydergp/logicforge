@@ -67,9 +67,8 @@ public class DTOMapper {
   }
 
   public ProcessConfigDTO external(final ExtendedProcessConfig internal) {
-    return ProcessConfigDTO.builder().id(internal.getId())
-        .actions(
-            internal.getExecutables().stream().map(this::actionExternal).collect(Collectors.toList()))
+    return ProcessConfigDTO.builder().id(internal.getId()).actions(
+        internal.getExecutables().stream().map(this::actionExternal).collect(Collectors.toList()))
         .build();
   }
 
@@ -192,8 +191,8 @@ public class DTOMapper {
             .collect(Collectors.toMap(ActionListSpecDTO::getName, Function.identity())))
         .inputs(internal.getInputs().stream()
             .filter(parameterSpec -> parameterSpec instanceof ComputedInputSpec)
-            .map(parameterSpec -> this
-                .externalizeInputParameter((ComputedInputSpec) parameterSpec, typesByClass))
+            .map(parameterSpec -> this.externalizeInputParameter((ComputedInputSpec) parameterSpec,
+                typesByClass))
             .collect(Collectors.toMap(InputSpecDTO::getName, Function.identity())))
         .build();
   }
@@ -210,20 +209,18 @@ public class DTOMapper {
       final Map<Class<?>, String> typesByClass) {
     return FunctionSpecDTO.builder().name(internal.getName())
         .outputType(typesByClass.get(internal.getOutputType()))
-        .inputs(this.externalizeFunctionParameters(internal.getInputs(), typesByClass))
-        .build();
+        .inputs(this.externalizeFunctionParameters(internal.getInputs(), typesByClass)).build();
   }
 
-  private Map<String, InputSpecDTO> externalizeFunctionParameters(
-          final List<InputSpec> internal, final Map<Class<?>, String> typesByClass) {
+  private Map<String, InputSpecDTO> externalizeFunctionParameters(final List<InputSpec> internal,
+      final Map<Class<?>, String> typesByClass) {
 
     final Map<String, InputSpecDTO> out = new HashMap<>();
     internal.forEach(parameterSpec -> {
       final String name = parameterSpec.getName();
       if (parameterSpec instanceof ComputedInputSpec computedInputSpec) {
         out.put(name,
-            InputSpecDTO.builder()
-                .returnType(typesByClass.get(computedInputSpec.getType()))
+            InputSpecDTO.builder().returnType(typesByClass.get(computedInputSpec.getType()))
                 .multi(computedInputSpec.isMulti()).build());
       }
     });
@@ -231,7 +228,7 @@ public class DTOMapper {
   }
 
   private InputSpecDTO externalizeInputParameter(final ComputedInputSpec internal,
-                                                 final Map<Class<?>, String> typesByClass) {
+      final Map<Class<?>, String> typesByClass) {
     return InputSpecDTO.builder().name(internal.getName())
         .returnType(typesByClass.get(internal.getType())).multi(internal.isMulti()).build();
   }

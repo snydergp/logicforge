@@ -25,13 +25,7 @@ import {
   updateValueType,
   VariableModel,
 } from '../../redux/slices/editors';
-import {
-  functionTitleKey,
-  labelKey,
-  typeDescriptionKey,
-  typeEnumValueTitleKey,
-  typeTitleKey,
-} from '../../util';
+import { functionTitleKey, labelKey, typeEnumValueTitleKey, typeTitleKey } from '../../util';
 import { useTranslate } from '../I18n/I18n';
 import { StoreStructure } from '../../redux';
 import { useContent } from '../../hooks/useContent';
@@ -175,7 +169,7 @@ export function ValueEditor({ contentKey }: ValueEditorProps) {
     } else {
       const typeId = content.typeId as string;
       const typeSpec = engineSpec.types[typeId];
-      return typeSpec.values !== undefined && typeSpec.values.length > 0;
+      return !typeSpec.valueType || (typeSpec.values !== undefined && typeSpec.values.length > 0);
     }
   }, [content, engineSpec, mode]);
 
@@ -257,7 +251,16 @@ export function ValueEditor({ contentKey }: ValueEditorProps) {
         setShortcutMode(false);
       }
     },
-    [mode, setMode, setShortcutMode, dispatch, setInputValue, setOpen, availableVariables],
+    [
+      content.key,
+      mode,
+      setMode,
+      setShortcutMode,
+      dispatch,
+      setInputValue,
+      setOpen,
+      availableVariables,
+    ],
   );
 
   const handleKeyDown = useCallback(
@@ -328,7 +331,7 @@ export function ValueEditor({ contentKey }: ValueEditorProps) {
           open={open}
           inputValue={inputValue}
           value={inputValue}
-          isOptionEqualToValue={(option, value) => option.id === option.id}
+          isOptionEqualToValue={(option, value) => option.id === value.id}
           onKeyDown={handleKeyDown}
           fullWidth={true}
         />
@@ -384,7 +387,7 @@ function TypeSelector({
       }
       onSelectType(value.id);
     },
-    [contentKey, onSelectType],
+    [onSelectType],
   );
 
   return (
@@ -419,7 +422,6 @@ interface TypeDisplayProps {
 function TypeDisplay({ typeId }: TypeDisplayProps) {
   let translate = useTranslate();
   const title = translate(typeTitleKey(typeId));
-  const description = translate(typeDescriptionKey(typeId));
   return (
     <Box>
       <Typography
