@@ -8,6 +8,7 @@ import io.logicforge.console.model.persistence.ProcessConfigDocument;
 import io.logicforge.console.model.persistence.ValueConfigDocument;
 import io.logicforge.core.common.Pair;
 import io.logicforge.core.model.configuration.ActionConfig;
+import io.logicforge.core.model.configuration.BlockConfig;
 import io.logicforge.core.model.configuration.FunctionConfig;
 import io.logicforge.core.model.configuration.ExpressionConfig;
 import io.logicforge.core.model.configuration.ValueConfig;
@@ -33,9 +34,11 @@ public class DocumentMapper {
 
   public ProcessConfigDocument internal(final ExtendedProcessConfig external) {
     return ProcessConfigDocument.builder().id(external.getId()).actions(
-        external.getExecutables().stream().map(this::actionInternal).collect(Collectors.toList()))
+        external.getRootBlock().getExecutables().stream().map(this::actionInternal).collect(Collectors.toList()))
         .build();
   }
+
+  private BlockConfig
 
   private ActionConfigDocument actionInternal(final ActionConfig external) {
     return ActionConfigDocument.builder().name(external.getName())

@@ -1,16 +1,16 @@
 package io.logicforge.console.model.persistence;
 
-import lombok.Builder;
-import lombok.Data;
-
 import java.util.List;
 import java.util.Map;
+import lombok.Builder;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
 
+@EqualsAndHashCode(callSuper = true)
 @Data
 @Builder
-public class ActionConfigDocument {
+public class ActionConfigDocument extends ExecutableConfigDocument {
 
   private String name;
-  private List<ActionConfigDocument> actions;
   private Map<String, List<InputConfigDocument>> inputs;
 }

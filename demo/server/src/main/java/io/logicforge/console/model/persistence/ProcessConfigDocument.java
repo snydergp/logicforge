@@ -1,14 +1,14 @@
 package io.logicforge.console.model.persistence;
 
+import java.util.UUID;
 import lombok.Builder;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import org.bson.BsonDocument;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
-import java.util.List;
-import java.util.UUID;
-
+@EqualsAndHashCode(callSuper = true)
 @Data
 @Builder
 @Document
@@ -16,6 +16,7 @@ public class ProcessConfigDocument extends BsonDocument {
 
   @Id
   private UUID id;
-  private List<ActionConfigDocument> actions;
+  private String name;
+  private BlockConfigDocument rootBlock;
 
 }
