@@ -1,13 +1,13 @@
 import { VariableSpec } from '../../types';
 import React, { ReactElement, useMemo } from 'react';
 import { ListItem, ListItemButton } from '@mui/material';
-import { VariableDisplay } from '../VariableDisplay/VariableDisplay';
+import { VariableView } from '../VariableView/VariableView';
 
-export interface InitialVariablesDisplayProps {
+export interface InitialVariablesViewProps {
   initialVariables: VariableSpec[];
 }
 
-export function InitialVariablesDisplay({ initialVariables }: InitialVariablesDisplayProps) {
+export function InitialVariablesView({ initialVariables }: InitialVariablesViewProps) {
   return useMemo(() => {
     const out: ReactElement[] = [];
     for (let i = 0; i < initialVariables.length; i++) {
@@ -15,8 +15,8 @@ export function InitialVariablesDisplay({ initialVariables }: InitialVariablesDi
       const item = (
         <ListItem key={`initialVariable_${i}`}>
           <ListItemButton>
-            <VariableDisplay
-              typeId={initialVariable.typeId}
+            <VariableView
+              type={initialVariable.type}
               multi={initialVariable.multi}
               optional={initialVariable.optional}
               title={initialVariable.title}

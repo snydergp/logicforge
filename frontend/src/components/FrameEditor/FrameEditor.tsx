@@ -2,7 +2,6 @@ import { Provider, useSelector } from 'react-redux';
 import { Box, Container, Divider, Slide, Stack, SxProps, Theme, Typography } from '@mui/material';
 import {
   ActionContent,
-  ArgumentContent,
   Content,
   ContentType,
   ControlContent,
@@ -33,17 +32,17 @@ import {
   labelKey,
   processDescriptionKey,
   processTitleKey,
-  typeTitleKey,
 } from '../../util';
 import { Info } from '../Info/Info';
 import { ActionIcon, FunctionIcon, ProcessIcon } from '../Icons/Icons';
 import { getStore, StoreStructure } from '../../redux';
-import { InitialVariablesDisplay } from '../InitialVariablesDisplay/InitialVariablesDisplay';
+import { InitialVariablesView } from '../InitialVariablesView/InitialVariablesView';
 import { I18n, MessageTree, useTranslate } from '../I18n/I18n';
 import { FrameSection } from '../FrameSection/FrameSection';
 import { ExecutableBlockEditor } from '../ExecutableBlockEditor/ExecutableBlockEditor';
 import { VariableEditor } from '../VariableEditor/VariableEditor';
 import { ArgumentEditor } from '../ArgumentEditor/ArgumentEditor';
+import { TypeView } from '../TypeView/TypeView';
 
 enum FrameType {
   PROCESS,
@@ -88,7 +87,7 @@ function FrameEditorInternal() {
     if (selection !== undefined) {
       for (let i = 0; i < selection.length; i++) {
         const content = selection[i];
-        const contentType = content.type;
+        const contentType = content.differentiator;
         if (
           contentType === ContentType.PROCESS ||
           contentType === ContentType.ACTION ||
@@ -121,7 +120,7 @@ interface FrameProps {
 
 function Frame({ content }: FrameProps) {
   let renderedFrameContents = null;
-  switch (content.type) {
+  switch (content.differentiator) {
     case ContentType.PROCESS:
       renderedFrameContents = <ProcessFrame content={content} />;
       break;
@@ -138,7 +137,7 @@ function Frame({ content }: FrameProps) {
     flexShrink: 0,
   };
   // Since the process frame can nest deeply, allow it to expand as needed. Constrain all other frames.
-  if (content.type === ContentType.PROCESS) {
+  if (content.differentiator === ContentType.PROCESS) {
     sx.minWidth = FRAME_WIDTH;
   } else {
     sx.width = FRAME_WIDTH;
@@ -152,7 +151,7 @@ function Frame({ content }: FrameProps) {
         direction={'right'}
         in={true}
         container={containerRef.current}
-        appear={content.type !== ContentType.PROCESS}
+        appear={content.differentiator !== ContentType.PROCESS}
       >
         <Container>{renderedFrameContents}</Container>
       </Slide>
@@ -183,7 +182,7 @@ function ProcessFrame({ content }: ProcessFrameProps) {
     <Stack spacing={1}>
       <FrameHeading type={FrameType.PROCESS} {...{ title, description, subtitle }} />
       <FrameSection title={initVarsTitle}>
-        <InitialVariablesDisplay initialVariables={Object.values(specification.inputs)} />
+        <InitialVariablesView initialVariables={Object.values(specification.inputs)} />
       </FrameSection>
       <FrameSection title={actionsTitle}>
         <ExecutableBlockEditor contentKey={content.rootBlockKey as string} />
@@ -217,12 +216,9 @@ function ActionFrame({ content }: ActionFrameProps) {
     <Stack spacing={1}>
       <FrameHeading type={FrameType.ACTION} {...{ title, description, subtitle }} />
       {Object.entries(specification.inputs)?.map(([name, spec]) => {
-        const argContent = allContent[content.childKeyMap[name]] as ArgumentContent;
         const title = translate(actionParameterTitleKey(actionName, name));
         const description = translate(actionParameterDescriptionKey(actionName, name));
-        const subtitle =
-          (spec.multi ? translate(labelKey('multiple')) + ' ' : '') +
-          translate(typeTitleKey(argContent.calculatedTypeId as string));
+        const subtitle = <TypeView type={spec.type} multi={spec.multi} />;
         return (
           <FrameSection key={name} {...{ title, description, subtitle }}>
             <ArgumentEditor contentKey={content.childKeyMap[name]} />
@@ -257,9 +253,7 @@ export function FunctionFrame({ content }: FunctionFrameProps) {
       {Object.entries(specification.inputs)?.map(([name, spec]) => {
         const title = translate(functionParameterTitleKey(functionName, name));
         const description = translate(functionParameterDescriptionKey(functionName, name));
-        const subtitle =
-          (spec.multi ? translate(labelKey('multiple')) + ' ' : '') +
-          translate(typeTitleKey(spec.typeId));
+        const subtitle = <TypeView type={spec.type} multi={spec.multi} />;
         return (
           <FrameSection key={name} {...{ title, description, subtitle }}>
             <ArgumentEditor contentKey={content.childKeyMap[name]} />

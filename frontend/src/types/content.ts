@@ -6,10 +6,10 @@
 
 import { ActionSpec, ControlType, FunctionSpec, ProcessSpec } from './specification';
 import { ValidationError } from './validation';
+import { TypeIntersection } from './types';
 
 export type ArgumentName = string;
 export type ContentKey = string;
-export type TypeId = string;
 
 export enum ContentType {
   PROCESS = 'PROCESS',
@@ -34,13 +34,13 @@ export type IndexedContent = { [key: ContentKey]: Content };
 
 export type Content = {
   key: ContentKey;
-  type: ContentType;
+  differentiator: ContentType;
   parentKey: ContentKey | null;
   errors: ValidationError[];
 };
 
 export type ExpressionContent = Content & {
-  type:
+  differentiator:
     | ContentType.PROCESS
     | ContentType.ACTION
     | ContentType.FUNCTION
@@ -49,11 +49,11 @@ export type ExpressionContent = Content & {
     | ContentType.VALUE
     | ContentType.VARIABLE;
   multi: boolean;
-  typeId: TypeId | null;
+  type: TypeIntersection;
 };
 
 export type ExecutableContent = Content & {
-  type: ContentType.ACTION | ContentType.BLOCK | ContentType.CONTROL;
+  differentiator: ContentType.ACTION | ContentType.BLOCK | ContentType.CONTROL;
 };
 
 export type NodeContent = {
@@ -66,7 +66,7 @@ export type ListContent = {
 
 export type ProcessContent = NodeContent &
   ExpressionContent & {
-    type: ContentType.PROCESS;
+    differentiator: ContentType.PROCESS;
     name: string;
     rootBlockKey?: ContentKey;
     spec: ProcessSpec;
@@ -75,22 +75,22 @@ export type ProcessContent = NodeContent &
 
 export type ControlContent = ListContent &
   NodeContent & {
-    type: ContentType.CONTROL;
+    differentiator: ContentType.CONTROL;
     controlType: ControlType;
   };
 
 export type ConditionalContent = ControlContent & {
-  type: ContentType.CONTROL;
+  differentiator: ContentType.CONTROL;
   controlType: ControlType.CONDITIONAL;
 };
 
 export type BlockContent = ListContent & {
-  type: ContentType.BLOCK;
+  differentiator: ContentType.BLOCK;
 };
 
 export type ActionContent = NodeContent &
   ExpressionContent & {
-    type: ContentType.ACTION;
+    differentiator: ContentType.ACTION;
     name: string;
     spec: ActionSpec;
     variableContentKey?: ContentKey;
@@ -98,7 +98,7 @@ export type ActionContent = NodeContent &
 
 export type FunctionContent = NodeContent &
   ExpressionContent & {
-    type: ContentType.FUNCTION;
+    differentiator: ContentType.FUNCTION;
     spec: FunctionSpec;
     name: string;
   };
@@ -113,17 +113,20 @@ export type FunctionContent = NodeContent &
  * expressions to allow parent actions/functions to dynamically set their output types.
  */
 export type ArgumentContent = ListContent & {
-  type: ContentType.ARGUMENT;
+  differentiator: ContentType.ARGUMENT;
   allowMulti: boolean;
-  allowedTypeIds: TypeId[];
-  declaredTypeId: TypeId;
-  calculatedTypeId: TypeId | null;
+  /** An exhaustive list of all allowable TypeIds, including subtypes */
+  allowedType: TypeIntersection;
+  /** The mapped parameters declared type (generally just a single TypeId, but not necessarily) */
+  declaredType: TypeIntersection;
+  /** The potential return type(s), given the argument's current configuration */
+  calculatedType: TypeIntersection;
   propagateTypeChanges: boolean;
 };
 
 export type ValueContent = Content &
   ExpressionContent & {
-    type: ContentType.VALUE;
+    differentiator: ContentType.VALUE;
     value: string;
     availableFunctionIds: string[];
     availableVariables: { key: ContentKey; conditional: boolean }[];
@@ -131,14 +134,14 @@ export type ValueContent = Content &
 
 export type ReferenceContent = Content &
   ExpressionContent & {
-    type: ContentType.REFERENCE;
+    differentiator: ContentType.REFERENCE;
     variableKey: ContentKey;
     path: string[];
   };
 
 export type ConditionalReferenceContent = ListContent &
   ExpressionContent & {
-    type: ContentType.CONDITIONAL_REFERENCE;
+    differentiator: ContentType.CONDITIONAL_REFERENCE;
     /** Only undefined during construction */
     expressionKey?: ContentKey;
     /** Only undefined during construction */
@@ -147,7 +150,7 @@ export type ConditionalReferenceContent = ListContent &
 
 export type VariableContent = Content &
   ExpressionContent & {
-    type: ContentType.VARIABLE;
+    differentiator: ContentType.VARIABLE;
     title: string;
     description: string;
     basePath?: string;

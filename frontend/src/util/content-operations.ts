@@ -91,7 +91,7 @@ export function recurseDown(
     func(content);
   }
 
-  switch (content.type) {
+  switch (content.differentiator) {
     case ContentType.FUNCTION:
       const functionContent = content as FunctionContent;
       Object.entries(functionContent.childKeyMap).forEach(([, childKey]) => {

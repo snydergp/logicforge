@@ -28,10 +28,10 @@ export function App({}: AppProps) {
           (returnedProcess) => setProcess(returnedProcess),
           () =>
             setProcess({
-              type: ConfigType.PROCESS,
+              differentiator: ConfigType.PROCESS,
               name: 'example',
               returnExpression: [],
-              rootBlock: { type: ConfigType.BLOCK, executables: [] },
+              rootBlock: { differentiator: ConfigType.BLOCK, executables: [] },
             }),
         );
       });

@@ -1,4 +1,4 @@
-import { ContentKey, ContentType, ReferenceContent, VariableContent } from '../../types';
+import { ContentKey, ContentType, ReferenceContent, TypeId, VariableContent } from '../../types';
 import { useContent } from '../../hooks/useContent';
 import { useSelector } from 'react-redux';
 import { useTranslate } from '../I18n/I18n';
@@ -7,11 +7,11 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { typePropertyDescriptionKey, typePropertyTitleKey } from '../../util';
 import { Box, ListItemText } from '@mui/material';
 
-export interface RefEditorProps {
+export interface ReferenceEditorProps {
   contentKey: ContentKey;
 }
 
-export function RefEditor({ contentKey }: RefEditorProps) {
+export function ReferenceEditor({ contentKey }: ReferenceEditorProps) {
   const translate = useTranslate();
   const engineSpec = useSelector(selectEngineSpec);
 
@@ -24,13 +24,13 @@ export function RefEditor({ contentKey }: RefEditorProps) {
   const loadChildren = useCallback(
     (
       parentPath: string[],
-      parentTypeId: string,
+      parentTypeId: TypeId,
       parentOptional: boolean,
     ): PropertyReferenceViewModel[] => {
       const typeSpec = engineSpec.types[parentTypeId];
       return Object.entries(typeSpec.properties).map(([propertyName, propertySpec]) => {
         const path = [...parentPath, propertyName];
-        const typeId = propertySpec.typeId;
+        const [typeId] = propertySpec.type;
         const title = translate(typePropertyTitleKey(parentTypeId, propertyName));
         const description = translate(typePropertyDescriptionKey(parentTypeId, propertyName));
         const optional = parentOptional || propertySpec.optional;
@@ -52,11 +52,12 @@ export function RefEditor({ contentKey }: RefEditorProps) {
   useEffect(() => {
     const mapCopy = { ...nodeMap };
     let mapUpdated = false;
+    const [typeId] = variableContent.type;
     if (mapCopy[ROOT_VIEW_MODEL_KEY] === undefined) {
       mapCopy[ROOT_VIEW_MODEL_KEY] = {
         model: {
           path: [],
-          typeId: variableContent.typeId as string,
+          typeId,
           title: variableContent.title,
           description: variableContent.description,
           optional: variableContent.optional,
@@ -132,7 +133,7 @@ export function RefEditor({ contentKey }: RefEditorProps) {
 
 type PropertyReferenceModel = {
   path: string[];
-  typeId: string;
+  typeId: TypeId;
   title: string;
   description: string;
   optional: boolean;

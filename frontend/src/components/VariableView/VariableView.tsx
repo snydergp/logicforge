@@ -1,11 +1,13 @@
-import { labelKey, typeTitleKey } from '../../util';
+import { labelKey } from '../../util';
 import { Box, Stack, Typography } from '@mui/material';
 import React from 'react';
 import { useTranslate } from '../I18n/I18n';
 import { VariableIcon } from '../Icons/Icons';
+import { TypeIntersection } from '../../types';
+import { TypeView } from '../TypeView/TypeView';
 
-export interface VariableDisplayProps {
-  typeId: string;
+export interface VariableViewProps {
+  type: TypeIntersection;
   multi: boolean;
   optional: boolean;
   initial?: boolean;
@@ -13,33 +15,14 @@ export interface VariableDisplayProps {
   description?: string;
 }
 
-export function VariableDisplay({
-  typeId,
-  multi,
-  optional,
-  initial = false,
-  title,
-  description,
-}: VariableDisplayProps) {
+export function VariableView({ type, multi, optional, initial = false, title }: VariableViewProps) {
   const translate = useTranslate();
 
   const superTitleMain = translate(labelKey(initial ? 'initial-variable' : 'sets-variable'));
-  const optionalLabel = optional ? labelKey('optional') + ' ' : '';
-  const multiLabel = multi ? translate(labelKey('multiple')) + ' ' : '';
-  const typeLabel = translate(typeTitleKey(typeId));
   const superTitle = (
     <Typography variant={'body2'} sx={{ width: '100%' }}>
       {superTitleMain}&nbsp;
-      <Typography
-        component={'span'}
-        variant={'body2'}
-        display={'inline'}
-        color={(theme) => theme.palette.text.secondary}
-      >
-        ({optionalLabel}
-        {multiLabel}
-        {typeLabel})
-      </Typography>
+      <TypeView {...{ type, multi, optional }} />
     </Typography>
   );
   const mainTitle = (

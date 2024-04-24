@@ -4,79 +4,59 @@
  */
 
 import { WellKnownType } from '../constant/well-known-type';
-
-export enum SpecType {
-  ENGINE = 'ENGINE',
-  TYPE = 'TYPE',
-  TYPE_PROPERTY = 'TYPE_PROPERTY',
-  PROCESS = 'PROCESS',
-  ACTION = 'ACTION',
-  FUNCTION = 'FUNCTION',
-  VARIABLE = 'VARIABLE',
-  EXPRESSION = 'EXPRESSION',
-  CONTROL = 'CONTROL',
-}
+import { TypeId, TypeIntersection } from './types';
 
 export enum ControlType {
   CONDITIONAL = 'CONDITIONAL',
 }
 
 export type TypePropertySpec = {
-  type: SpecType.TYPE_PROPERTY;
   name: string;
-  typeId: string;
+  type: TypeIntersection;
   multi: boolean;
   optional: boolean;
 };
 
 export type TypeSpec = {
-  type: SpecType.TYPE;
-  id: string;
-  supertypes: string[];
+  supertypes: TypeId[];
   values?: string[];
   properties: { [key: string]: TypePropertySpec };
   valueType: boolean;
 };
 
-export type FunctionSpec = {
-  type: SpecType.FUNCTION;
-  inputs: { [key: string]: ExpressionSpec };
-  output: ExpressionSpec;
-  metadata: { [key: string]: string };
+export type ExpressionSpec = {
+  type: TypeId[];
+  multi: boolean;
 };
 
-export type VariableSpec = {
-  type: SpecType.VARIABLE;
-  typeId: string;
-  multi: boolean;
+export type VariableSpec = ExpressionSpec & {
   title: string;
   description?: string;
   optional: boolean;
 };
 
-export type ExpressionSpec = {
-  type: SpecType.EXPRESSION;
-  typeId: string;
-  multi: boolean;
+export type InputSpec = ExpressionSpec & {
+  metadata: { [key: string]: string };
+};
+
+export type FunctionSpec = {
+  inputs: { [key: string]: InputSpec };
+  output: ExpressionSpec;
   metadata: { [key: string]: string };
 };
 
 export type ActionSpec = {
-  type: SpecType.ACTION;
-  inputs: { [key: string]: ExpressionSpec };
+  inputs: { [key: string]: InputSpec };
   output?: ExpressionSpec;
   metadata: { [key: string]: string };
 };
 
 export type ProcessSpec = {
-  type: SpecType.PROCESS;
-  name: string;
   inputs: { [key: string]: VariableSpec };
   output?: ExpressionSpec;
 };
 
 export type EngineSpec = {
-  type: SpecType.ENGINE;
   processes: { [key: string]: ProcessSpec };
   actions: { [key: string]: ActionSpec };
   functions: { [key: string]: FunctionSpec };
@@ -85,9 +65,8 @@ export type EngineSpec = {
 };
 
 export type ControlSpec = {
-  type: SpecType.CONTROL;
   controlType: ControlType;
-  inputs: { [key: string]: ExpressionSpec };
+  inputs: { [key: string]: InputSpec };
 };
 
 /**
@@ -103,12 +82,10 @@ export const PROCESS_RETURN_PROP = 'return';
 // controls are not extensible. This hard-coded type provides the structure needed to reuse the
 // input code used by actions/functions for controls
 export const CONDITIONAL_CONTROL_SPEC: ControlSpec = {
-  type: SpecType.CONTROL,
   controlType: ControlType.CONDITIONAL,
   inputs: {
     [CONDITIONAL_CONDITION_PROP]: {
-      type: SpecType.EXPRESSION,
-      typeId: WellKnownType.BOOLEAN,
+      type: [WellKnownType.BOOLEAN],
       multi: false,
       metadata: {},
     },

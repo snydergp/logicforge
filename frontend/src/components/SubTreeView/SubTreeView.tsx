@@ -13,6 +13,7 @@ import {
   ExpressionSpec,
   FunctionContent,
   ReferenceContent,
+  TypeIntersection,
   ValueContent,
   VariableContent,
 } from '../../types';
@@ -25,11 +26,11 @@ import {
   functionParameterTitleKey,
   functionTitleKey,
   labelKey,
-  typeTitleKey,
 } from '../../util';
 import { isWellKnownNumberType, WellKnownType } from '../../constant/well-known-type';
 import { useContent } from '../../hooks/useContent';
 import { DoubleArrowRawSVG } from '../Icons/Icons';
+import { TypeView } from '../TypeView/TypeView';
 
 export interface SubTreeViewProps {
   contentKey: string;
@@ -83,8 +84,8 @@ function FunctionTreeView({ content, allContent, root }: FunctionTreeViewProps) 
   const functionSpec = useSelector(selectFunctionSpec(functionName));
   const title = translate(functionTitleKey(functionName));
   const description = translate(functionDescriptionKey(functionName));
-  const { typeId, multi } = content;
-  const labelProps = { title, description, typeId, multi };
+  const { type, multi } = content;
+  const labelProps = { title, description, type, multi };
 
   const children = Object.entries(content.childKeyMap).map(([paramName, argKey]) => {
     const paramTitle = translate(functionParameterTitleKey(functionName, paramName));
@@ -115,7 +116,7 @@ function ReferenceTreeView({ content, allContent }: ContentProps<ReferenceConten
   const translate = useTranslate();
   const referenceLabel = translate(labelKey('reference'));
   const description = '';
-  const typeId = content.typeId;
+  const type = content.type;
   const multi = content.multi;
 
   const variableLabel = translate(labelKey('variable'));
@@ -128,7 +129,7 @@ function ReferenceTreeView({ content, allContent }: ContentProps<ReferenceConten
 
   return (
     <Box display={'inline-grid'}>
-      <LabelWithTypeView {...{ title: referenceLabel, description, typeId, multi }} />
+      <LabelWithTypeView {...{ title: referenceLabel, description, type, multi }} />
       <ChildWrapper>
         <ArgList>
           <li key="reference">
@@ -164,7 +165,7 @@ function ReferenceTreeView({ content, allContent }: ContentProps<ReferenceConten
 }
 
 function ValueTreeView({ content }: ContentProps<ValueContent>) {
-  let typeId = content.typeId;
+  let [typeId] = content.type;
   if (typeId !== null && Object.values(WellKnownType as object).includes(typeId)) {
     if (typeId === WellKnownType.STRING) {
       return (
@@ -188,6 +189,7 @@ function ValueTreeView({ content }: ContentProps<ValueContent>) {
             {content.value}
           </Typography>
           &quot;
+          <TypeView type={content.type} />
         </Typography>
       );
     } else if (isWellKnownNumberType(typeId)) {
@@ -200,6 +202,7 @@ function ValueTreeView({ content }: ContentProps<ValueContent>) {
           })}
         >
           {content.value}
+          <TypeView type={content.type} />
         </Typography>
       );
     } else if (typeId === WellKnownType.BOOLEAN) {
@@ -213,11 +216,17 @@ function ValueTreeView({ content }: ContentProps<ValueContent>) {
           })}
         >
           {content.value}
+          <TypeView type={content.type} />
         </Typography>
       );
     }
   }
-  return <Typography>{content.value}</Typography>;
+  return (
+    <Typography>
+      {content.value}
+      <TypeView type={content.type} />
+    </Typography>
+  );
 }
 
 interface ArgumentTreeViewProps extends ContentProps<ArgumentContent> {
@@ -238,7 +247,7 @@ function ArgumentTreeView({
   if (single) {
     const expressionKey = content.childKeys[0];
     const expressionContent = allContent[expressionKey];
-    if (expressionContent.type === ContentType.VALUE) {
+    if (expressionContent.differentiator === ContentType.VALUE) {
       inline = true;
     }
   }
@@ -249,7 +258,7 @@ function ArgumentTreeView({
           <LabelWithTypeView
             title={title}
             description={description}
-            typeId={expressionSpec.typeId}
+            type={expressionSpec.type}
             multi={expressionSpec.multi}
           />
         </Box>
@@ -286,7 +295,7 @@ interface ExpressionTreeViewProps extends ContentProps<ExpressionContent> {
 }
 
 function ExpressionTreeView({ content, allContent, expressionSpec }: ExpressionTreeViewProps) {
-  switch (content.type) {
+  switch (content.differentiator) {
     case ContentType.FUNCTION:
       return (
         <FunctionTreeView
@@ -306,34 +315,18 @@ function ExpressionTreeView({ content, allContent, expressionSpec }: ExpressionT
 interface LabelWithTypeViewProps {
   title: string;
   description: string;
-  typeId: string | null;
+  type: TypeIntersection;
   multi: boolean;
 }
 
-function LabelWithTypeView({ title, description, typeId, multi }: LabelWithTypeViewProps) {
+function LabelWithTypeView({ title, description, type, multi }: LabelWithTypeViewProps) {
   const translate = useTranslate();
 
-  const multiLabel = multi ? translate(labelKey('multiple')) + ' ' : '';
-  const typeLabel = typeId !== null ? translate(typeTitleKey(typeId)) : null;
   return (
     <Typography fontSize={(theme) => theme.typography.body2.fontSize}>
       {title}
-      {typeLabel !== null && (
-        <>
-          &nbsp;
-          <Typography
-            component={'span'}
-            variant={'body2'}
-            display={'inline'}
-            color={(theme) => theme.palette.text.secondary}
-            sx={{ fontVariant: 'all-small-caps' }}
-          >
-            ({multiLabel}
-            {typeLabel})
-          </Typography>
-        </>
-      )}
-      :
+      &nbsp;
+      <TypeView {...{ type, multi }} />
     </Typography>
   );
 }

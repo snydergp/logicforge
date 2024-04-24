@@ -11,9 +11,9 @@ export function useContent<TYPE extends Content>(
     throw new Error(`Attempted to load missing content, key: ${contentKey}`);
   }
   if (contentType !== undefined) {
-    if (content.type !== contentType) {
+    if (content.differentiator !== contentType) {
       throw new Error(
-        `Expected content with key ${contentKey} to be of type ${contentType} but found ${content.type}`,
+        `Expected content with key ${contentKey} to be of type ${contentType} but found ${content.differentiator}`,
       );
     }
     return content as TYPE;

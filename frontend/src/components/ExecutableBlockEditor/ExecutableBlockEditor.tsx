@@ -50,7 +50,7 @@ import {
   labelKey,
 } from '../../util';
 import { ActionIcon, AddIcon, ConditionalIcon, ResultIcon } from '../Icons/Icons';
-import { VariableDisplay } from '../VariableDisplay/VariableDisplay';
+import { VariableView } from '../VariableView/VariableView';
 import { Search } from '@mui/icons-material';
 import { ArgumentEditor } from '../ArgumentEditor/ArgumentEditor';
 import { ContextActions } from '../ContextActions/ContextActions';
@@ -63,7 +63,7 @@ const ACTIONS_GROUP_ID = 'actions';
 type ExecutableSelector = (
   parentKey: string,
   name: string,
-  type: ContentType.CONTROL | ContentType.ACTION,
+  differentiator: ContentType.CONTROL | ContentType.ACTION,
 ) => void;
 
 export interface ExecutableBlockEditorProps {
@@ -134,8 +134,8 @@ function Block({ contentKey, handlers, draggedItemKey }: BlockProps) {
   if (content === undefined) {
     throw new Error(`Missing content: ${contentKey}`);
   }
-  if (content.type !== ContentType.BLOCK) {
-    throw new Error(`Unexpected content type: ${content.type}`);
+  if (content.differentiator !== ContentType.BLOCK) {
+    throw new Error(`Unexpected content type: ${content.differentiator}`);
   }
   const blockContent = content as BlockContent;
 
@@ -229,12 +229,15 @@ function Executable({ contentKey, handlers, draggedItemKey }: ExecutableProps) {
     // is deleted. To prevent an error in this scenario, returning an empty node
     return <></>;
   }
-  if (content.type !== ContentType.ACTION && content.type !== ContentType.CONTROL) {
-    throw new Error(`Unexpected content type: ${content.type}`);
+  if (
+    content.differentiator !== ContentType.ACTION &&
+    content.differentiator !== ContentType.CONTROL
+  ) {
+    throw new Error(`Unexpected content type: ${content.differentiator}`);
   }
   return (
     <ListItem key={contentKey} sx={{ px: 1 }}>
-      {content.type === ContentType.ACTION ? (
+      {content.differentiator === ContentType.ACTION ? (
         <ActionItem content={content as ActionContent} draggedItemKey={draggedItemKey} />
       ) : (
         <ConditionalItem
@@ -327,7 +330,11 @@ function ConditionalItem({ content, handlers, draggedItemKey }: ConditionalItemP
     <ExecutableWrapper>
       <ListItemButton onClick={handleClick}>
         <Stack direction={'column'} width={'100%'}>
-          <ListItemButton disableRipple disableTouchRipple sx={{ p: 0, pointerEvents: 'none' }}>
+          <ListItemButton
+            disableRipple
+            disableTouchRipple
+            sx={{ p: 0, ':hover': { backgroundColor: 'inherit' } }}
+          >
             <ConditionalIcon sx={{ mr: 1 }} style={{ transform: 'rotate(90deg)' }} />
             <ListItemText primary={`Conditional ${content.key}`} secondary={<span>&nbsp;</span>} />
             <ContextActions contentKey={content.key} />
@@ -368,13 +375,13 @@ interface VariableDisplayWrapperProps {
 
 function VariableDisplayWrapper({ contentKey }: VariableDisplayWrapperProps) {
   const content = useSelector(selectContentByKey(contentKey));
-  if (content === undefined || content.type !== ContentType.VARIABLE) {
+  if (content === undefined || content.differentiator !== ContentType.VARIABLE) {
     return null;
   }
   const variableContent = content as VariableContent;
   return (
-    <VariableDisplay
-      typeId={variableContent.typeId as string}
+    <VariableView
+      type={variableContent.type}
       multi={variableContent.multi}
       optional={false}
       title={variableContent.title}
@@ -490,8 +497,8 @@ function ExecutableSelectionDialog(props: ExecutableSelectionDialogProps) {
   );
 
   const handleSelection: ExecutableSelector = useCallback(
-    (parentKey: string, name: string, type: ContentType.CONTROL | ContentType.ACTION) => {
-      dispatch(addExecutable(parentKey, name, type));
+    (parentKey: string, name: string, differentiator: ContentType.CONTROL | ContentType.ACTION) => {
+      dispatch(addExecutable(parentKey, name, differentiator));
     },
     [dispatch],
   );

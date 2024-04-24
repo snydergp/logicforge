@@ -40,6 +40,9 @@ import {
   ProcessContent,
   ReferenceConfig,
   ReferenceContent,
+  TypeId,
+  TypeIntersection,
+  TypeSystem,
   unsatisfiedInputTypeMismatch,
   validateValue,
   ValidationError,
@@ -47,14 +50,19 @@ import {
   ValueContent,
   VariableConfig,
   VariableContent,
+  VOID_TYPE,
 } from '../../types';
 import {
+  doesTypeMatchRequirements,
+  expandType,
   generateTypeSystem,
+  isTypeIntersectionASubset,
   nextKey,
   recurseDown,
   recurseUp,
   resolveContent,
-  TypeSystem,
+  typeEquals,
+  typeIntersection,
 } from '../../util';
 import { WellKnownType } from '../../constant/well-known-type';
 import { MetadataProperties } from '../../constant/metadata-properties';
@@ -74,17 +82,16 @@ const editorsSlice = createSlice({
       reducer(state, action: PayloadAction<LogicForgeConfig, string, { engineSpec: EngineSpec }>) {
         const config = action.payload;
         const { engineSpec } = action.meta;
-        state.engineSpec = engineSpec;
         const contentStore: ContentStore = {
           count: 0,
           indexedContent: {},
           rootConfigKey: '',
         };
-        state.contentStore = contentStore;
-        state.typeSystem = generateTypeSystem(engineSpec.types);
-        loadRootContent(config, state);
-        state.selection = contentStore.rootConfigKey;
-        return state;
+        const typeSystem = generateTypeSystem(engineSpec.types);
+        const initialState: EditorState = { engineSpec, contentStore, typeSystem, selection: '' };
+        loadRootContent(config, initialState);
+        initialState.selection = contentStore.rootConfigKey;
+        return initialState;
       },
       prepare(payload: ProcessConfig, engineSpec: EngineSpec) {
         return { payload, meta: { engineSpec } };
@@ -155,12 +162,12 @@ const editorsSlice = createSlice({
           string,
           {
             name: string;
-            type: ContentType.CONTROL | ContentType.ACTION;
+            differentiator: ContentType.CONTROL | ContentType.ACTION;
           }
         >,
       ) {
         const name = action.meta.name;
-        const type = action.meta.type;
+        const type = action.meta.differentiator;
         const parentKey = action.payload;
         const { engineSpec } = state;
         let config;
@@ -173,8 +180,12 @@ const editorsSlice = createSlice({
         state.selection = addNewExecutable(parentKey, config, state);
         return state;
       },
-      prepare(payload: string, name: string, type: ContentType.CONTROL | ContentType.ACTION) {
-        return { payload, meta: { name, type } };
+      prepare(
+        payload: string,
+        name: string,
+        differentiator: ContentType.CONTROL | ContentType.ACTION,
+      ) {
+        return { payload, meta: { name, differentiator } };
       },
     },
     reorderInput: {
@@ -422,11 +433,11 @@ function addChildKey(content: ListContent, key: string, index: number) {
 function newActionConfigForSpec(actionName: string, spec: ActionSpec): ActionConfig {
   const inputArgumentConfigs: { [key: string]: ExpressionConfig[] } = {};
   Object.entries(spec.inputs).forEach(([key]) => {
-    inputArgumentConfigs[key] = [{ type: ConfigType.VALUE, value: '' }];
+    inputArgumentConfigs[key] = [{ differentiator: ConfigType.VALUE, value: '' }];
   });
 
   return {
-    type: ConfigType.ACTION,
+    differentiator: ConfigType.ACTION,
     name: actionName,
     arguments: inputArgumentConfigs,
   };
@@ -434,19 +445,19 @@ function newActionConfigForSpec(actionName: string, spec: ActionSpec): ActionCon
 
 function newConditionalConfig(): ConditionalConfig {
   return {
-    type: ConfigType.CONTROL_STATEMENT,
+    differentiator: ConfigType.CONTROL_STATEMENT,
     controlType: ControlType.CONDITIONAL,
     conditionalExpression: {
-      type: ConfigType.VALUE,
+      differentiator: ConfigType.VALUE,
       value: '',
     },
     blocks: [
       {
-        type: ConfigType.BLOCK,
+        differentiator: ConfigType.BLOCK,
         executables: [],
       },
       {
-        type: ConfigType.BLOCK,
+        differentiator: ConfigType.BLOCK,
         executables: [],
       },
     ],
@@ -466,8 +477,8 @@ function doDeleteItem(keyToDelete: string, state: EditorState) {
   const contentToDelete = contentStore.indexedContent[keyToDelete];
   deleteListItem(keyToDelete, contentStore);
   if (
-    contentToDelete.type !== ContentType.ACTION &&
-    contentToDelete.type !== ContentType.CONTROL &&
+    contentToDelete.differentiator !== ContentType.ACTION &&
+    contentToDelete.differentiator !== ContentType.CONTROL &&
     typeof contentToDelete.parentKey === 'string'
   ) {
     const parentArgContent = resolveContent<ArgumentContent>(
@@ -479,7 +490,7 @@ function doDeleteItem(keyToDelete: string, state: EditorState) {
       // when deleting a single argument expression, replace it with a new empty value
       const replacementValue = constructValue(
         {
-          type: ConfigType.VALUE,
+          differentiator: ConfigType.VALUE,
           value: '',
         },
         contentToDelete.parentKey,
@@ -494,29 +505,29 @@ function doAddInputValue(parentKey: string, value: string, state: EditorState) {
   const { contentStore, engineSpec } = state;
   const indexedContent = contentStore.indexedContent;
   const argumentContent = resolveContent<ArgumentContent>(parentKey, indexedContent);
-  const { allowMulti, declaredTypeId } = argumentContent;
-  let typeId = declaredTypeId;
-  if (typeId === WellKnownType.OBJECT) {
+  const { allowMulti, declaredType } = argumentContent;
+  let type = declaredType;
+  if (typeEquals(type, [WellKnownType.OBJECT])) {
     // default new values of unspecified type to string input mode
-    typeId = WellKnownType.STRING;
+    type = [WellKnownType.STRING];
   }
   const availableFunctionIds = Object.keys(
-    findFunctionsMatchingTypeConstraints(typeId, allowMulti, state),
+    findFunctionsMatchingTypeConstraints(type, allowMulti, state),
   );
   const availableVariables = findAvailableVariables(parentKey, state).map((variable) => {
     return { key: variable.key, conditional: variable.conditional };
   });
 
   const valueContent = {
-    type: ContentType.VALUE,
+    differentiator: ContentType.VALUE,
     key: nextKey(contentStore),
     parentKey,
     multi: false,
     value,
-    typeId,
+    type: type,
     availableFunctionIds,
     availableVariables,
-    errors: validateValue(value, typeId, engineSpec),
+    errors: validateValue(value, type, engineSpec),
   } as ValueContent;
   indexedContent[valueContent.key] = valueContent;
 
@@ -542,24 +553,20 @@ function replaceValueWithReference(
   const variableContent = resolveContent<VariableContent>(variableKey, indexedContent);
   const referenceKey = nextKey(contentStore);
   const referencePath = [...(path !== undefined ? [path] : [])];
-  const { typeId, multi } = resolveTypeForReference(variableKey, referencePath, state);
-  parentArgContent.calculatedTypeId = typeId;
+  const { type, multi } = resolveTypeForReference(variableKey, referencePath, state);
+  parentArgContent.calculatedType = typeIntersection(parentArgContent.calculatedType, type);
   const errors: ValidationError[] = [];
-  if (
-    typeId !== parentArgContent.declaredTypeId &&
-    (typeSystem.descendants[parentArgContent.declaredTypeId] === undefined ||
-      typeSystem.descendants[parentArgContent.declaredTypeId].indexOf(typeId) < 0)
-  ) {
-    errors.push(unsatisfiedInputTypeMismatch(parentArgContent.declaredTypeId, typeId));
+  if (!doesTypeMatchRequirements(type, parentArgContent.declaredType, typeSystem)) {
+    errors.push(unsatisfiedInputTypeMismatch(parentArgContent.declaredType, type));
   }
   indexedContent[referenceKey] = {
     key: referenceKey,
-    type: ContentType.REFERENCE,
+    differentiator: ContentType.REFERENCE,
     parentKey: existingValueContent.parentKey,
     variableKey,
     path: referencePath,
     errors, // TODO validate initial state
-    typeId,
+    type: type,
     multi,
   } as ReferenceContent;
   const oldIndex = parentArgContent.childKeys.indexOf(valueKey);
@@ -586,11 +593,11 @@ function replaceValueWithFunction(valueKey: ContentKey, functionName: string, st
   const functionKey = nextKey(contentStore);
   const functionContent: FunctionContent = {
     key: functionKey,
-    type: ContentType.FUNCTION,
+    differentiator: ContentType.FUNCTION,
     parentKey: existingArgContent.key,
     name: functionName,
     spec: functionSpec,
-    typeId: functionSpec.output.typeId,
+    type: functionSpec.output.type,
     multi: functionSpec.output.multi,
     errors: [],
     childKeyMap: {},
@@ -603,44 +610,50 @@ function replaceValueWithFunction(valueKey: ContentKey, functionName: string, st
 
   Object.entries(functionSpec.inputs).forEach(([inputName, inputSpec]) => {
     const argKey = nextKey(contentStore);
-    const typeId = inputSpec.typeId;
+    const type = inputSpec.type;
     contentStore.indexedContent[argKey] = {
       key: argKey,
-      type: ContentType.ARGUMENT,
+      differentiator: ContentType.ARGUMENT,
       parentKey: functionKey,
-      errors: [],
+      errors: [] as ValidationError[],
       allowMulti: inputSpec.multi,
-      declaredTypeId: typeId,
-      calculatedTypeId: typeId,
+      declaredType: type,
+      calculatedType: type,
       propagateTypeChanges: inputName === dynamicReturnProperty,
-      allowedTypeIds: [...(typeSystem.descendants[typeId] || []), typeId],
-      childKeys: [],
+      allowedType: expandType(type, typeSystem),
+      childKeys: [] as ContentKey[],
     } as ArgumentContent;
     functionContent.childKeyMap[inputName] = argKey;
 
     doAddInputValue(argKey, '', state);
   });
+
   if (selection === valueKey) {
     state.selection = functionKey;
   }
+
+  propagateTypeUpdate(functionKey, state);
 }
 
 function propagateTypeUpdate(expressionKey: string, state: EditorState) {
   const { contentStore } = state;
   let indexedContent = contentStore.indexedContent;
   const updatedExpression = resolveContent<ExpressionContent>(expressionKey, indexedContent);
-  const typeId = updatedExpression.typeId as string;
+  const type = updatedExpression.type;
   const multi = updatedExpression.multi;
   const parentArgument = resolveContent<ArgumentContent>(
     updatedExpression.parentKey as string,
     indexedContent,
   );
-  parentArgument.calculatedTypeId = typeId;
+  parentArgument.calculatedType = type;
   const parent = resolveContent<FunctionContent | ActionContent>(
     parentArgument.parentKey as string,
     indexedContent,
   );
-  if (parentArgument.allowedTypeIds.indexOf(typeId) < 0 || (multi && !parentArgument.allowMulti)) {
+  if (
+    isTypeIntersectionASubset(parentArgument.allowedType, type) ||
+    (multi && !parentArgument.allowMulti)
+  ) {
     ensureErrorByCode(parent.errors, {
       code: ErrorCode.UNSATISFIED_INPUT_TYPE_MISMATCH,
       level: ErrorLevel.ERROR,
@@ -650,9 +663,9 @@ function propagateTypeUpdate(expressionKey: string, state: EditorState) {
     removeErrorsByCode(parent.errors, ErrorCode.UNSATISFIED_INPUT_TYPE_MISMATCH);
     // continue propagation upward only if there are no errors
     if (parentArgument.propagateTypeChanges) {
-      parent.typeId = typeId;
+      parent.type = type;
       parent.multi = multi;
-      if (parent.type === ContentType.FUNCTION) {
+      if (parent.differentiator === ContentType.FUNCTION) {
         propagateTypeUpdate(parent.key, state);
       } else {
         const actionParent = parent as ActionContent;
@@ -661,11 +674,11 @@ function propagateTypeUpdate(expressionKey: string, state: EditorState) {
             actionParent.variableContentKey as string,
             indexedContent,
           );
-          variableContent.typeId = typeId;
+          variableContent.type = type;
           variableContent.multi = multi;
           variableContent.referenceKeys.forEach((referenceKey: ContentKey) => {
             const referenceContent = resolveContent<ReferenceContent>(referenceKey, indexedContent);
-            referenceContent.typeId = typeId;
+            referenceContent.type = type;
             referenceContent.multi = multi;
             propagateTypeUpdate(referenceKey, state);
           });
@@ -678,15 +691,15 @@ function propagateTypeUpdate(expressionKey: string, state: EditorState) {
 function doUpdateValue(value: string, key: string, state: EditorState) {
   const { contentStore, engineSpec } = state;
   const valueContent = resolveContent<ValueContent>(key, contentStore.indexedContent);
-  const { typeId, errors } = valueContent;
+  const { type, errors } = valueContent;
   valueContent.value = value;
-  const newErrors = validateValue(value, typeId as string, engineSpec);
+  const newErrors = validateValue(value, type, engineSpec);
   // Replace any existing INVALID_VALUE errors with any new errors found
   removeErrorsByCode(errors, ErrorCode.INVALID_VALUE);
   errors.push(...newErrors);
 }
 
-function doUpdateValueType(newTypeId: string, key: string, state: EditorState) {
+function doUpdateValueType(newTypeId: TypeId, key: ContentKey, state: EditorState) {
   const { contentStore, engineSpec } = state;
   const indexedContent = contentStore.indexedContent;
   const valueContent = resolveContent<ValueContent>(key, indexedContent);
@@ -695,14 +708,14 @@ function doUpdateValueType(newTypeId: string, key: string, state: EditorState) {
     indexedContent,
   );
   const { value, errors } = valueContent;
-  valueContent.typeId = newTypeId;
-  const newErrors = validateValue(value, newTypeId, engineSpec);
+  valueContent.type = [newTypeId];
+  const newErrors = validateValue(value, valueContent.type, engineSpec);
   // Replace any existing INVALID_VALUE errors with any new errors found
   removeErrorsByCode(errors, ErrorCode.INVALID_VALUE);
   errors.push(...newErrors);
   // QUESTION: should functions ignore the selected type restriction?
   valueContent.availableFunctionIds = Object.keys(
-    findFunctionsMatchingTypeConstraints(newTypeId, argumentContent.allowMulti, state),
+    findFunctionsMatchingTypeConstraints(valueContent.type, argumentContent.allowMulti, state),
   );
   propagateTypeUpdate(key, state);
 }
@@ -745,25 +758,27 @@ function ensureErrorByCode(errors: ValidationError[], error: ValidationError) {
   }
 }
 
-function findFunctionsMatchingTypeConstraints(typeId: string, multi: boolean, state: EditorState) {
+function findFunctionsMatchingTypeConstraints(
+  type: TypeIntersection,
+  multi: boolean,
+  state: EditorState,
+) {
   const { engineSpec, typeSystem } = state;
   const matchingFunctions: { [key: string]: FunctionSpec } = {};
   if (typeSystem !== undefined && engineSpec !== undefined) {
-    const subtypes = typeSystem.descendants[typeId];
-    Object.entries(engineSpec.functions).forEach(([key, functionSpec]) => {
-      const functionOutput = functionSpec.output;
-      const functionOutputTypeId = functionOutput.typeId;
-      // function output must be of the same type or able to be converted/coerced into the type
-      if (
-        typeId === functionOutputTypeId ||
-        (subtypes !== undefined && subtypes.indexOf(functionOutputTypeId) >= 0)
-      ) {
-        const functionOutputMultiple = functionOutput.multi;
-        // functions with multi outputs are only allowed if the required type is multi itself
-        if (multi || !functionOutputMultiple) {
-          matchingFunctions[key] = functionSpec;
+    type.forEach((typeId) => {
+      Object.entries(engineSpec.functions).forEach(([key, functionSpec]) => {
+        const functionOutput = functionSpec.output;
+        const functionOutputTypeId = functionOutput.type;
+        // function output must be of the same type or able to be converted/coerced into the type
+        if (doesTypeMatchRequirements(functionOutputTypeId, type, typeSystem)) {
+          const functionOutputMultiple = functionOutput.multi;
+          // functions with multi outputs are only allowed if the required type is multi itself
+          if (multi || !functionOutputMultiple) {
+            matchingFunctions[key] = functionSpec;
+          }
         }
-      }
+      });
     });
   }
   return matchingFunctions;
@@ -783,7 +798,8 @@ function findAvailableVariables(key: string, state: EditorState): VariableModel[
     indexedContent,
     (content) => {
       if (
-        (content.type === ContentType.ACTION || content.type === ContentType.CONTROL) &&
+        (content.differentiator === ContentType.ACTION ||
+          content.differentiator === ContentType.CONTROL) &&
         rootActionContent === undefined
       ) {
         rootActionContent = content as ExecutableContent;
@@ -842,17 +858,17 @@ function findAvailableVariables(key: string, state: EditorState): VariableModel[
     return allChildKeys
       .map((key) => {
         const executableContent = resolveContent<ExecutableContent>(key, indexedContent);
-        if (executableContent.type === ContentType.ACTION) {
+        if (executableContent.differentiator === ContentType.ACTION) {
           const actionContent = executableContent as ActionContent;
           return getActionVariable(actionContent, contentStore, true);
-        } else if (executableContent.type === ContentType.CONTROL) {
+        } else if (executableContent.differentiator === ContentType.CONTROL) {
           const controlContent = executableContent as ControlContent;
           if (controlContent.controlType !== ControlType.CONDITIONAL) {
             throw new Error(`Unsupported control type: ${controlContent.controlType}`);
           }
           return collectControlVariables(controlContent as ConditionalContent, contentStore);
         } else {
-          throw new Error(`Unexpected child type: ${executableContent.type}`);
+          throw new Error(`Unexpected child type: ${executableContent.differentiator}`);
         }
       })
       .filter((value) => value !== undefined)
@@ -881,7 +897,7 @@ function findAvailableVariables(key: string, state: EditorState): VariableModel[
         parentBlock.childKeys[i],
         indexedContent,
       );
-      if (siblingContent.type === ContentType.ACTION) {
+      if (siblingContent.differentiator === ContentType.ACTION) {
         const variableModel = getActionVariable(
           siblingContent as ActionContent,
           contentStore,
@@ -890,7 +906,7 @@ function findAvailableVariables(key: string, state: EditorState): VariableModel[
         if (variableModel !== undefined) {
           variables.push(variableModel);
         }
-      } else if (siblingContent.type === ContentType.CONTROL) {
+      } else if (siblingContent.differentiator === ContentType.CONTROL) {
         const nestedVariables = collectControlVariables(
           siblingContent as ControlContent,
           contentStore,
@@ -902,7 +918,7 @@ function findAvailableVariables(key: string, state: EditorState): VariableModel[
       parentBlock.parentKey as string,
       indexedContent,
     );
-    if (grandparentContent.type === ContentType.CONTROL) {
+    if (grandparentContent.differentiator === ContentType.CONTROL) {
       childContent = grandparentContent as ControlContent;
       parentBlock = resolveContent<BlockContent>(childContent.key, indexedContent);
       childIndex = parentBlock.childKeys.indexOf(childContent.key);
@@ -916,8 +932,8 @@ function findAvailableVariables(key: string, state: EditorState): VariableModel[
 
 export function loadRootContent(config: LogicForgeConfig, state: EditorState) {
   const { contentStore } = state;
-  if (config.type !== ConfigType.PROCESS) {
-    throw new Error(`Illegal content root type: ${config.type}`);
+  if (config.differentiator !== ConfigType.PROCESS) {
+    throw new Error(`Illegal content root type: ${config.differentiator}`);
   }
   const rootState = constructProcess(config, state);
   contentStore.rootConfigKey = rootState.key;
@@ -929,17 +945,17 @@ function constructProcess(config: ProcessConfig, state: EditorState) {
   const processName = config.name;
   const processSpec = engineSpec.processes[processName];
   const output = processSpec.output;
-  const outputTypeId = output?.typeId;
+  const outputType = output?.type;
   const outputMulti = output?.multi || false;
 
   // construct process
   const processContent: ProcessContent = {
     key: processKey,
     parentKey: null,
-    type: ContentType.PROCESS,
+    differentiator: ContentType.PROCESS,
     name: processName,
     spec: processSpec,
-    typeId: outputTypeId !== undefined ? outputTypeId : null,
+    type: outputType !== undefined ? outputType : VOID_TYPE,
     multi: outputMulti !== undefined ? outputMulti : false,
     inputVariableKeys: [],
     childKeyMap: {},
@@ -956,17 +972,17 @@ function constructProcess(config: ProcessConfig, state: EditorState) {
   processContent.rootBlockKey = rootBlockContent.key;
 
   // if process has return, define the return arg content and link to process
-  if (outputTypeId !== undefined) {
+  if (outputType !== undefined) {
     const returnExpressionConfig = config.returnExpression || [
       {
-        type: ConfigType.VALUE,
+        differentiator: ConfigType.VALUE,
         value: '',
       } as ValueConfig,
     ];
     const returnArgContent = constructArgument(
       returnExpressionConfig,
       processKey,
-      outputTypeId,
+      outputType,
       outputMulti,
       state,
     );
@@ -978,16 +994,15 @@ function constructProcess(config: ProcessConfig, state: EditorState) {
   processContent.inputVariableKeys.push(
     ...Object.entries(processSpec.inputs).map(([name, variableSpec]) => {
       const variableConfig = {
-        type: ConfigType.VARIABLE,
+        differentiator: ConfigType.VARIABLE,
         title: variableSpec.title,
         description: variableSpec.description,
       } as VariableConfig;
-      const typeId = variableSpec.typeId;
-      const multi = variableSpec.multi;
+      const { type, multi } = variableSpec;
       const variableContent = constructVariable(
         variableConfig,
         processKey,
-        typeId,
+        type,
         multi,
         true,
         state,
@@ -1005,27 +1020,27 @@ function constructProcess(config: ProcessConfig, state: EditorState) {
 function constructArgument(
   configs: ExpressionConfig[],
   parentKey: string,
-  typeId: string,
+  type: TypeIntersection,
   multi: boolean,
   state: EditorState,
 ) {
   const { contentStore, typeSystem } = state;
-  const declaredTypeId = typeId;
-  const allowedTypeIds = [typeId, ...(typeSystem.descendants[declaredTypeId] || [])];
+  const declaredType = type;
+  const allowedType = expandType(type, typeSystem);
   const key = nextKey(contentStore);
 
-  const calculatedTypeId = typeId === WellKnownType.OBJECT ? WellKnownType.STRING : typeId;
+  const calculatedType = typeEquals(type, [WellKnownType.OBJECT]) ? [WellKnownType.STRING] : type;
 
   // Construct arg content and add to store
   const argContent: ArgumentContent = {
-    type: ContentType.ARGUMENT,
+    differentiator: ContentType.ARGUMENT,
     key,
     parentKey,
     allowMulti: multi,
-    declaredTypeId,
-    allowedTypeIds,
+    declaredType,
+    allowedType,
     propagateTypeChanges: false, // overridden by parent as needed
-    calculatedTypeId, // overridden once children are constructed
+    calculatedType, // overridden once children are constructed
     childKeys: [],
     errors: [],
   };
@@ -1046,7 +1061,7 @@ function constructExpression(
   parentKey: string,
   state: EditorState,
 ): ExpressionContent {
-  switch (config.type) {
+  switch (config.differentiator) {
     case ConfigType.VALUE:
       return constructValue(config as ValueConfig, parentKey, state);
     case ConfigType.FUNCTION:
@@ -1064,7 +1079,7 @@ function constructBlock(config: BlockConfig, parentKey: string, state: EditorSta
 
   // Construct content and add to store
   const blockContent: BlockContent = {
-    type: ContentType.BLOCK,
+    differentiator: ContentType.BLOCK,
     key: blockKey,
     parentKey,
     childKeys: [],
@@ -1087,7 +1102,7 @@ function constructExecutable(
   parentKey: string,
   state: EditorState,
 ): ExecutableContent {
-  switch (config.type) {
+  switch (config.differentiator) {
     case ConfigType.BLOCK:
       return constructBlock(config as BlockConfig, parentKey, state);
     case ConfigType.ACTION:
@@ -1107,7 +1122,7 @@ function constructControl(config: ControlConfig, parentKey: string, state: Edito
 
   // Construct content and add to store
   const conditionalContent: ConditionalContent = {
-    type: ContentType.CONTROL,
+    differentiator: ContentType.CONTROL,
     key: controlStatementKey,
     parentKey,
     childKeys: [],
@@ -1123,7 +1138,7 @@ function constructControl(config: ControlConfig, parentKey: string, state: Edito
   const conditionalArgContent = constructArgument(
     [conditionalConfig.conditionalExpression],
     controlStatementKey,
-    conditionSpec.typeId,
+    conditionSpec.type,
     conditionSpec.multi,
     state,
   );
@@ -1144,20 +1159,18 @@ function constructValue(config: ValueConfig, parentKey: string, state: EditorSta
   const indexedContent = contentStore.indexedContent;
   const { value } = config;
   const argContent = resolveContent<ArgumentContent>(parentKey, indexedContent);
-  let typeId = argContent.declaredTypeId;
-  if (typeId === WellKnownType.OBJECT) {
-    // default new values of unspecified type to string input mode
-    typeId = WellKnownType.STRING;
-  }
+  const type = typeEquals(argContent.declaredType, [WellKnownType.OBJECT])
+    ? [WellKnownType.STRING]
+    : argContent.declaredType;
 
   const errors: ValidationError[] = [];
 
   // Construct value content and add to store
   const valueContent = {
-    type: ContentType.VALUE,
+    differentiator: ContentType.VALUE,
     key: nextKey(contentStore),
     parentKey,
-    typeId,
+    type,
     multi: false,
     value,
     availableFunctionIds: [],
@@ -1168,7 +1181,7 @@ function constructValue(config: ValueConfig, parentKey: string, state: EditorSta
 
   // Find available functions and update content
   const availableFunctions = findFunctionsMatchingTypeConstraints(
-    typeId,
+    type,
     argContent.allowMulti,
     state,
   );
@@ -1179,7 +1192,7 @@ function constructValue(config: ValueConfig, parentKey: string, state: EditorSta
   valueContent.availableVariables.push(...availableVariables);
 
   // Validate value and update content
-  valueContent.errors.push(...validateValue(value, typeId, engineSpec));
+  valueContent.errors.push(...validateValue(value, type, engineSpec));
 
   return valueContent;
 }
@@ -1193,20 +1206,20 @@ function constructAction(config: ActionConfig, parentKey: ContentKey, state: Edi
   // for actions with dynamic return types, override the output type with the output type of the
   //  input defined in the metadata
   const outputTypeInputName = spec.metadata[MetadataProperties.DYNAMIC_RETURN_TYPE];
-  let calculatedTypeId = spec.output?.typeId || null;
-  if (calculatedTypeId === WellKnownType.OBJECT) {
-    calculatedTypeId = WellKnownType.STRING;
-  }
+  const specType = spec.output?.type || VOID_TYPE;
+  let calculatedType = typeEquals(specType, [WellKnownType.OBJECT])
+    ? [WellKnownType.STRING]
+    : specType;
   const multi = spec.output?.multi || false;
 
   // Construct action content and add to store
   const actionContent: ActionContent = {
-    type: ContentType.ACTION,
+    differentiator: ContentType.ACTION,
     key,
     parentKey,
     name,
     spec,
-    typeId: calculatedTypeId,
+    type: calculatedType,
     multi,
     childKeyMap: {},
     errors: [],
@@ -1215,20 +1228,19 @@ function constructAction(config: ActionConfig, parentKey: ContentKey, state: Edi
 
   // Construct child args and link to parent
   Object.entries(config.arguments).forEach(([argName, expressionConfigs]) => {
-    const { typeId, multi } = spec.inputs[argName];
-    const argContent = constructArgument(expressionConfigs, key, typeId, multi, state);
+    const { type, multi } = spec.inputs[argName];
+    const argContent = constructArgument(expressionConfigs, key, type, multi, state);
     if (argName === outputTypeInputName) {
-      calculatedTypeId = argContent.calculatedTypeId;
+      calculatedType = argContent.calculatedType;
       argContent.propagateTypeChanges = true;
     }
     actionContent.childKeyMap[argName] = argContent.key;
   });
 
   // Construct child variable and link to parent
-  const varContent =
-    calculatedTypeId !== null
-      ? constructVariable(config.output, key, calculatedTypeId, multi, false, state)
-      : undefined;
+  const varContent = !typeEquals(calculatedType, VOID_TYPE)
+    ? constructVariable(config.output, key, calculatedType, multi, false, state)
+    : undefined;
   if (varContent !== undefined) {
     actionContent.variableContentKey = varContent.key;
   }
@@ -1244,28 +1256,30 @@ function constructFunction(config: FunctionConfig, parentKey: ContentKey, state:
   const spec = engineSpec.functions[name];
 
   const outputTypeInputName = spec.metadata[MetadataProperties.DYNAMIC_RETURN_TYPE];
-  let calculatedTypeId = spec.output?.typeId || null;
+  let calculatedType = [...(spec.output?.type || VOID_TYPE)];
   const multi = spec.output?.multi || false;
 
   const argumentContent = resolveContent<ArgumentContent>(parentKey, indexedContent);
-  const parentDeclaredTypeId = argumentContent.declaredTypeId;
+  const parentDeclaredType = argumentContent.declaredType;
 
-  const returnTypeInBounds =
-    calculatedTypeId === parentDeclaredTypeId ||
-    typeSystem.descendants[parentDeclaredTypeId].indexOf(calculatedTypeId as string) > 0;
+  const returnTypeInBounds = doesTypeMatchRequirements(
+    calculatedType,
+    parentDeclaredType,
+    typeSystem,
+  );
   if (returnTypeInBounds) {
-    calculatedTypeId = parentDeclaredTypeId;
+    calculatedType = [...parentDeclaredType];
   }
   // TODO: Error if function output has no overlap.
 
   // Construct function content and add to store
   const functionContent: FunctionContent = {
-    type: ContentType.FUNCTION,
+    differentiator: ContentType.FUNCTION,
     key,
     parentKey,
     name,
     spec,
-    typeId: calculatedTypeId,
+    type: calculatedType,
     multi,
     childKeyMap: {},
     errors: [],
@@ -1274,10 +1288,10 @@ function constructFunction(config: FunctionConfig, parentKey: ContentKey, state:
 
   // Construct child arg content and link to parent
   Object.entries(config.arguments).forEach(([argName, expressionConfigs]) => {
-    const { typeId, multi } = spec.inputs[argName];
-    const argContent = constructArgument(expressionConfigs, key, typeId, multi, state);
+    const { type, multi } = spec.inputs[argName];
+    const argContent = constructArgument(expressionConfigs, key, type, multi, state);
     if (name === outputTypeInputName) {
-      calculatedTypeId = argContent.calculatedTypeId;
+      functionContent.type = argContent.calculatedType;
     }
     functionContent.childKeyMap[argName] = argContent.key;
   });
@@ -1293,16 +1307,16 @@ function constructConditionalReference(
   const { contentStore } = state;
   const indexedContent = contentStore.indexedContent;
   const parentArg = resolveContent<ArgumentContent>(parentKey, indexedContent);
-  const { declaredTypeId } = parentArg;
+  const { declaredType } = parentArg;
   const referenceKey = nextKey(contentStore);
 
   // Construct conditional reference content and add to store
   const referenceContent: ConditionalReferenceContent = {
-    type: ContentType.CONDITIONAL_REFERENCE,
+    differentiator: ContentType.CONDITIONAL_REFERENCE,
     key: referenceKey,
     parentKey,
     childKeys: [],
-    typeId: declaredTypeId,
+    type: declaredType,
     multi: false,
     errors: [],
   };
@@ -1334,7 +1348,7 @@ function constructConditionalReference(
   const expressionArgContent = constructArgument(
     [config.expression],
     referenceKey,
-    declaredTypeId,
+    declaredType,
     false,
     state,
   );
@@ -1345,7 +1359,7 @@ function constructConditionalReference(
   const fallbackArgContent = constructArgument(
     [config.fallback],
     referenceKey,
-    declaredTypeId,
+    declaredType,
     false,
     state,
   );
@@ -1360,7 +1374,7 @@ function constructReference(config: ReferenceConfig, parentKey: ContentKey, stat
   const ref = config as ReferenceConfig;
   const referencedContent = findExecutableContent(contentStore, ref.coordinates);
   if (
-    referencedContent.type !== ContentType.ACTION ||
+    referencedContent.differentiator !== ContentType.ACTION ||
     (referencedContent as ActionContent).variableContentKey === undefined
   ) {
     throw new Error(
@@ -1375,11 +1389,11 @@ function constructReference(config: ReferenceConfig, parentKey: ContentKey, stat
     contentStore.indexedContent,
   );
   const referenceContent: ReferenceContent = {
-    type: ContentType.REFERENCE,
+    differentiator: ContentType.REFERENCE,
     key: nextKey(contentStore),
     parentKey,
     variableKey: referencedContent.variableContentKey as string,
-    typeId: referencedContent.typeId,
+    type: referencedContent.type,
     multi: referencedContent.multi,
     path: ref.path,
     errors: [],
@@ -1392,7 +1406,7 @@ function constructReference(config: ReferenceConfig, parentKey: ContentKey, stat
 function constructVariable(
   config: VariableConfig | undefined,
   parentKey: ContentKey,
-  typeId: string,
+  type: TypeIntersection,
   multi: boolean,
   initial: boolean,
   state: EditorState,
@@ -1401,13 +1415,13 @@ function constructVariable(
 
   const referenceKeys: ContentKey[] = [];
   const variableContent: VariableContent = {
-    type: ContentType.VARIABLE,
+    differentiator: ContentType.VARIABLE,
     key: nextKey(contentStore),
     parentKey,
     title: config?.title || '',
     description: config?.description || '',
     optional: false,
-    typeId,
+    type,
     multi,
     initial,
     referenceKeys,
@@ -1444,9 +1458,9 @@ export function addNewExecutable(
 ) {
   let { contentStore } = state;
   const blockContent = resolveContent<BlockContent>(parentKey, contentStore.indexedContent);
-  if (blockContent.type !== ContentType.BLOCK) {
+  if (blockContent.differentiator !== ContentType.BLOCK) {
     throw new Error(
-      `Attempted to add a new action on an illegal content type: ${blockContent.type}`,
+      `Attempted to add a new action on an illegal content type: ${blockContent.differentiator}`,
     );
   }
   const newChildState = constructExecutable(newConfig, parentKey, state);
@@ -1463,7 +1477,7 @@ export function deleteListItem(key: string, contentStore: ContentStore) {
       parentKey,
       contentStore.indexedContent,
     );
-    const parentType = parentContent.type;
+    const parentType = parentContent.differentiator;
     if (parentType !== ContentType.BLOCK && parentType !== ContentType.ARGUMENT) {
       throw new Error(
         `Attempted to delete a list item from an illegal parent content type: ${parentType}`,
@@ -1485,12 +1499,12 @@ export function reorderList(
 ) {
   const listContent = resolveContent<ListContent>(parentKey, indexedContent);
   if (
-    listContent.type !== ContentType.BLOCK &&
-    listContent.type !== ContentType.ARGUMENT &&
-    listContent.type !== ContentType.PROCESS
+    listContent.differentiator !== ContentType.BLOCK &&
+    listContent.differentiator !== ContentType.ARGUMENT &&
+    listContent.differentiator !== ContentType.PROCESS
   ) {
     throw new Error(
-      `Attempted to execute reorder operation on not-list state: ${listContent.type}`,
+      `Attempted to execute reorder operation on not-list state: ${listContent.differentiator}`,
     );
   }
   const afterRemove = [
@@ -1552,10 +1566,10 @@ export function resolveParameterSpec(
 ) {
   const { contentStore, engineSpec } = state;
   let pointer: Content = expressionContent;
-  while (pointer.parentKey !== undefined && pointer.type !== ContentType.ARGUMENT) {
+  while (pointer.parentKey !== undefined && pointer.differentiator !== ContentType.ARGUMENT) {
     pointer = resolveContent(pointer.parentKey as string, contentStore.indexedContent);
   }
-  if (pointer.type !== ContentType.ARGUMENT) {
+  if (pointer.differentiator !== ContentType.ARGUMENT) {
     throw new Error('Unexpected state structure encountered');
   }
   const argContent = pointer as ArgumentContent;
@@ -1570,15 +1584,18 @@ export function resolveParameterSpec(
     throw new Error(`Failed to find arg name for key ${argContent.key}`);
   }
 
-  if (argParent.type === ContentType.FUNCTION) {
+  if (argParent.differentiator === ContentType.FUNCTION) {
     const functionContent = argParent as FunctionContent;
     return engineSpec.functions[functionContent.name].inputs[argName];
-  } else if (argParent.type === ContentType.ACTION) {
+  } else if (argParent.differentiator === ContentType.ACTION) {
     const actionContent = argParent as ActionContent;
     return engineSpec.actions[actionContent.name].inputs[argName];
-  } else if (argParent.type === ContentType.CONTROL && argName === CONDITIONAL_CONDITION_PROP) {
+  } else if (
+    argParent.differentiator === ContentType.CONTROL &&
+    argName === CONDITIONAL_CONDITION_PROP
+  ) {
     return CONDITIONAL_CONTROL_SPEC.inputs[CONDITIONAL_CONDITION_PROP];
-  } else if (argParent.type === ContentType.PROCESS && argName === PROCESS_RETURN_PROP) {
+  } else if (argParent.differentiator === ContentType.PROCESS && argName === PROCESS_RETURN_PROP) {
     const processContent = argParent as ProcessContent;
     return engineSpec.processes[processContent.name].output as ExpressionSpec;
   }
@@ -1592,18 +1609,22 @@ function resolveTypeForReference(variableKey: ContentKey, path: string[], state:
   } = state;
 
   const variableContent = resolveContent<VariableContent>(variableKey, indexedContent);
-  let typeId = variableContent.typeId as string;
+  let type = variableContent.type;
   let multi = variableContent.multi;
   for (let i = 0; i < path.length; i++) {
+    if (type.length > 1) {
+      throw new Error('Intersection types cannot declare a path');
+    }
+    const typeId: TypeId = type[0];
     const pathSegment = path[i];
     const property = types[typeId]?.properties[pathSegment];
     if (property === undefined) {
-      throw new Error(`Failed to resolve path ${path.join('/')} for root type ${typeId}`);
+      throw new Error(`Failed to resolve path ${path.join('/')} for root type ${type}`);
     }
-    typeId = property.typeId;
+    type = property.type;
     multi = multi || property.multi;
   }
-  return { typeId, multi };
+  return { type, multi };
 }
 
 export const {

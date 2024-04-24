@@ -5,7 +5,7 @@ import { Info } from '../Info/Info';
 export interface FrameSectionProps {
   title: string;
   description?: string;
-  subtitle?: string;
+  subtitle?: string | React.ReactNode;
 }
 
 export function FrameSection({
@@ -31,14 +31,20 @@ export function FrameSection({
           {description !== undefined && <Info text={description} />}
         </Typography>
         {subtitle && (
-          <Typography
-            fontSize={theme.typography.body2.fontSize}
-            lineHeight={1}
-            color={theme.palette.text.secondary}
-            sx={{ fontVariant: 'all-small-caps' }}
-          >
-            {subtitle}
-          </Typography>
+          <Box sx={{ mt: '-0.4rem' }}>
+            {/* ^^ Negative margin to move subtitle closer to title */}
+            {subtitle && typeof subtitle === 'string' && (
+              <Typography
+                fontSize={theme.typography.body2.fontSize}
+                lineHeight={1}
+                color={theme.palette.text.secondary}
+                sx={{ fontVariant: 'all-small-caps' }}
+              >
+                {subtitle}
+              </Typography>
+            )}
+            {subtitle && typeof subtitle !== 'string' && subtitle}
+          </Box>
         )}
       </Box>
       {children}

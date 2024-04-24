@@ -3,9 +3,10 @@ import { useDispatch, useSelector } from 'react-redux';
 import { selectContentByKey, updateVariable } from '../../redux/slices/editors';
 import { FrameSection } from '../FrameSection/FrameSection';
 import { useTranslate } from '../I18n/I18n';
-import { labelKey, typeTitleKey } from '../../util';
+import { labelKey } from '../../util';
 import React, { ChangeEvent, useCallback } from 'react';
-import { Box, FormControl, Stack, TextField, Typography } from '@mui/material';
+import { Box, FormControl, TextField, Typography } from '@mui/material';
+import { TypeView } from '../TypeView/TypeView';
 
 export interface VariableEditorProps {
   contentKey: ContentKey;
@@ -19,14 +20,12 @@ export function VariableEditor({ contentKey }: VariableEditorProps) {
   if (content === undefined) {
     throw new Error(`Missing content ${contentKey}`);
   }
-  if (content.type !== ContentType.VARIABLE) {
-    throw new Error(`Unexpected content type: ${content.type}`);
+  if (content.differentiator !== ContentType.VARIABLE) {
+    throw new Error(`Unexpected content type: ${content.differentiator}`);
   }
   const variableContent = content as VariableContent;
 
   const title = translate(labelKey('variable-output'));
-  const typeLabel = translate(labelKey('type-label'));
-  const type = translate(typeTitleKey(variableContent.typeId as string));
   const infoText = translate(labelKey('variable-editor-info'));
 
   const titleLabel = translate(labelKey('title'));
@@ -47,18 +46,8 @@ export function VariableEditor({ contentKey }: VariableEditorProps) {
   );
 
   return (
-    <FrameSection title={title}>
+    <FrameSection title={title} subtitle={<TypeView type={variableContent.type} />}>
       <Box sx={{ mx: 2, mb: 3 }}>
-        <Stack width={'100%'} direction={'row'} sx={{ mb: 2 }}>
-          <Box sx={{ mr: 2 }}>
-            <Typography variant={'body1'}>{typeLabel}</Typography>
-          </Box>
-          <Box>
-            <Typography variant={'body1'} fontWeight={'700'} fontStyle={'italic'}>
-              {type}
-            </Typography>
-          </Box>
-        </Stack>
         <Typography variant={'body2'}>{infoText}</Typography>
         <FormControl fullWidth sx={{ mt: 1 }}>
           <TextField

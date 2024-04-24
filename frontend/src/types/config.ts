@@ -16,44 +16,48 @@ export enum ConfigType {
   VARIABLE = 'VARIABLE',
 }
 
-export type ValueConfig = {
-  type: ConfigType.VALUE;
+export type Config = {
+  differentiator: ConfigType;
+};
+
+export type ValueConfig = Config & {
+  differentiator: ConfigType.VALUE;
   value: string;
 };
 
-export type FunctionConfig = {
-  type: ConfigType.FUNCTION;
+export type FunctionConfig = Config & {
+  differentiator: ConfigType.FUNCTION;
   name: string;
   arguments: { [key: string]: ExpressionConfig[] };
 };
 
-export type ReferenceConfig = {
-  type: ConfigType.REFERENCE;
+export type ReferenceConfig = Config & {
+  differentiator: ConfigType.REFERENCE;
   coordinates: number[];
   path: string[];
 };
 
-export type ConditionalReferenceConfig = {
-  type: ConfigType.CONDITIONAL_REFERENCE;
+export type ConditionalReferenceConfig = Config & {
+  differentiator: ConfigType.CONDITIONAL_REFERENCE;
   references: number[][];
   expression: ExpressionConfig;
   fallback: ExpressionConfig;
 };
 
-export type ActionConfig = {
-  type: ConfigType.ACTION;
+export type ActionConfig = Config & {
+  differentiator: ConfigType.ACTION;
   name: string;
   arguments: { [key: string]: ExpressionConfig[] };
   output?: VariableConfig;
 };
 
-export type BlockConfig = {
-  type: ConfigType.BLOCK;
+export type BlockConfig = Config & {
+  differentiator: ConfigType.BLOCK;
   executables: ExecutableConfig[];
 };
 
-export type ControlConfig = {
-  type: ConfigType.CONTROL_STATEMENT;
+export type ControlConfig = Config & {
+  differentiator: ConfigType.CONTROL_STATEMENT;
   controlType: ControlType;
   blocks: BlockConfig[];
 };
@@ -63,15 +67,15 @@ export type ConditionalConfig = ControlConfig & {
   conditionalExpression: ExpressionConfig;
 };
 
-export type ProcessConfig = {
-  type: ConfigType.PROCESS;
+export type ProcessConfig = Config & {
+  differentiator: ConfigType.PROCESS;
   name: string;
   rootBlock: BlockConfig;
   returnExpression?: ExpressionConfig[];
 };
 
-export type VariableConfig = {
-  type: ConfigType.VARIABLE;
+export type VariableConfig = Config & {
+  differentiator: ConfigType.VARIABLE;
   title: string;
   description?: string;
 };

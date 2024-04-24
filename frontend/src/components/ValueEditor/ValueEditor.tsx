@@ -1,4 +1,4 @@
-import { ArgumentContent, TypeSpec, ValueContent } from '../../types';
+import { ArgumentContent, TypeId, TypeIntersection, TypeSpec, ValueContent } from '../../types';
 import {
   Autocomplete,
   AutocompleteRenderGroupParams,
@@ -11,7 +11,6 @@ import {
   Stack,
   styled,
   TextField,
-  Typography,
 } from '@mui/material';
 import React, { useCallback, useMemo, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
@@ -29,6 +28,7 @@ import { functionTitleKey, labelKey, typeEnumValueTitleKey, typeTitleKey } from 
 import { useTranslate } from '../I18n/I18n';
 import { StoreStructure } from '../../redux';
 import { useContent } from '../../hooks/useContent';
+import { TypeView } from '../TypeView/TypeView';
 
 export interface ValueEditorProps {
   contentKey: string;
@@ -68,14 +68,18 @@ const USE_LITERAL_OPTION: Option = {
   groupId: NON_LITERAL_GROUP_ID,
 };
 
-function buildLiteralOptions(typeSpec: TypeSpec, translate: (keyof: string) => string): Option[] {
+function buildLiteralOptions(
+  typeSpec: TypeSpec,
+  typeId: TypeId,
+  translate: (keyof: string) => string,
+): Option[] {
   const defaultLiteralSelections = [USE_FUNCTION_OPTION, USE_VARIABLE_OPTION];
   if (typeSpec.values && typeSpec.values.length > 0) {
     return [
       ...typeSpec.values.map((value) => {
         return {
           id: value,
-          label: translate(typeEnumValueTitleKey(typeSpec.id, value)),
+          label: translate(typeEnumValueTitleKey(typeId, value)),
           groupId: ENUM_GROUP_ID,
         } as Option;
       }),
@@ -139,9 +143,10 @@ export function ValueEditor({ contentKey }: ValueEditorProps) {
   const options = useMemo<Option[]>(() => {
     switch (mode) {
       case Mode.LITERAL:
-        const typeId = content.typeId as string;
+        const type = content.type;
+        const [typeId] = type; // Value expressions always have a single, non-intersection type
         const typeSpec = engineSpec.types[typeId];
-        return buildLiteralOptions(typeSpec, translate);
+        return buildLiteralOptions(typeSpec, typeId, translate);
       case Mode.FUNCTION:
         return buildFunctionOptions(content.availableFunctionIds, translate);
       case Mode.VARIABLE:
@@ -167,7 +172,8 @@ export function ValueEditor({ contentKey }: ValueEditorProps) {
     if (mode !== Mode.LITERAL) {
       return false;
     } else {
-      const typeId = content.typeId as string;
+      const type = content.type;
+      const [typeId] = type; // Value expressions always have a single, non-intersection type
       const typeSpec = engineSpec.types[typeId];
       return !typeSpec.valueType || (typeSpec.values !== undefined && typeSpec.values.length > 0);
     }
@@ -303,6 +309,8 @@ export function ValueEditor({ contentKey }: ValueEditorProps) {
     [translate],
   );
 
+  const [typeId] = content.type; // Value expressions always have a single, non-intersection type
+
   return (
     <Stack width={'100%'}>
       <FormControl fullWidth>
@@ -336,15 +344,17 @@ export function ValueEditor({ contentKey }: ValueEditorProps) {
           fullWidth={true}
         />
       </FormControl>
-      {argumentContent.allowedTypeIds.length > 1 ? (
+      {argumentContent.allowedType.length > 1 ? (
         <TypeSelector
           contentKey={content.key}
           onSelectType={handleSelectTypeId}
-          availableTypeIds={argumentContent.allowedTypeIds}
-          selectedTypeId={content.typeId as string}
+          availableTypes={argumentContent.allowedType}
+          selectedType={typeId}
         />
       ) : (
-        <TypeDisplay typeId={content.typeId as string} />
+        <Box>
+          <TypeView type={content.type} />
+        </Box>
       )}
     </Stack>
   );
@@ -353,32 +363,27 @@ export function ValueEditor({ contentKey }: ValueEditorProps) {
 interface TypeSelectorProps {
   contentKey: string;
   onSelectType: (typeId: string) => void;
-  availableTypeIds: string[];
-  selectedTypeId: string;
+  availableTypes: TypeIntersection;
+  selectedType: TypeId;
 }
 
-function TypeSelector({
-  contentKey,
-  onSelectType,
-  availableTypeIds,
-  selectedTypeId,
-}: TypeSelectorProps) {
+function TypeSelector({ onSelectType, availableTypes, selectedType }: TypeSelectorProps) {
   const translate = useTranslate();
 
   const options: Option[] = useMemo(
     () =>
-      availableTypeIds.map((typeId) => {
+      availableTypes.map((typeId) => {
         return {
           id: typeId,
           label: translate(typeTitleKey(typeId)),
           groupId: '',
         };
       }),
-    [availableTypeIds, translate],
+    [availableTypes, translate],
   );
   const selectedOption = useMemo(() => {
-    return options.find((option) => option.id === selectedTypeId);
-  }, [options, selectedTypeId]);
+    return options.find((option) => option.id === selectedType);
+  }, [options, selectedType]);
 
   const handleChange = useCallback(
     (event: React.SyntheticEvent, value: Option, reason: string) => {
@@ -412,25 +417,6 @@ function TypeSelector({
         fullWidth={true}
       />
     </FormControl>
-  );
-}
-
-interface TypeDisplayProps {
-  typeId: string;
-}
-
-function TypeDisplay({ typeId }: TypeDisplayProps) {
-  let translate = useTranslate();
-  const title = translate(typeTitleKey(typeId));
-  return (
-    <Box>
-      <Typography
-        color={(theme) => theme.palette.text.secondary}
-        sx={{ fontVariant: 'all-small-caps' }}
-      >
-        {title}
-      </Typography>
-    </Box>
   );
 }
 

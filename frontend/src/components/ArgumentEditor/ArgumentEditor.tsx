@@ -35,10 +35,11 @@ import {
 import { AddIcon, FunctionIcon, ReferenceIcon } from '../Icons/Icons';
 import { functionDescriptionKey, functionTitleKey, labelKey } from '../../util';
 import { ItemInterface, ReactSortable, SortableEvent } from 'react-sortablejs';
-import { RefEditor } from '../RefEditor/RefEditor';
+import { ReferenceEditor } from '../ReferenceEditor/ReferenceEditor';
 import { SubTreeView } from '../SubTreeView/SubTreeView';
 
 import { ContextActions } from '../ContextActions/ContextActions';
+import { TypeView } from '../TypeView/TypeView';
 
 export interface ArgumentEditorProps {
   contentKey: ContentKey;
@@ -216,9 +217,9 @@ export function ExpressionEditor({ content, hideOverflow }: ExpressionEditorProp
 
   const additionalProps = { selected, handleSelect, handleDelete, hideOverflow };
 
-  if (content.type === ContentType.FUNCTION) {
+  if (content.differentiator === ContentType.FUNCTION) {
     return <FunctionItemView content={content as FunctionContent} {...additionalProps} />;
-  } else if (content.type === ContentType.REFERENCE) {
+  } else if (content.differentiator === ContentType.REFERENCE) {
     return <ReferenceItemView content={content as ReferenceContent} {...additionalProps} />;
   } else {
     return <ValueItemView content={content as ValueContent} {...additionalProps} />;
@@ -251,7 +252,12 @@ function FunctionItemView({
   const translate = useTranslate();
   const functionName = content.name;
 
-  const title = translate(functionTitleKey(functionName));
+  const title = (
+    <span>
+      {translate(functionTitleKey(functionName))}&nbsp;
+      <TypeView type={content.type} multi={content.multi} />
+    </span>
+  );
   const description = translate(functionDescriptionKey(functionName));
 
   return (
@@ -260,7 +266,7 @@ function FunctionItemView({
         <ListItemButton
           disableRipple
           disableTouchRipple
-          sx={{ ':hover': { backgroundColor: 'inherit' } }}
+          sx={{ p: 0, ':hover': { backgroundColor: 'inherit' } }}
         >
           <FunctionIcon sx={{ mr: 1 }} />
           <ListItemText primary={title} secondary={<span>{description}</span>} />
@@ -280,7 +286,7 @@ function ReferenceItemView({ content, handleSelect, selected }: ViewProps<Refere
   return (
     <ListItemButton selected={selected} onClick={handleSelect}>
       <ReferenceIcon />
-      <RefEditor contentKey={content.key} />
+      <ReferenceEditor contentKey={content.key} />
       <ContextActions contentKey={content.key} />
     </ListItemButton>
   );

@@ -1,6 +1,7 @@
 import { toNumber } from 'lodash';
 import { EngineSpec } from './specification';
 import { WellKnownType } from '../constant/well-known-type';
+import { TypeIntersection } from './types';
 
 export enum ErrorCode {
   /** A required value is invalid (value-type input not matching type) */
@@ -34,37 +35,41 @@ export type ValidationError = {
 
 export function validateValue(
   value: string,
-  typeId: string,
+  type: TypeIntersection,
   engineSpec: EngineSpec,
 ): ValidationError[] {
-  const validator = getValidatorForType(typeId, engineSpec);
+  const validator = getValidatorForType(type, engineSpec);
   return validator(value);
 }
 
-function getValidatorForType(typeId: string, engineSpec: EngineSpec) {
-  const typeSpec = engineSpec.types[typeId];
-  if (typeSpec.valueType && Object.values(WellKnownType as object).includes(typeId)) {
-    switch (typeId as WellKnownType) {
-      case WellKnownType.OBJECT:
-        return NEVER_VALID;
-      case WellKnownType.STRING:
-        return ALWAYS_VALID;
-      case WellKnownType.BOOLEAN:
-        return BOOLEAN_STRING;
-      case WellKnownType.INTEGER:
-        return INTEGER_STRING;
-      case WellKnownType.LONG:
-        return LONG_STRING;
-      case WellKnownType.FLOAT:
-      case WellKnownType.DOUBLE:
-        return DECIMAL_STRING;
-    }
-  } else if (typeSpec.values !== undefined && typeSpec.values.length > 0) {
-    return enumValidator(typeSpec.values);
-  } else if (!typeSpec.valueType) {
-    return (value: string) => [invalidValueNoLiteral(typeId)];
-  }
-  return NEVER_VALID;
+function getValidatorForType(type: TypeIntersection, engineSpec: EngineSpec) {
+  return compositeValidator(
+    type.map((typeId) => {
+      const typeSpec = engineSpec.types[typeId];
+      if (typeSpec.valueType && Object.values(WellKnownType as object).includes(typeId)) {
+        switch (typeId as WellKnownType) {
+          case WellKnownType.OBJECT:
+            return NEVER_VALID;
+          case WellKnownType.STRING:
+            return ALWAYS_VALID;
+          case WellKnownType.BOOLEAN:
+            return BOOLEAN_STRING;
+          case WellKnownType.INTEGER:
+            return INTEGER_STRING;
+          case WellKnownType.LONG:
+            return LONG_STRING;
+          case WellKnownType.FLOAT:
+          case WellKnownType.DOUBLE:
+            return DECIMAL_STRING;
+        }
+      } else if (typeSpec.values !== undefined && typeSpec.values.length > 0) {
+        return enumValidator(typeSpec.values);
+      } else if (!typeSpec.valueType) {
+        return () => [invalidValueNoLiteral(typeId)];
+      }
+      return NEVER_VALID;
+    }),
+  );
 }
 
 interface Validator {
@@ -192,13 +197,13 @@ function numericRangeValidator(min: number, max: number): Validator {
 }
 
 export function unsatisfiedInputTypeMismatch(
-  requiredTypeId: string,
-  typeId: string,
+  requiredType: TypeIntersection,
+  type: TypeIntersection,
 ): ValidationError {
   return {
     code: ErrorCode.UNSATISFIED_INPUT_TYPE_MISMATCH,
     level: ErrorLevel.ERROR,
-    data: { requiredTypeId, typeId },
+    data: { requiredType: requiredType.join(' | '), type: type.join(' | ') },
   };
 }
 

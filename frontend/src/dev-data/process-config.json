@@ -1,42 +1,42 @@
 {
-  "type": "PROCESS",
+  "differentiator": "PROCESS",
   "name": "example",
   "rootBlock": {
-    "type": "BLOCK",
+    "differentiator": "BLOCK",
     "executables": [
       {
-        "type": "ACTION",
+        "differentiator": "ACTION",
         "name": "log",
         "arguments": {
           "message": [
             {
-              "type": "FUNCTION",
+              "differentiator": "FUNCTION",
               "name": "concatenate",
               "arguments": {
                 "values": [
                   {
-                    "type": "VALUE",
+                    "differentiator": "VALUE",
                     "value": "Hello"
                   },
                   {
-                    "type": "VALUE",
+                    "differentiator": "VALUE",
                     "value": ", "
                   },
                   {
-                    "type": "VALUE",
+                    "differentiator": "VALUE",
                     "value": "World"
                   },
                   {
-                    "type": "FUNCTION",
+                    "differentiator": "FUNCTION",
                     "name": "concatenate",
                     "arguments": {
                       "values": [
                         {
-                          "type": "VALUE",
+                          "differentiator": "VALUE",
                           "value": "!"
                         },
                         {
-                          "type": "VALUE",
+                          "differentiator": "VALUE",
                           "value": "!"
                         }
                       ]
@@ -48,45 +48,45 @@
           ],
           "level": [
             {
-              "type": "VALUE",
+              "differentiator": "VALUE",
               "value": "INFO"
             }
           ]
         }
       },
       {
-        "type": "ACTION",
+        "differentiator": "ACTION",
         "name": "log",
         "arguments": {
           "message": [
             {
-              "type": "FUNCTION",
+              "differentiator": "FUNCTION",
               "name": "concatenate",
               "arguments": {
                 "values": [
                   {
-                    "type": "VALUE",
+                    "differentiator": "VALUE",
                     "value": "Hello"
                   },
                   {
-                    "type": "VALUE",
+                    "differentiator": "VALUE",
                     "value": ", "
                   },
                   {
-                    "type": "VALUE",
+                    "differentiator": "VALUE",
                     "value": "World"
                   },
                   {
-                    "type": "FUNCTION",
+                    "differentiator": "FUNCTION",
                     "name": "concatenate",
                     "arguments": {
                       "values": [
                         {
-                          "type": "VALUE",
+                          "differentiator": "VALUE",
                           "value": "!"
                         },
                         {
-                          "type": "VALUE",
+                          "differentiator": "VALUE",
                           "value": "!"
                         }
                       ]
@@ -98,7 +98,7 @@
           ],
           "level": [
             {
-              "type": "VALUE",
+              "differentiator": "VALUE",
               "value": "INFO"
             }
           ]
