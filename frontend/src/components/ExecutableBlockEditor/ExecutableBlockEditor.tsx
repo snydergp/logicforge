@@ -14,27 +14,24 @@ import {
   ConditionalContent,
   ContentType,
   ControlType,
-  VariableContent,
 } from '../../types';
 import React, { MouseEventHandler, useCallback, useEffect, useMemo, useState } from 'react';
 import { ItemInterface, ReactSortable, SortableEvent } from 'react-sortablejs';
 import {
   Box,
   Button,
-  darken,
   Dialog,
   DialogActions,
+  DialogContent,
   DialogTitle,
   IconButton,
   Input,
   InputAdornment,
-  lighten,
   List,
   ListItem,
   ListItemButton,
   ListItemText,
   Stack,
-  styled,
   SxProps,
   Theme,
   Typography,
@@ -54,6 +51,7 @@ import { VariableView } from '../VariableView/VariableView';
 import { Search } from '@mui/icons-material';
 import { ArgumentEditor } from '../ArgumentEditor/ArgumentEditor';
 import { ContextActions } from '../ContextActions/ContextActions';
+import { ListItemView, ListView } from '../SharedElements/SharedElements';
 
 const DRAG_DROP_GROUP: string = 'executables';
 
@@ -179,15 +177,7 @@ function Block({ contentKey, handlers, draggedItemKey }: BlockProps) {
   );
 
   return (
-    <List
-      dense
-      disablePadding
-      sx={(theme) => ({
-        backgroundColor: theme.palette.background.default,
-        py: 0.5,
-        m: 1,
-      })}
-    >
+    <ListView>
       <ReactSortable
         list={items}
         setList={setItems}
@@ -212,7 +202,7 @@ function Block({ contentKey, handlers, draggedItemKey }: BlockProps) {
         ))}
       </ReactSortable>
       <ExecutablePlaceholder parentKey={contentKey} />
-    </List>
+    </ListView>
   );
 }
 
@@ -235,18 +225,14 @@ function Executable({ contentKey, handlers, draggedItemKey }: ExecutableProps) {
   ) {
     throw new Error(`Unexpected content type: ${content.differentiator}`);
   }
-  return (
-    <ListItem key={contentKey} sx={{ px: 1 }}>
-      {content.differentiator === ContentType.ACTION ? (
-        <ActionItem content={content as ActionContent} draggedItemKey={draggedItemKey} />
-      ) : (
-        <ConditionalItem
-          content={content as ConditionalContent}
-          handlers={handlers}
-          draggedItemKey={draggedItemKey}
-        />
-      )}
-    </ListItem>
+  return content.differentiator === ContentType.ACTION ? (
+    <ActionItem content={content as ActionContent} draggedItemKey={draggedItemKey} />
+  ) : (
+    <ConditionalItem
+      content={content as ConditionalContent}
+      handlers={handlers}
+      draggedItemKey={draggedItemKey}
+    />
   );
 }
 
@@ -272,7 +258,7 @@ function ActionItem({ content, draggedItemKey }: ActionItemProps) {
   );
 
   return (
-    <ExecutableWrapper>
+    <ListItemView key={content.key}>
       <ListItemButton onClick={handleSelect} selected={selected}>
         <Stack direction={'column'} width={'100%'}>
           <Stack direction={'row'} sx={{ mt: 1 }} width={'100%'}>
@@ -288,12 +274,12 @@ function ActionItem({ content, draggedItemKey }: ActionItemProps) {
               <Box textAlign={'center'} width={'100%'}>
                 <ResultIcon />
               </Box>
-              <VariableDisplayWrapper contentKey={content.variableContentKey} />
+              <VariableView contentKey={content.variableContentKey} />
             </Box>
           )}
         </Stack>
       </ListItemButton>
-    </ExecutableWrapper>
+    </ListItemView>
   );
 }
 
@@ -327,7 +313,7 @@ function ConditionalItem({ content, handlers, draggedItemKey }: ConditionalItemP
   };
 
   return (
-    <ExecutableWrapper>
+    <ListItemView>
       <ListItemButton onClick={handleClick}>
         <Stack direction={'column'} width={'100%'}>
           <ListItemButton
@@ -365,28 +351,7 @@ function ConditionalItem({ content, handlers, draggedItemKey }: ConditionalItemP
           )}
         </Stack>
       </ListItemButton>
-    </ExecutableWrapper>
-  );
-}
-
-interface VariableDisplayWrapperProps {
-  contentKey: string;
-}
-
-function VariableDisplayWrapper({ contentKey }: VariableDisplayWrapperProps) {
-  const content = useSelector(selectContentByKey(contentKey));
-  if (content === undefined || content.differentiator !== ContentType.VARIABLE) {
-    return null;
-  }
-  const variableContent = content as VariableContent;
-  return (
-    <VariableView
-      type={variableContent.type}
-      multi={variableContent.multi}
-      optional={false}
-      title={variableContent.title}
-      description={variableContent.description}
-    />
+    </ListItemView>
   );
 }
 
@@ -411,15 +376,15 @@ function ExecutablePlaceholder({ parentKey }: ExecutablePlaceholderProps) {
   // TODO click action
 
   return (
-    <ListItem sx={{ px: 1 }}>
-      <ExecutableWrapper>
+    <>
+      <ListItemView>
         <ListItemButton selected={false} onClick={handleOpen}>
           <AddIcon fontSize={'small'} sx={{ mr: 1 }} />
           <ListItemText primary={placeholderLabel} />
         </ListItemButton>
-        <ExecutableSelectionDialog parentKey={parentKey} open={open} cancel={handleCancel} />
-      </ExecutableWrapper>
-    </ListItem>
+      </ListItemView>
+      <ExecutableSelectionDialog parentKey={parentKey} open={open} cancel={handleCancel} />
+    </>
   );
 }
 
@@ -533,24 +498,26 @@ function ExecutableSelectionDialog(props: ExecutableSelectionDialogProps) {
   return (
     <Dialog open={open} title={'Add Action'} sx={{ p: 2 }}>
       <DialogTitle>Add Action</DialogTitle>
-      <Stack>
-        <Input
-          placeholder={'Filter'}
-          value={searchText}
-          onChange={handleSearchTextUpdate}
-          onKeyDown={handleSearchKeyDown}
-          autoFocus={true}
-          endAdornment={
-            <InputAdornment position="end">
-              <IconButton edge="end">
-                <Search></Search>
-              </IconButton>
-            </InputAdornment>
-          }
-          sx={{ mx: 2 }}
-        />
-        {renderGroupedList(filteredItems, selectedIndex, setSelectedIndex)}
-      </Stack>
+      <DialogContent>
+        <Stack>
+          <Input
+            placeholder={'Filter'}
+            value={searchText}
+            onChange={handleSearchTextUpdate}
+            onKeyDown={handleSearchKeyDown}
+            autoFocus={true}
+            endAdornment={
+              <InputAdornment position="end">
+                <IconButton edge="end">
+                  <Search></Search>
+                </IconButton>
+              </InputAdornment>
+            }
+            sx={{ mx: 2 }}
+          />
+          {renderGroupedList(filteredItems, selectedIndex, setSelectedIndex)}
+        </Stack>
+      </DialogContent>
       <DialogActions>
         <Button onClick={cancel} variant={'outlined'}>
           Cancel
@@ -618,17 +585,3 @@ function matches(searchString: string, item: ExecutableItem): boolean {
     item.description.toUpperCase().includes(searchStringUppercase)
   );
 }
-
-const ExecutableWrapper = styled('div')(({ theme }) => ({
-  minWidth: '220px',
-  width: '100%',
-  backgroundColor:
-    theme.palette.mode === 'light'
-      ? darken(theme.palette.background.paper, 0.1)
-      : lighten(theme.palette.background.paper, 0.1),
-  border: '1px solid',
-  borderColor:
-    theme.palette.mode === 'light'
-      ? darken(theme.palette.background.paper, 0.15)
-      : lighten(theme.palette.background.paper, 0.15),
-}));

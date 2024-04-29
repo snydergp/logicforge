@@ -20,7 +20,6 @@ export enum ContentType {
   ARGUMENT = 'ARGUMENT',
   VALUE = 'VALUE',
   REFERENCE = 'REFERENCE',
-  CONDITIONAL_REFERENCE = 'CONDITIONAL_REFERENCE',
   VARIABLE = 'VARIABLE',
 }
 
@@ -39,18 +38,22 @@ export type Content = {
   errors: ValidationError[];
 };
 
-export type ExpressionContent = Content & {
-  differentiator:
-    | ContentType.PROCESS
-    | ContentType.ACTION
-    | ContentType.FUNCTION
-    | ContentType.REFERENCE
-    | ContentType.CONDITIONAL_REFERENCE
-    | ContentType.VALUE
-    | ContentType.VARIABLE;
-  multi: boolean;
+export type ExpressionInfo = {
   type: TypeIntersection;
+  multi: boolean;
+  optional: boolean;
 };
+
+export type ExpressionContent = Content &
+  ExpressionInfo & {
+    differentiator:
+      | ContentType.PROCESS
+      | ContentType.ACTION
+      | ContentType.FUNCTION
+      | ContentType.REFERENCE
+      | ContentType.VALUE
+      | ContentType.VARIABLE;
+  };
 
 export type ExecutableContent = Content & {
   differentiator: ContentType.ACTION | ContentType.BLOCK | ContentType.CONTROL;
@@ -137,15 +140,6 @@ export type ReferenceContent = Content &
     differentiator: ContentType.REFERENCE;
     variableKey: ContentKey;
     path: string[];
-  };
-
-export type ConditionalReferenceContent = ListContent &
-  ExpressionContent & {
-    differentiator: ContentType.CONDITIONAL_REFERENCE;
-    /** Only undefined during construction */
-    expressionKey?: ContentKey;
-    /** Only undefined during construction */
-    fallbackKey?: ContentKey;
   };
 
 export type VariableContent = Content &

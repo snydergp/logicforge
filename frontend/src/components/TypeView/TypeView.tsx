@@ -18,6 +18,7 @@ export function TypeView({ type, multi, optional }: TypeViewProps) {
     <>
       {optional && (
         <Typography
+          key="optional"
           component={'span'}
           variant={'body2'}
           sx={{
@@ -30,6 +31,7 @@ export function TypeView({ type, multi, optional }: TypeViewProps) {
       )}
       {multi && (
         <Typography
+          key="multiple"
           component={'span'}
           variant={'body2'}
           sx={{
@@ -44,9 +46,10 @@ export function TypeView({ type, multi, optional }: TypeViewProps) {
         const label = translate(typeTitleKey(typeId));
 
         return (
-          <>
+          <span key={index}>
             {index !== 0 && (
               <Typography
+                key={`or-${index}`}
                 component={'span'}
                 variant={'body2'}
                 sx={{
@@ -58,6 +61,7 @@ export function TypeView({ type, multi, optional }: TypeViewProps) {
               </Typography>
             )}
             <Typography
+              key={`type-${index}`}
               component={'span'}
               variant={'body2'}
               sx={{
@@ -68,7 +72,7 @@ export function TypeView({ type, multi, optional }: TypeViewProps) {
             >
               {label}
             </Typography>
-          </>
+          </span>
         );
       })}
     </>

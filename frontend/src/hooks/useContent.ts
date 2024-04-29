@@ -2,6 +2,11 @@ import { Content, ContentKey, ContentType } from '../types';
 import { useSelector } from 'react-redux';
 import { selectContentByKey } from '../redux/slices/editors';
 
+/**
+ * Resolves typed content by key
+ * @param contentKey the key
+ * @param contentType an optional differentiator to verify against (throws exception if mismatch)
+ */
 export function useContent<TYPE extends Content>(
   contentKey: ContentKey,
   contentType?: ContentType,

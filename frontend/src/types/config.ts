@@ -80,11 +80,7 @@ export type VariableConfig = Config & {
   description?: string;
 };
 
-export type ExpressionConfig =
-  | ValueConfig
-  | FunctionConfig
-  | ReferenceConfig
-  | ConditionalReferenceConfig;
+export type ExpressionConfig = ValueConfig | FunctionConfig | ReferenceConfig;
 
 export type ExecutableConfig = ActionConfig | BlockConfig | ControlConfig;
 

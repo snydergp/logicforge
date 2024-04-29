@@ -148,6 +148,7 @@ export function doesTypeMatchRequirements(
       }
     }
   }
+  return true;
 }
 
 /**

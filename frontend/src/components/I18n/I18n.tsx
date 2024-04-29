@@ -53,7 +53,12 @@ export function useTranslate(): TranslateFunction {
   if (translator === undefined) {
     throw new Error('I18n not available. Ensure this component is wrapped in an instance of I18N');
   }
-  return (key: string, data?: { [key: string]: string }) => translator.translate(key, data);
+  return (
+    key: string,
+    data?: {
+      [key: string]: string | string[];
+    },
+  ) => translator.translate(key, data);
 }
 
 const RECURSIVE_I18N_PREFIX = 'i18n:';
@@ -65,7 +70,7 @@ export class MessageTranslator {
     this._messages = messages;
   }
 
-  public translate(translationKey: string, data?: { [key: string]: string }) {
+  public translate(translationKey: string, data?: { [key: string]: string | string[] }) {
     const segments = translationKey.split('.');
 
     let pointer: MessageTree = this._messages;
@@ -79,7 +84,7 @@ export class MessageTranslator {
           // reaching a leaf before the final segment terminates without a match
           return translationKey;
         } else {
-          return this.performReplacement(resolved, data);
+          return this.performReplacement(resolved, data).join(',');
         }
       } else {
         pointer = resolved;
@@ -88,37 +93,44 @@ export class MessageTranslator {
     return translationKey;
   }
 
-  private performReplacement(input: string, data?: { [key: string]: string }): string {
+  private performReplacement(input: string, data?: { [key: string]: string | string[] }): string[] {
     const tokenRegex = /(^|[^{])(\{([a-zA-Z0-9:[\].-]+)})/g;
     let value = input;
     let capture = tokenRegex.exec(value);
-    const replacedContent = [];
+    const replacedContent: string[][] = [[]];
     while (capture !== null) {
       const startIndex = capture.index;
       const prefix = capture[1];
       const tokenKey = capture[3];
       const following = value.slice(tokenRegex.lastIndex);
-      replacedContent.push(value.slice(0, startIndex));
-      replacedContent.push(prefix);
+      for (let replacedContentArray of replacedContent) {
+        replacedContentArray.push(value.slice(0, startIndex));
+        replacedContentArray.push(prefix);
+      }
       let replacementValue = data?.[tokenKey];
       if (tokenKey.startsWith(RECURSIVE_I18N_PREFIX)) {
         const recursiveTranslationKeyWithTokens = tokenKey
           .slice(RECURSIVE_I18N_PREFIX.length)
           .replaceAll('[', '{')
           .replaceAll(']', '}');
-        const recursiveTranslationKey = this.performReplacement(
+        const recursiveTranslationKeys = this.performReplacement(
           recursiveTranslationKeyWithTokens,
           data,
         );
-        replacementValue = this.translate(recursiveTranslationKey, data);
+        replacementValue = recursiveTranslationKeys
+          .map((recursiveTranslationKey) => this.translate(recursiveTranslationKey, data))
+          .flat();
       } else if (replacementValue === undefined) {
         replacementValue = tokenKey;
       }
-      replacedContent.push(replacementValue);
+      if (Array.isArray(replacementValue)) {
+        replacementValue = replacementValue.join('|');
+      }
+      replacedContent.forEach((array) => array.push(replacementValue as string));
       value = following;
       tokenRegex.lastIndex = 0;
       capture = tokenRegex.exec(value);
     }
-    return replacedContent.join('') + value;
+    return replacedContent.map((array) => array.join('') + value);
   }
 }

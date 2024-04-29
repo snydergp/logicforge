@@ -6,6 +6,7 @@ import {
   FunctionContent,
   ReferenceContent,
   ValueContent,
+  VariableContent,
 } from '../../types';
 import { shallowEqual, useDispatch, useSelector } from 'react-redux';
 import { useTranslate } from '../I18n/I18n';
@@ -14,32 +15,26 @@ import {
   deleteItem,
   reorderInput,
   selectContent,
+  selectEngineSpec,
   selectIsInSelectedPath,
   selectParameterSpecificationForKey,
   setSelection,
 } from '../../redux/slices/editors';
 import { useContent } from '../../hooks/useContent';
-import React, { useCallback, useEffect, useState } from 'react';
-import List from '@mui/material/List';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ValueEditor } from '../ValueEditor/ValueEditor';
-import {
-  Box,
-  darken,
-  lighten,
-  ListItem,
-  ListItemButton,
-  ListItemText,
-  Stack,
-  styled,
-} from '@mui/material';
+import { Box, ListItemButton, ListItemText, Stack } from '@mui/material';
 import { AddIcon, FunctionIcon, ReferenceIcon } from '../Icons/Icons';
 import { functionDescriptionKey, functionTitleKey, labelKey } from '../../util';
 import { ItemInterface, ReactSortable, SortableEvent } from 'react-sortablejs';
-import { ReferenceEditor } from '../ReferenceEditor/ReferenceEditor';
+import { ReferenceView } from '../ReferenceView/ReferenceView';
 import { SubTreeView } from '../SubTreeView/SubTreeView';
 
 import { ContextActions } from '../ContextActions/ContextActions';
 import { TypeView } from '../TypeView/TypeView';
+import { ReferencePathView } from '../ReferencePathView/ReferencePathView';
+import { ReferencePathEditor } from '../ReferencePathEditor/ReferencePathEditor';
+import { ListItemView, ListView } from '../SharedElements/SharedElements';
 
 export interface ArgumentEditorProps {
   contentKey: ContentKey;
@@ -55,6 +50,7 @@ export function ArgumentEditor({ contentKey }: ArgumentEditorProps) {
 
   const props = {
     content,
+    key: 'editor',
   };
 
   return multi ? <MultiArgumentEditor {...props} /> : <SingleArgumentEditor {...props} />;
@@ -74,24 +70,16 @@ function SingleArgumentEditor({ content }: InternalArgumentEditorProps) {
   const childKey = childKeys[0];
   const childContent = useContent<FunctionContent | ReferenceContent | ValueContent>(childKey);
   return (
-    <List
-      dense
-      disablePadding
-      sx={(theme) => ({
-        backgroundColor:
-          theme.palette.mode === 'light'
-            ? lighten(theme.palette.background.default, 0.1)
-            : darken(theme.palette.background.default, 0.1),
-        py: 0.5,
-        m: 1,
-      })}
-    >
-      <ListItem sx={{ px: 1 }} key={childKey}>
-        <ItemWrapper>
-          <ExpressionEditor content={childContent} id={childKey} hideOverflow={false} />
-        </ItemWrapper>
-      </ListItem>
-    </List>
+    <ListView>
+      <ListItemView key={childKey}>
+        <ExpressionEditor
+          key="single-item"
+          content={childContent}
+          id={childKey}
+          hideOverflow={false}
+        />
+      </ListItemView>
+    </ListView>
   );
 }
 
@@ -147,16 +135,9 @@ function MultiArgumentEditor({ content }: InternalArgumentEditorProps) {
   const addButtonLabel = translate(labelKey('add-input'));
 
   return (
-    <List
-      dense
-      disablePadding
-      sx={(theme) => ({
-        backgroundColor: theme.palette.background.default,
-        py: 0.5,
-        m: 1,
-      })}
-    >
+    <ListView key="list">
       <ReactSortable
+        key="sortable"
         list={items}
         setList={setItems}
         onUpdate={handleUpdate}
@@ -175,25 +156,21 @@ function MultiArgumentEditor({ content }: InternalArgumentEditorProps) {
           //  but the items list has not yet been updated. Check each child to ensure it still
           //  exists
           return allContent.hasOwnProperty(key) ? (
-            <ListItem key={key} sx={{ px: 1 }}>
-              <ItemWrapper>
-                <ExpressionEditor {...props} hideOverflow={index === dragStartIndex} />
-              </ItemWrapper>
-            </ListItem>
+            <ListItemView key={key}>
+              <ExpressionEditor key={props.id} {...props} hideOverflow={index === dragStartIndex} />
+            </ListItemView>
           ) : (
-            <></>
+            <Box key="removed"></Box>
           );
         })}
       </ReactSortable>
-      <ListItem key={'add-button'} sx={{ px: 1 }}>
-        <ItemWrapper>
-          <ListItemButton onClick={handleAdd}>
-            <AddIcon fontSize={'small'} sx={{ mr: 1 }} />
-            <ListItemText primary={addButtonLabel} />
-          </ListItemButton>
-        </ItemWrapper>
-      </ListItem>
-    </List>
+      <ListItemView key={'add-button-item'} sx={{ px: 1 }}>
+        <ListItemButton key={'button'} onClick={handleAdd}>
+          <AddIcon key="icon" fontSize={'small'} sx={{ mr: 1 }} />
+          <ListItemText key="text" primary={addButtonLabel} />
+        </ListItemButton>
+      </ListItemView>
+    </ListView>
   );
 }
 
@@ -262,7 +239,7 @@ function FunctionItemView({
 
   return (
     <ListItemButton selected={selected} onClick={handleSelect}>
-      <Stack direction={'column'}>
+      <Stack direction={'column'} width={'100%'}>
         <ListItemButton
           disableRipple
           disableTouchRipple
@@ -282,26 +259,60 @@ function FunctionItemView({
   );
 }
 
-function ReferenceItemView({ content, handleSelect, selected }: ViewProps<ReferenceContent>) {
+function ReferenceItemView({
+  content,
+  handleSelect,
+  selected,
+  hideOverflow,
+}: ViewProps<ReferenceContent>) {
+  const contentKey = content.key;
+  const variableContent = useContent<VariableContent>(content.variableKey, ContentType.VARIABLE);
+  const rootType = variableContent.type;
+  const { types } = useSelector(selectEngineSpec);
+
+  const [open, setOpen] = useState(false);
+  const handleClose = useCallback(() => {
+    setOpen(false);
+  }, [setOpen]);
+
+  const isTypeCompound = useMemo(() => {
+    if (rootType.length !== 1) {
+      // path selection is not allowed for intersection types
+      return false;
+    }
+    const [typeId] = rootType;
+    // A type is compound if it has child properties
+    return Object.keys(types[typeId].properties).length > 0;
+  }, [rootType, types]);
+
+  const handleClick = useCallback(() => {
+    handleSelect();
+    if (isTypeCompound) {
+      setOpen(true);
+    }
+  }, [handleSelect, isTypeCompound, setOpen]);
+
   return (
-    <ListItemButton selected={selected} onClick={handleSelect}>
-      <ReferenceIcon />
-      <ReferenceEditor contentKey={content.key} />
-      <ContextActions contentKey={content.key} />
-    </ListItemButton>
+    <>
+      <ListItemButton selected={selected} onClick={handleClick}>
+        <Stack direction={'column'} width={'100%'}>
+          <ListItemButton
+            disableRipple
+            disableTouchRipple
+            sx={{ p: 0, ':hover': { backgroundColor: 'inherit' } }}
+          >
+            <ReferenceIcon />
+            <ReferenceView contentKey={contentKey} />
+            <ContextActions contentKey={contentKey} />
+          </ListItemButton>
+          {!hideOverflow && content.path.length > 0 && (
+            <Box sx={{ ml: '30px', mt: '-6px' }}>
+              <ReferencePathView contentKey={contentKey} />
+            </Box>
+          )}
+        </Stack>
+      </ListItemButton>
+      <ReferencePathEditor {...{ contentKey, open }} onClose={handleClose} />
+    </>
   );
 }
-
-const ItemWrapper = styled('div')(({ theme }) => ({
-  minWidth: '220px',
-  width: '100%',
-  backgroundColor:
-    theme.palette.mode === 'light'
-      ? darken(theme.palette.background.paper, 0.1)
-      : lighten(theme.palette.background.paper, 0.1),
-  border: '1px solid',
-  borderColor:
-    theme.palette.mode === 'light'
-      ? darken(theme.palette.background.paper, 0.15)
-      : lighten(theme.palette.background.paper, 0.15),
-}));

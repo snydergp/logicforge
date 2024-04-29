@@ -1,24 +1,19 @@
-import { Provider, useSelector } from 'react-redux';
-import { Box, Container, Divider, Slide, Stack, SxProps, Theme, Typography } from '@mui/material';
+import { Provider, useDispatch, useSelector } from 'react-redux';
+import { Box, Divider, Slide, Stack, SxProps, Theme, Typography } from '@mui/material';
 import {
   ActionContent,
   Content,
   ContentType,
-  ControlContent,
   EngineSpec,
   FunctionContent,
   LogicForgeConfig,
   PROCESS_RETURN_PROP,
   ProcessConfig,
   ProcessContent,
+  ReferenceContent,
 } from '../../types';
-import {
-  initEditor,
-  selectContent,
-  selectEngineSpec,
-  selectSelectedSubtree,
-} from '../../redux/slices/editors';
-import React, { useEffect, useMemo, useRef } from 'react';
+import { initEditor, selectEngineSpec, selectSelectedSubtree } from '../../redux/slices/editors';
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   actionDescriptionKey,
   actionParameterDescriptionKey,
@@ -43,6 +38,7 @@ import { ExecutableBlockEditor } from '../ExecutableBlockEditor/ExecutableBlockE
 import { VariableEditor } from '../VariableEditor/VariableEditor';
 import { ArgumentEditor } from '../ArgumentEditor/ArgumentEditor';
 import { TypeView } from '../TypeView/TypeView';
+import { ActionCreators } from 'redux-undo';
 
 enum FrameType {
   PROCESS,
@@ -55,7 +51,7 @@ const FRAME_WIDTH = '400px';
 /**
  * The content types that are rendered using frames
  */
-type FrameContent = ProcessContent | ActionContent | FunctionContent | ControlContent;
+type FrameContent = ProcessContent | ActionContent | FunctionContent | ReferenceContent;
 
 export type FrameEditorProps = {
   config: LogicForgeConfig;
@@ -100,22 +96,39 @@ function FrameEditorInternal() {
     return children;
   }, [selection]);
 
+  const dispatch = useDispatch();
+  const handleKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLDivElement>) => {
+      const { key, metaKey, shiftKey } = event;
+      if (metaKey && key === 'z') {
+        if (!shiftKey) {
+          dispatch(ActionCreators.undo());
+        } else {
+          dispatch(ActionCreators.redo());
+        }
+      }
+    },
+    [dispatch],
+  );
+
   return (
-    <Stack
-      direction="row"
-      flexWrap={'nowrap'}
-      overflow={'scroll'}
-      sx={{ overflowX: 'scroll', width: '100%', height: '100%' }}
-      spacing={0}
-      divider={<Divider orientation="vertical" flexItem />}
-    >
-      {childFrames}
-    </Stack>
+    <div onKeyDown={handleKeyDown} tabIndex={0}>
+      <Stack
+        direction="row"
+        flexWrap={'nowrap'}
+        overflow={'scroll'}
+        sx={{ overflowX: 'scroll', width: '100%', height: '100%' }}
+        spacing={0}
+        divider={<Divider orientation="vertical" flexItem />}
+      >
+        {childFrames}
+      </Stack>
+    </div>
   );
 }
 
-interface FrameProps {
-  content: FrameContent;
+interface FrameProps<TYPE extends FrameContent = FrameContent> {
+  content: TYPE;
 }
 
 function Frame({ content }: FrameProps) {
@@ -153,17 +166,15 @@ function Frame({ content }: FrameProps) {
         container={containerRef.current}
         appear={content.differentiator !== ContentType.PROCESS}
       >
-        <Container>{renderedFrameContents}</Container>
+        <Stack spacing={1} sx={{ m: 1.5 }}>
+          {renderedFrameContents}
+        </Stack>
       </Slide>
     </Box>
   );
 }
 
-interface ProcessFrameProps extends FrameProps {
-  content: ProcessContent;
-}
-
-function ProcessFrame({ content }: ProcessFrameProps) {
+function ProcessFrame({ content }: FrameProps<ProcessContent>) {
   const engineSpec = useSelector(selectEngineSpec);
 
   const processName = content.name;
@@ -182,7 +193,7 @@ function ProcessFrame({ content }: ProcessFrameProps) {
     <Stack spacing={1}>
       <FrameHeading type={FrameType.PROCESS} {...{ title, description, subtitle }} />
       <FrameSection title={initVarsTitle}>
-        <InitialVariablesView initialVariables={Object.values(specification.inputs)} />
+        <InitialVariablesView variableKeys={content.inputVariableKeys} />
       </FrameSection>
       <FrameSection title={actionsTitle}>
         <ExecutableBlockEditor contentKey={content.rootBlockKey as string} />
@@ -196,13 +207,8 @@ function ProcessFrame({ content }: ProcessFrameProps) {
   );
 }
 
-interface ActionFrameProps extends FrameProps {
-  content: ActionContent;
-}
-
-function ActionFrame({ content }: ActionFrameProps) {
+function ActionFrame({ content }: FrameProps<ActionContent>) {
   const engineSpec = useSelector(selectEngineSpec);
-  const allContent = useSelector(selectContent);
 
   const actionName = content.name;
   const specification = engineSpec.actions[actionName];
@@ -213,7 +219,7 @@ function ActionFrame({ content }: ActionFrameProps) {
   const subtitle = translate(labelKey('action'));
 
   return (
-    <Stack spacing={1}>
+    <>
       <FrameHeading type={FrameType.ACTION} {...{ title, description, subtitle }} />
       {Object.entries(specification.inputs)?.map(([name, spec]) => {
         const title = translate(actionParameterTitleKey(actionName, name));
@@ -228,15 +234,11 @@ function ActionFrame({ content }: ActionFrameProps) {
       {content.variableContentKey !== undefined && (
         <VariableEditor contentKey={content.variableContentKey} />
       )}
-    </Stack>
+    </>
   );
 }
 
-export interface FunctionFrameProps extends FrameProps {
-  content: FunctionContent;
-}
-
-export function FunctionFrame({ content }: FunctionFrameProps) {
+function FunctionFrame({ content }: FrameProps<FunctionContent>) {
   const engineSpec = useSelector(selectEngineSpec);
 
   const functionName = content.name;
@@ -248,7 +250,7 @@ export function FunctionFrame({ content }: FunctionFrameProps) {
   const subtitle = translate(labelKey('function'));
 
   return (
-    <Stack spacing={1}>
+    <>
       <FrameHeading type={FrameType.FUNCTION} {...{ title, description, subtitle }} />
       {Object.entries(specification.inputs)?.map(([name, spec]) => {
         const title = translate(functionParameterTitleKey(functionName, name));
@@ -260,18 +262,18 @@ export function FunctionFrame({ content }: FunctionFrameProps) {
           </FrameSection>
         );
       })}
-    </Stack>
+    </>
   );
 }
 
-export interface FrameHeadingProps {
+interface FrameHeadingProps {
   title: string;
   description?: string;
   subtitle: string;
   type: FrameType;
 }
 
-export function FrameHeading({ title, description, subtitle, type }: FrameHeadingProps) {
+function FrameHeading({ title, description, subtitle, type }: FrameHeadingProps) {
   return (
     <Box sx={{ mb: 1.5 }}>
       <Typography variant={'h4'} fontSize={'1.5rem'}>

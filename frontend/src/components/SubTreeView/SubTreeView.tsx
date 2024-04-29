@@ -188,7 +188,7 @@ function ValueTreeView({ content }: ContentProps<ValueContent>) {
           >
             {content.value}
           </Typography>
-          &quot;
+          &quot;&nbsp;
           <TypeView type={content.type} />
         </Typography>
       );
@@ -201,7 +201,7 @@ function ValueTreeView({ content }: ContentProps<ValueContent>) {
             display: 'inline',
           })}
         >
-          {content.value}
+          {content.value}&nbsp;
           <TypeView type={content.type} />
         </Typography>
       );
@@ -215,7 +215,7 @@ function ValueTreeView({ content }: ContentProps<ValueContent>) {
             display: 'inline',
           })}
         >
-          {content.value}
+          {content.value}&nbsp;
           <TypeView type={content.type} />
         </Typography>
       );
@@ -223,7 +223,7 @@ function ValueTreeView({ content }: ContentProps<ValueContent>) {
   }
   return (
     <Typography>
-      {content.value}
+      {content.value}&nbsp;
       <TypeView type={content.type} />
     </Typography>
   );
@@ -320,8 +320,6 @@ interface LabelWithTypeViewProps {
 }
 
 function LabelWithTypeView({ title, description, type, multi }: LabelWithTypeViewProps) {
-  const translate = useTranslate();
-
   return (
     <Typography fontSize={(theme) => theme.typography.body2.fontSize}>
       {title}

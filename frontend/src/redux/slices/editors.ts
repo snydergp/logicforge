@@ -1,4 +1,4 @@
-import { createSelector, createSlice, PayloadAction } from '@reduxjs/toolkit';
+import { AnyAction, createSelector, createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { StoreStructure } from '../types';
 import {
   ActionConfig,
@@ -11,8 +11,6 @@ import {
   CONDITIONAL_CONTROL_SPEC,
   ConditionalConfig,
   ConditionalContent,
-  ConditionalReferenceConfig,
-  ConditionalReferenceContent,
   ConfigType,
   Content,
   ContentKey,
@@ -28,6 +26,7 @@ import {
   ExecutableContent,
   ExpressionConfig,
   ExpressionContent,
+  ExpressionInfo,
   ExpressionSpec,
   FunctionConfig,
   FunctionContent,
@@ -53,10 +52,10 @@ import {
   VOID_TYPE,
 } from '../../types';
 import {
+  Coordinates,
   doesTypeMatchRequirements,
   expandType,
   generateTypeSystem,
-  isTypeIntersectionASubset,
   nextKey,
   recurseDown,
   recurseUp,
@@ -239,6 +238,17 @@ const editorsSlice = createSlice({
         return { payload: key, meta: { newTypeId } };
       },
     },
+    updateReferencePath: {
+      reducer(state, action: PayloadAction<string, string, { newPath: string[] }>) {
+        const { newPath } = action.meta;
+        const key = action.payload;
+        doUpdateReferencePath(newPath, key, state);
+        return state;
+      },
+      prepare(key: string, newPath: string[]) {
+        return { payload: key, meta: { newPath } };
+      },
+    },
     moveExecutable: {
       reducer(
         state,
@@ -284,15 +294,25 @@ const editorsSlice = createSlice({
   },
 });
 
+export function editorsGroupBy(action: AnyAction) {
+  if (action.type === updateValue.type) {
+    const contentKey = (action as { [key: string]: string })['payload'];
+    return `${updateValue.type}:${contentKey}`;
+  } else if (action.type === setSelection.type) {
+    return `${setSelection.type}`;
+  }
+  return null;
+}
+
 export const selectEditorSelection = (state: StoreStructure) => {
-  return state['LOGICFORGE']?.selection;
+  return resolveCurrentSlice(state).selection;
 };
 
 /**
  * Internal-only selector used for creating memoizable composite selectors
  */
 const selectContentStore = (state: StoreStructure) => {
-  return state['LOGICFORGE']?.contentStore;
+  return resolveCurrentSlice(state).contentStore;
 };
 
 export const selectSelectedSubtree = createSelector(
@@ -306,7 +326,7 @@ export const selectSelectedSubtree = createSelector(
 );
 
 export const selectContentByKey = (key: ContentKey) => (state: StoreStructure) => {
-  const contentStore = state['LOGICFORGE']?.contentStore;
+  const contentStore = resolveCurrentSlice(state).contentStore;
   if (contentStore === undefined) {
     throw new Error('Illegal state: content store is not defined');
   }
@@ -314,8 +334,9 @@ export const selectContentByKey = (key: ContentKey) => (state: StoreStructure) =
 };
 
 export const selectIsInSelectedPath = (key: ContentKey) => (state: StoreStructure) => {
-  const contentStore = state['LOGICFORGE']?.contentStore;
-  const selection = state['LOGICFORGE']?.selection;
+  const slice = resolveCurrentSlice(state);
+  const contentStore = slice.contentStore;
+  const selection = slice.selection;
   if (contentStore === undefined) {
     throw new Error('Illegal state: content store is not defined');
   }
@@ -336,89 +357,53 @@ export const selectIsInSelectedPath = (key: ContentKey) => (state: StoreStructur
 };
 
 export const selectContent = (state: StoreStructure) => {
-  const contentStore = state['LOGICFORGE']?.contentStore;
+  const contentStore = resolveCurrentSlice(state).contentStore;
   if (contentStore === undefined) {
     throw new Error('Illegal state: content store is not defined');
   }
   return contentStore.indexedContent;
 };
 
-export const selectTypeSystem = (state: StoreStructure) => {
-  const typeSystem = state['LOGICFORGE']?.typeSystem;
-  if (typeSystem === undefined) {
-    throw new Error('Illegal state: type system is not defined');
-  }
-  return typeSystem;
-};
-
 export const selectEngineSpec = (state: StoreStructure) => {
-  const engineSpec = state['LOGICFORGE']?.engineSpec;
+  const engineSpec = resolveCurrentSlice(state).engineSpec;
   if (engineSpec === undefined) {
     throw new Error('Illegal state: engine spec is not defined');
   }
   return engineSpec;
 };
 
-export const selectTypeSpec = (typeId: string) => (state: StoreStructure) => {
-  const engineSpec = state['LOGICFORGE']?.engineSpec;
-  if (engineSpec === undefined) {
-    throw new Error('Illegal state: engine spec is not defined');
-  }
-  return engineSpec.types[typeId];
-};
-
-export const selectActionSpec = (actionName: string) => (state: StoreStructure) => {
-  const engineSpec = state['LOGICFORGE']?.engineSpec;
-  if (engineSpec === undefined) {
-    throw new Error('Illegal state: engine spec is not defined');
-  }
-  return engineSpec.actions[actionName];
-};
-
 export const selectFunctionSpec = (functionName: string) => (state: StoreStructure) => {
-  const engineSpec = state['LOGICFORGE']?.engineSpec;
+  const engineSpec = resolveCurrentSlice(state).engineSpec;
   if (engineSpec === undefined) {
     throw new Error('Illegal state: engine spec is not defined');
   }
   return engineSpec.functions[functionName];
 };
 
-export const selectFunctionInputSpec =
-  (functionName: string, inputName: string) => (state: StoreStructure) => {
-    const engineSpec = state['LOGICFORGE']?.engineSpec;
-    if (engineSpec === undefined) {
-      throw new Error('Illegal state: engine spec is not defined');
-    }
-    return engineSpec.functions[functionName].inputs[inputName];
-  };
-
 export const selectAvailableVariables = (key: string) => (state: StoreStructure) => {
-  return findAvailableVariables(key, state.LOGICFORGE as EditorState);
+  return findAvailableVariables(key, resolveCurrentSlice(state));
+};
+
+export const selectReferenceExpressionType = (referenceKey: string) => (state: StoreStructure) => {
+  const editorState = resolveCurrentSlice(state);
+  const contentStore = editorState.contentStore;
+  if (contentStore === undefined) {
+    throw new Error('Illegal state: content store is not defined');
+  }
+  const referenceContent = resolveContent<ReferenceContent>(
+    referenceKey,
+    contentStore.indexedContent,
+  );
+  return resolveTypeForReference(referenceContent.variableKey, referenceContent.path, editorState);
 };
 
 export const selectParameterSpecificationForKey = (key?: string) => (state: StoreStructure) => {
   if (key !== undefined) {
-    const editorState = state['LOGICFORGE'];
+    const editorState = resolveCurrentSlice(state);
     if (editorState !== undefined) {
       return resolveParameterSpecForKey(key, editorState);
     }
   }
-};
-
-export const selectSubTreeErrors = (key: string) => (state: StoreStructure) => {
-  const { contentStore } = state['LOGICFORGE'] as EditorState;
-  const indexedContent = contentStore.indexedContent;
-  const errors: { [key: ContentKey]: ValidationError[] } = {};
-  recurseDown(
-    indexedContent,
-    (content) => {
-      if (content.errors.length > 1) {
-        errors[content.key] = content.errors;
-      }
-    },
-    key,
-  );
-  return errors;
 };
 
 function removeChildKey(content: ListContent, key: string) {
@@ -599,6 +584,7 @@ function replaceValueWithFunction(valueKey: ContentKey, functionName: string, st
     spec: functionSpec,
     type: functionSpec.output.type,
     multi: functionSpec.output.multi,
+    optional: false,
     errors: [],
     childKeyMap: {},
   };
@@ -636,23 +622,31 @@ function replaceValueWithFunction(valueKey: ContentKey, functionName: string, st
 }
 
 function propagateTypeUpdate(expressionKey: string, state: EditorState) {
-  const { contentStore } = state;
+  const { contentStore, typeSystem } = state;
   let indexedContent = contentStore.indexedContent;
   const updatedExpression = resolveContent<ExpressionContent>(expressionKey, indexedContent);
-  const type = updatedExpression.type;
-  const multi = updatedExpression.multi;
+  const { multi } = updatedExpression;
   const parentArgument = resolveContent<ArgumentContent>(
     updatedExpression.parentKey as string,
     indexedContent,
   );
-  parentArgument.calculatedType = type;
+  const calculatedType = parentArgument.childKeys
+    .map((key) => {
+      const childExpression = resolveContent<ExpressionContent>(key, indexedContent);
+      return childExpression.type;
+    })
+    .reduce((previous, current) => {
+      return typeIntersection(previous, current);
+    }, []);
+  parentArgument.calculatedType = calculatedType;
+
   const parent = resolveContent<FunctionContent | ActionContent>(
     parentArgument.parentKey as string,
     indexedContent,
   );
   if (
-    isTypeIntersectionASubset(parentArgument.allowedType, type) ||
-    (multi && !parentArgument.allowMulti)
+    !doesTypeMatchRequirements(calculatedType, parentArgument.allowedType, typeSystem) ||
+    (updatedExpression.multi && !parentArgument.allowMulti)
   ) {
     ensureErrorByCode(parent.errors, {
       code: ErrorCode.UNSATISFIED_INPUT_TYPE_MISMATCH,
@@ -663,7 +657,7 @@ function propagateTypeUpdate(expressionKey: string, state: EditorState) {
     removeErrorsByCode(parent.errors, ErrorCode.UNSATISFIED_INPUT_TYPE_MISMATCH);
     // continue propagation upward only if there are no errors
     if (parentArgument.propagateTypeChanges) {
-      parent.type = type;
+      parent.type = calculatedType;
       parent.multi = multi;
       if (parent.differentiator === ContentType.FUNCTION) {
         propagateTypeUpdate(parent.key, state);
@@ -674,11 +668,11 @@ function propagateTypeUpdate(expressionKey: string, state: EditorState) {
             actionParent.variableContentKey as string,
             indexedContent,
           );
-          variableContent.type = type;
+          variableContent.type = calculatedType;
           variableContent.multi = multi;
           variableContent.referenceKeys.forEach((referenceKey: ContentKey) => {
             const referenceContent = resolveContent<ReferenceContent>(referenceKey, indexedContent);
-            referenceContent.type = type;
+            referenceContent.type = calculatedType;
             referenceContent.multi = multi;
             propagateTypeUpdate(referenceKey, state);
           });
@@ -717,6 +711,26 @@ function doUpdateValueType(newTypeId: TypeId, key: ContentKey, state: EditorStat
   valueContent.availableFunctionIds = Object.keys(
     findFunctionsMatchingTypeConstraints(valueContent.type, argumentContent.allowMulti, state),
   );
+  propagateTypeUpdate(key, state);
+}
+
+function doUpdateReferencePath(newPath: string[], key: ContentKey, state: EditorState) {
+  const { contentStore, typeSystem } = state;
+  const indexedContent = contentStore.indexedContent;
+  const referenceContent = resolveContent<ReferenceContent>(key, indexedContent);
+  const { type, multi } = resolveTypeForReference(referenceContent.variableKey, newPath, state);
+  referenceContent.path = newPath;
+  referenceContent.type = type;
+  referenceContent.multi = multi;
+  const parentArgContent = resolveContent<ArgumentContent>(
+    referenceContent.parentKey as string,
+    contentStore.indexedContent,
+  );
+  const { errors } = referenceContent;
+  removeErrorsByCode(errors, ErrorCode.UNSATISFIED_INPUT_TYPE_MISMATCH);
+  if (!doesTypeMatchRequirements(type, parentArgContent.declaredType, typeSystem)) {
+    errors.push(unsatisfiedInputTypeMismatch(parentArgContent.declaredType, type));
+  }
   propagateTypeUpdate(key, state);
 }
 
@@ -766,19 +780,17 @@ function findFunctionsMatchingTypeConstraints(
   const { engineSpec, typeSystem } = state;
   const matchingFunctions: { [key: string]: FunctionSpec } = {};
   if (typeSystem !== undefined && engineSpec !== undefined) {
-    type.forEach((typeId) => {
-      Object.entries(engineSpec.functions).forEach(([key, functionSpec]) => {
-        const functionOutput = functionSpec.output;
-        const functionOutputTypeId = functionOutput.type;
-        // function output must be of the same type or able to be converted/coerced into the type
-        if (doesTypeMatchRequirements(functionOutputTypeId, type, typeSystem)) {
-          const functionOutputMultiple = functionOutput.multi;
-          // functions with multi outputs are only allowed if the required type is multi itself
-          if (multi || !functionOutputMultiple) {
-            matchingFunctions[key] = functionSpec;
-          }
+    Object.entries(engineSpec.functions).forEach(([key, functionSpec]) => {
+      const functionOutput = functionSpec.output;
+      const functionOutputTypeId = functionOutput.type;
+      // function output must be of the same type or able to be converted/coerced into the type
+      if (doesTypeMatchRequirements(functionOutputTypeId, type, typeSystem)) {
+        const functionOutputMultiple = functionOutput.multi;
+        // functions with multi outputs are only allowed if the required type is multi itself
+        if (multi || !functionOutputMultiple) {
+          matchingFunctions[key] = functionSpec;
         }
-      });
+      }
     });
   }
   return matchingFunctions;
@@ -957,6 +969,7 @@ function constructProcess(config: ProcessConfig, state: EditorState) {
     spec: processSpec,
     type: outputType !== undefined ? outputType : VOID_TYPE,
     multi: outputMulti !== undefined ? outputMulti : false,
+    optional: false,
     inputVariableKeys: [],
     childKeyMap: {},
     errors: [],
@@ -1068,8 +1081,6 @@ function constructExpression(
       return constructFunction(config as FunctionConfig, parentKey, state);
     case ConfigType.REFERENCE:
       return constructReference(config as ReferenceConfig, parentKey, state);
-    case ConfigType.CONDITIONAL_REFERENCE:
-      return constructConditionalReference(config as ConditionalReferenceConfig, parentKey, state);
   }
 }
 
@@ -1172,6 +1183,7 @@ function constructValue(config: ValueConfig, parentKey: string, state: EditorSta
     parentKey,
     type,
     multi: false,
+    optional: false,
     value,
     availableFunctionIds: [],
     availableVariables: [],
@@ -1221,6 +1233,7 @@ function constructAction(config: ActionConfig, parentKey: ContentKey, state: Edi
     spec,
     type: calculatedType,
     multi,
+    optional: false,
     childKeyMap: {},
     errors: [],
   };
@@ -1281,6 +1294,7 @@ function constructFunction(config: FunctionConfig, parentKey: ContentKey, state:
     spec,
     type: calculatedType,
     multi,
+    optional: false,
     childKeyMap: {},
     errors: [],
   };
@@ -1299,103 +1313,56 @@ function constructFunction(config: FunctionConfig, parentKey: ContentKey, state:
   return functionContent;
 }
 
-function constructConditionalReference(
-  config: ConditionalReferenceConfig,
-  parentKey: string,
-  state: EditorState,
-) {
+function constructReference(config: ReferenceConfig, parentKey: ContentKey, state: EditorState) {
   const { contentStore } = state;
-  const indexedContent = contentStore.indexedContent;
-  const parentArg = resolveContent<ArgumentContent>(parentKey, indexedContent);
-  const { declaredType } = parentArg;
-  const referenceKey = nextKey(contentStore);
-
-  // Construct conditional reference content and add to store
-  const referenceContent: ConditionalReferenceContent = {
-    differentiator: ContentType.CONDITIONAL_REFERENCE,
-    key: referenceKey,
-    parentKey,
-    childKeys: [],
-    type: declaredType,
-    multi: false,
-    errors: [],
-  };
-  contentStore.indexedContent[referenceKey] = referenceContent;
-
-  // Resolve all references and link to content
-  config.references.forEach((coordinates) => {
-    const referencedActionContent = findExecutableContent<ActionContent>(contentStore, coordinates);
-    if (
-      referencedActionContent === undefined ||
-      referencedActionContent.variableContentKey === undefined
-    ) {
+  const referenceConfig = config as ReferenceConfig;
+  const referencedContent = findExecutableContent(contentStore, referenceConfig.coordinates);
+  let variableContent: VariableContent | undefined;
+  let { path, coordinates } = referenceConfig;
+  if (referencedContent.differentiator === ContentType.ACTION) {
+    const actionContent = referencedContent as ActionContent;
+    if (actionContent.variableContentKey === undefined) {
       throw new Error(
         `Illegal state: coordinates [${coordinates
           .map((value) => value.toString())
           .join(',')}] cannot be used as reference`,
       );
     }
-
-    const referencedVarContent = resolveContent<VariableContent>(
-      referencedActionContent.variableContentKey as string,
-      indexedContent,
+    variableContent = resolveContent<VariableContent>(
+      actionContent.variableContentKey,
+      contentStore.indexedContent,
     );
-    referencedVarContent.referenceKeys.push(referenceKey);
-    referenceContent.childKeys.push(referencedVarContent.key);
-  });
-
-  // Construct expression arg child and link to parent
-  const expressionArgContent = constructArgument(
-    [config.expression],
-    referenceKey,
-    declaredType,
-    false,
-    state,
-  );
-  expressionArgContent.parentKey = referenceKey;
-  referenceContent.expressionKey = expressionArgContent.key;
-
-  // Construct fallback expression arg child and link to parent
-  const fallbackArgContent = constructArgument(
-    [config.fallback],
-    referenceKey,
-    declaredType,
-    false,
-    state,
-  );
-  fallbackArgContent.parentKey = referenceKey;
-  referenceContent.fallbackKey = fallbackArgContent.key;
-
-  return referenceContent;
-}
-
-function constructReference(config: ReferenceConfig, parentKey: ContentKey, state: EditorState) {
-  const { contentStore } = state;
-  const ref = config as ReferenceConfig;
-  const referencedContent = findExecutableContent(contentStore, ref.coordinates);
-  if (
-    referencedContent.differentiator !== ContentType.ACTION ||
-    (referencedContent as ActionContent).variableContentKey === undefined
-  ) {
-    throw new Error(
-      `Illegal state: coordinates [${ref.coordinates
-        .map((value) => value.toString())
-        .join(',')}] cannot be used as reference`,
-    );
+  } else if (referencedContent.differentiator === ContentType.PROCESS) {
+    const processContent = referencedContent as ProcessContent;
+    if (referenceConfig.path.length === 0) {
+      throw new Error(
+        'Invalid Reference Config: initial variable references require at least one path segment',
+      );
+    }
+    const [basePath, [...internalPath]] = path;
+    const matchingVariableKey = processContent.inputVariableKeys.find((contentKey) => {
+      const initialVariableContent = contentStore.indexedContent[contentKey] as VariableContent;
+      return basePath === initialVariableContent.basePath;
+    });
+    if (matchingVariableKey === undefined) {
+      throw new Error(`Illegal reference config: initial variable ${basePath} does not exist`);
+    }
+    variableContent = contentStore.indexedContent[matchingVariableKey] as VariableContent;
+    path = internalPath;
   }
-  const actionContent = referencedContent as ActionContent;
-  const variableContent = resolveContent<VariableContent>(
-    actionContent.variableContentKey as string,
-    contentStore.indexedContent,
-  );
+  if (variableContent === undefined) {
+    throw new Error(`Unexpected content type resolved for coordinates [${coordinates.join(',')}]}`);
+  }
+  const { type, multi, optional } = resolveTypeForReference(variableContent.key, path, state);
   const referenceContent: ReferenceContent = {
     differentiator: ContentType.REFERENCE,
     key: nextKey(contentStore),
     parentKey,
-    variableKey: referencedContent.variableContentKey as string,
-    type: referencedContent.type,
-    multi: referencedContent.multi,
-    path: ref.path,
+    variableKey: variableContent.key,
+    type,
+    multi,
+    optional,
+    path,
     errors: [],
   };
   variableContent.referenceKeys.push(referenceContent.key);
@@ -1531,22 +1498,29 @@ export function getContentAndAncestors(contentStore: ContentStore, key: string) 
   return ancestorPath;
 }
 
-function findExecutableContent<T extends BlockContent | ControlContent | ActionContent>(
+function findExecutableContent(
   contentStore: ContentStore,
-  coordinates: number[],
-): T {
+  coordinates: Coordinates,
+): ProcessContent | ActionContent {
   const processKey = contentStore.rootConfigKey as string;
-  const process = resolveContent<ProcessContent>(processKey, contentStore.indexedContent);
-  let pointer: ListContent = resolveContent<BlockContent>(
-    process.rootBlockKey as string,
+  const processContent = resolveContent<ProcessContent>(processKey, contentStore.indexedContent);
+  if (coordinates.length === 0) {
+    return processContent;
+  }
+  let pointer: ListContent | ActionContent = resolveContent<BlockContent>(
+    processContent.rootBlockKey as string,
     contentStore.indexedContent,
   );
   for (let i = 0; i < coordinates.length; i++) {
+    if (pointer.differentiator === ContentType.ACTION) {
+      // coordinates are invalid
+      throw new Error(`Invalid coordinates: [${coordinates.join(',')}]}`);
+    }
     const coordinate = coordinates[i];
-    const childKey = pointer.childKeys[coordinate];
-    pointer = resolveContent<ListContent>(childKey, contentStore.indexedContent);
+    const childKey: ContentKey = (pointer as ListContent).childKeys[coordinate];
+    pointer = resolveContent<ListContent | ActionContent>(childKey, contentStore.indexedContent);
   }
-  return pointer as T;
+  return pointer as ActionContent;
 }
 
 export function resolveParameterSpecForKey(key: string, state: EditorState) {
@@ -1578,7 +1552,7 @@ export function resolveParameterSpec(
   >(argContent.parentKey as string, contentStore.indexedContent);
 
   const argName = Object.entries(argParent.childKeyMap).find(
-    ([name, key]) => key === argContent.key,
+    ([, key]) => key === argContent.key,
   )?.[0];
   if (argName === undefined) {
     throw new Error(`Failed to find arg name for key ${argContent.key}`);
@@ -1602,7 +1576,11 @@ export function resolveParameterSpec(
   throw new Error('Unexpected error: unable to resolve parameter spec');
 }
 
-function resolveTypeForReference(variableKey: ContentKey, path: string[], state: EditorState) {
+function resolveTypeForReference(
+  variableKey: ContentKey,
+  path: string[],
+  state: EditorState,
+): ExpressionInfo {
   const {
     contentStore: { indexedContent },
     engineSpec: { types },
@@ -1611,6 +1589,7 @@ function resolveTypeForReference(variableKey: ContentKey, path: string[], state:
   const variableContent = resolveContent<VariableContent>(variableKey, indexedContent);
   let type = variableContent.type;
   let multi = variableContent.multi;
+  let optional = variableContent.optional;
   for (let i = 0; i < path.length; i++) {
     if (type.length > 1) {
       throw new Error('Intersection types cannot declare a path');
@@ -1623,8 +1602,16 @@ function resolveTypeForReference(variableKey: ContentKey, path: string[], state:
     }
     type = property.type;
     multi = multi || property.multi;
+    optional = optional || property.optional;
   }
-  return { type, multi };
+  return { type, multi, optional };
+}
+
+function resolveCurrentSlice(storeStructure: StoreStructure) {
+  if (!storeStructure.LOGICFORGE) {
+    throw new Error(`Unexpected state: slice is not defined`);
+  }
+  return storeStructure.LOGICFORGE.present;
 }
 
 export const {
@@ -1638,6 +1625,7 @@ export const {
   deleteItem,
   updateValue,
   updateValueType,
+  updateReferencePath,
   moveExecutable,
   updateVariable,
 } = editorsSlice.actions;

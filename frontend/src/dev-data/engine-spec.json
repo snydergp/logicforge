@@ -221,6 +221,14 @@
           ],
           "multi": false,
           "optional": false
+        },
+        "recursiveRequest": {
+          "name": "recursiveRequest",
+          "type": [
+            "io.logicforge.http.HttpRequest"
+          ],
+          "multi": false,
+          "optional": false
         }
       },
       "valueType": false

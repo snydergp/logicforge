@@ -34,11 +34,30 @@
         "http": {
           "HttpRequest": {
             "title": "HTTP Request",
-            "description": "An HTTP Request"
+            "description": "An HTTP Request",
+            "properties": {
+              "method": {
+                "title": "HTTP Method"
+              },
+              "path": {
+                "title": "Request Path"
+              },
+              "recursiveRequest": {
+                "title": "Recursive Request"
+              }
+            }
           },
           "HttpResponse": {
             "title": "HTTP Response",
-            "description": "An HTTP Response"
+            "description": "An HTTP Response",
+            "properties": {
+              "status": {
+                "title": "Response Status"
+              },
+              "body": {
+                "title": "Response Body"
+              }
+            }
           }
         }
       }

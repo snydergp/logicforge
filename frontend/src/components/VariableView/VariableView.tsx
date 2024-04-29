@@ -3,19 +3,20 @@ import { Box, Stack, Typography } from '@mui/material';
 import React from 'react';
 import { useTranslate } from '../I18n/I18n';
 import { VariableIcon } from '../Icons/Icons';
-import { TypeIntersection } from '../../types';
+import { ContentKey, ContentType, VariableContent } from '../../types';
 import { TypeView } from '../TypeView/TypeView';
+import { useContent } from '../../hooks/useContent';
+import { StyledTooltip } from '../Info/Info';
 
 export interface VariableViewProps {
-  type: TypeIntersection;
-  multi: boolean;
-  optional: boolean;
-  initial?: boolean;
-  title: string;
-  description?: string;
+  contentKey: ContentKey;
 }
 
-export function VariableView({ type, multi, optional, initial = false, title }: VariableViewProps) {
+export function VariableView({ contentKey }: VariableViewProps) {
+  const { type, multi, optional, title, initial, referenceKeys } = useContent<VariableContent>(
+    contentKey,
+    ContentType.VARIABLE,
+  );
   const translate = useTranslate();
 
   const superTitleMain = translate(labelKey(initial ? 'initial-variable' : 'sets-variable'));
@@ -31,13 +32,21 @@ export function VariableView({ type, multi, optional, initial = false, title }: 
     </Typography>
   );
 
+  const referenceCount = referenceKeys.length;
+  const referenceCountLabel =
+    referenceCount === 1
+      ? translate(labelKey('reference-count-single'))
+      : translate(labelKey('reference-count-multi'), { count: referenceCount.toString() });
+
   return (
-    <Stack direction={'row'} sx={{ mt: 1, width: '100%' }}>
-      <VariableIcon />
-      <Box sx={{ width: '100%', p: 0, mb: 1, ml: 1 }}>
-        {superTitle}
-        {mainTitle}
-      </Box>
-    </Stack>
+    <StyledTooltip title={referenceCountLabel}>
+      <Stack direction={'row'} sx={{ mt: 1, width: '100%' }}>
+        <VariableIcon />
+        <Box sx={{ width: '100%', p: 0, mb: 1, ml: 1 }}>
+          {superTitle}
+          {mainTitle}
+        </Box>
+      </Stack>
+    </StyledTooltip>
   );
 }

@@ -12,7 +12,7 @@ import {
   styled,
   TextField,
 } from '@mui/material';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import {
   convertValueToFunction,
@@ -184,11 +184,16 @@ export function ValueEditor({ contentKey }: ValueEditorProps) {
     return fixedOptions ? (options: Option[]) => options : createFilterOptions<Option>();
   }, [fixedOptions]);
 
-  const [inputValue, setInputValue] = useState(
-    fixedOptions
-      ? options.find((option) => option.id === content.value)?.label || content.value
-      : content.value,
-  );
+  const [inputValue, setInputValue] = useState(content.value);
+  useEffect(() => {
+    setInputValue(
+      fixedOptions
+        ? options.find((option) => option.id === content.value)?.label || content.value
+        : content.value,
+    );
+  }, [content.value, setInputValue, fixedOptions, options]);
+
+  const [selectedOption, setSelectedOption] = useState<Option | undefined>();
   const handleInputChange = useCallback(
     (event: React.SyntheticEvent<Element, Event>, value: string | Option | null) => {
       if (typeof value === 'string') {
@@ -207,16 +212,28 @@ export function ValueEditor({ contentKey }: ValueEditorProps) {
           }
         }
 
-        if (!updatedShortcutMode && mode === Mode.LITERAL) {
+        if (!updatedShortcutMode && mode === Mode.LITERAL && !fixedOptions) {
           setInputValue(value);
           // dispatch update if changed
           if (content.value !== value) {
             dispatch(updateValue(content.key, value));
           }
         }
+        // on typing, reset value field (which controls option selection and not free text)
+        setSelectedOption(undefined);
       }
     },
-    [content, mode, setMode, shortcutMode, setShortcutMode, dispatch, setInputValue],
+    [
+      content,
+      mode,
+      setMode,
+      shortcutMode,
+      setShortcutMode,
+      setSelectedOption,
+      fixedOptions,
+      dispatch,
+      setInputValue,
+    ],
   );
 
   const handleChange = useCallback(
@@ -230,17 +247,21 @@ export function ValueEditor({ contentKey }: ValueEditorProps) {
         if (mode === Mode.LITERAL) {
           if (id === FUNCTION_OPTION_ID) {
             setMode(Mode.FUNCTION);
+            setSelectedOption(undefined);
             setInputValue('');
           } else if (id === VARIABLE_OPTION_ID) {
             setMode(Mode.VARIABLE);
+            setSelectedOption(undefined);
             setInputValue('');
           } else {
+            setSelectedOption(option);
             dispatch(updateValue(content.key, option.id));
             setOpen(false);
           }
         } else if (mode === Mode.FUNCTION) {
           if (id === LITERAL_OPTION_ID) {
             setMode(Mode.LITERAL);
+            setSelectedOption(undefined);
           } else {
             // use the selected function
             dispatch(convertValueToFunction(content.key, id));
@@ -248,6 +269,7 @@ export function ValueEditor({ contentKey }: ValueEditorProps) {
         } else if (mode === Mode.VARIABLE) {
           if (id === LITERAL_OPTION_ID) {
             setMode(Mode.LITERAL);
+            setSelectedOption(undefined);
           } else {
             const variableIndex = parseInt(id);
             const selectedVariable = availableVariables[variableIndex];
@@ -263,6 +285,7 @@ export function ValueEditor({ contentKey }: ValueEditorProps) {
       setMode,
       setShortcutMode,
       dispatch,
+      setSelectedOption,
       setInputValue,
       setOpen,
       availableVariables,
@@ -327,7 +350,7 @@ export function ValueEditor({ contentKey }: ValueEditorProps) {
             />
           )}
           disableClearable
-          freeSolo={fixedOptions}
+          freeSolo={true}
           filterOptions={filter}
           options={options}
           groupBy={(option) => option.groupId}
@@ -338,7 +361,7 @@ export function ValueEditor({ contentKey }: ValueEditorProps) {
           onFocus={handleFocus}
           open={open}
           inputValue={inputValue}
-          value={inputValue}
+          value={selectedOption || inputValue}
           isOptionEqualToValue={(option, value) => option.id === value.id}
           onKeyDown={handleKeyDown}
           fullWidth={true}

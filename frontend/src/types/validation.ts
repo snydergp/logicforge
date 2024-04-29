@@ -30,7 +30,7 @@ export type ValidationError = {
   /** The level of the error */
   level: ErrorLevel;
   /** Additional data regarding the error, used for production of error messages **/
-  data: { [key: string]: string };
+  data: { [key: string]: any };
 };
 
 export function validateValue(
@@ -203,7 +203,7 @@ export function unsatisfiedInputTypeMismatch(
   return {
     code: ErrorCode.UNSATISFIED_INPUT_TYPE_MISMATCH,
     level: ErrorLevel.ERROR,
-    data: { requiredType: requiredType.join(' | '), type: type.join(' | ') },
+    data: { requiredType, type },
   };
 }
 

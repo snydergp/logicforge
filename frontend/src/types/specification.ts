@@ -11,7 +11,6 @@ export enum ControlType {
 }
 
 export type TypePropertySpec = {
-  name: string;
   type: TypeIntersection;
   multi: boolean;
   optional: boolean;

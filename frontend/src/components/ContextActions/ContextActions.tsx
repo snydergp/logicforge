@@ -141,7 +141,7 @@ function ErrorDisplay(categorizedErrors: CategorizedErrors) {
           disableTouchRipple
         >
           <StyledTooltip title={tooltipContent}>
-            <Box>
+            <Box sx={{ mt: '5px' }}>
               {errorDisplayMode === ErrorDisplayMode.DIRECT_ERROR && <ErrorIcon color={'error'} />}
               {errorDisplayMode === ErrorDisplayMode.INDIRECT_ERROR && (
                 <ErrorOutline color={'error'} />

@@ -1,4 +1,4 @@
-export type Coordinates = number[];
+export type Coordinates = readonly number[];
 
 export const ROOT: Coordinates = [];
 
