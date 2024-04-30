@@ -2,6 +2,7 @@ import { toNumber } from 'lodash';
 import { EngineSpec } from './specification';
 import { WellKnownType } from '../constant/well-known-type';
 import { TypeIntersection } from './types';
+import { ContentKey } from './content';
 
 export enum ErrorCode {
   /** A required value is invalid (value-type input not matching type) */
@@ -204,6 +205,28 @@ export function unsatisfiedInputTypeMismatch(
     code: ErrorCode.UNSATISFIED_INPUT_TYPE_MISMATCH,
     level: ErrorLevel.ERROR,
     data: { requiredType, type },
+  };
+}
+
+export function invalidReference(
+  variableKey: ContentKey,
+  referenceKey: ContentKey,
+): ValidationError {
+  return {
+    code: ErrorCode.INVALID_REFERENCE,
+    level: ErrorLevel.ERROR,
+    data: { variableKey, referenceKey },
+  };
+}
+
+export function uncheckedReference(
+  variableKey: ContentKey,
+  referenceKey: ContentKey,
+): ValidationError {
+  return {
+    code: ErrorCode.UNCHECKED_REFERENCE,
+    level: ErrorLevel.WARNING,
+    data: { variableKey, referenceKey },
   };
 }
 

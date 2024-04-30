@@ -32,6 +32,7 @@ import {
   FunctionContent,
   FunctionSpec,
   IndexedContent,
+  invalidReference,
   ListContent,
   LogicForgeConfig,
   PROCESS_RETURN_PROP,
@@ -52,10 +53,12 @@ import {
   VOID_TYPE,
 } from '../../types';
 import {
+  areCoordinatesPredecessor,
   Coordinates,
   doesTypeMatchRequirements,
   expandType,
   generateTypeSystem,
+  getCoordinatesSharedAncestor,
   nextKey,
   recurseDown,
   recurseUp,
@@ -115,7 +118,7 @@ const editorsSlice = createSlice({
       reducer(state, action: PayloadAction<string, string, { functionName: string }>) {
         const key = action.payload;
         const { functionName } = action.meta;
-        replaceValueWithFunction(key, functionName, state);
+        doConvertValueToFunction(key, functionName, state);
         return state;
       },
       prepare(key: string, functionName: string) {
@@ -136,7 +139,7 @@ const editorsSlice = createSlice({
       ) {
         const { variableKey, path } = action.meta;
         const key = action.payload;
-        replaceValueWithReference(key, variableKey, path, state);
+        doConvertValueToReference(key, variableKey, path, state);
         return state;
       },
       prepare(key: string, variableKey: string, path?: string) {
@@ -394,7 +397,11 @@ export const selectReferenceExpressionType = (referenceKey: string) => (state: S
     referenceKey,
     contentStore.indexedContent,
   );
-  return resolveTypeForReference(referenceContent.variableKey, referenceContent.path, editorState);
+  return resolveExpressionInfoForReference(
+    referenceContent.variableKey,
+    referenceContent.path,
+    editorState,
+  );
 };
 
 export const selectParameterSpecificationForKey = (key?: string) => (state: StoreStructure) => {
@@ -522,7 +529,7 @@ function doAddInputValue(parentKey: string, value: string, state: EditorState) {
   return valueContent;
 }
 
-function replaceValueWithReference(
+function doConvertValueToReference(
   valueKey: ContentKey,
   variableKey: ContentKey,
   path: string | undefined,
@@ -538,12 +545,11 @@ function replaceValueWithReference(
   const variableContent = resolveContent<VariableContent>(variableKey, indexedContent);
   const referenceKey = nextKey(contentStore);
   const referencePath = [...(path !== undefined ? [path] : [])];
-  const { type, multi } = resolveTypeForReference(variableKey, referencePath, state);
+  const { type, multi } = resolveExpressionInfoForReference(variableKey, referencePath, state);
   parentArgContent.calculatedType = typeIntersection(parentArgContent.calculatedType, type);
+
   const errors: ValidationError[] = [];
-  if (!doesTypeMatchRequirements(type, parentArgContent.declaredType, typeSystem)) {
-    errors.push(unsatisfiedInputTypeMismatch(parentArgContent.declaredType, type));
-  }
+
   indexedContent[referenceKey] = {
     key: referenceKey,
     differentiator: ContentType.REFERENCE,
@@ -561,10 +567,17 @@ function replaceValueWithReference(
   if (selection === valueKey) {
     state.selection = referenceKey;
   }
+
+  // validate (must happen after reference  content is stored)
+  if (!doesTypeMatchRequirements(type, parentArgContent.declaredType, typeSystem)) {
+    errors.push(unsatisfiedInputTypeMismatch(parentArgContent.declaredType, type));
+  }
+  errors.push(...validateReference(referenceKey, indexedContent));
+
   propagateTypeUpdate(referenceKey, state);
 }
 
-function replaceValueWithFunction(valueKey: ContentKey, functionName: string, state: EditorState) {
+function doConvertValueToFunction(valueKey: ContentKey, functionName: string, state: EditorState) {
   const { engineSpec, contentStore, selection, typeSystem } = state;
 
   const existingValueContent = resolveContent<ValueContent>(valueKey, contentStore.indexedContent);
@@ -718,7 +731,11 @@ function doUpdateReferencePath(newPath: string[], key: ContentKey, state: Editor
   const { contentStore, typeSystem } = state;
   const indexedContent = contentStore.indexedContent;
   const referenceContent = resolveContent<ReferenceContent>(key, indexedContent);
-  const { type, multi } = resolveTypeForReference(referenceContent.variableKey, newPath, state);
+  const { type, multi } = resolveExpressionInfoForReference(
+    referenceContent.variableKey,
+    newPath,
+    state,
+  );
   referenceContent.path = newPath;
   referenceContent.type = type;
   referenceContent.multi = multi;
@@ -740,6 +757,8 @@ function doMoveExecutable(key: string, newParentKey: string, newIndex: number, s
   const executableContent = resolveContent<ExecutableContent>(key, indexedContent);
   const oldParentKey = executableContent.parentKey as string;
   const oldParentBlock = resolveContent<BlockContent>(oldParentKey, indexedContent);
+
+  // Update all content links
   removeChildKey(oldParentBlock, key);
   const newParentBlock =
     oldParentKey === newParentKey
@@ -747,6 +766,34 @@ function doMoveExecutable(key: string, newParentKey: string, newIndex: number, s
       : resolveContent<BlockContent>(newParentKey, indexedContent);
   addChildKey(newParentBlock, key, newIndex);
   executableContent.parentKey = newParentKey;
+
+  function doRevalidateReferences(content: Content) {
+    if (content.differentiator === ContentType.REFERENCE) {
+      const contentKey = content.key;
+      const errors = content.errors;
+      removeErrorsByCode(errors, ErrorCode.INVALID_REFERENCE);
+      removeErrorsByCode(errors, ErrorCode.UNCHECKED_REFERENCE);
+      errors.push(...validateReference(contentKey, indexedContent));
+    }
+  }
+
+  // Re-validate any references in the executables child content
+  recurseDown(indexedContent, doRevalidateReferences, key);
+
+  // If the executable sets a variable, re-validate any references to it
+  if (executableContent.differentiator === ContentType.ACTION) {
+    const actionContent = executableContent as ActionContent;
+    if (actionContent.variableContentKey !== undefined) {
+      const variableContent = resolveContent<VariableContent>(
+        actionContent.variableContentKey,
+        indexedContent,
+      );
+      for (const referenceKey of variableContent.referenceKeys) {
+        const referenceContent = resolveContent<ReferenceContent>(referenceKey, indexedContent);
+        doRevalidateReferences(referenceContent);
+      }
+    }
+  }
 }
 
 function doUpdateVariable(key: string, title: string, description: string, state: EditorState) {
@@ -1353,10 +1400,15 @@ function constructReference(config: ReferenceConfig, parentKey: ContentKey, stat
   if (variableContent === undefined) {
     throw new Error(`Unexpected content type resolved for coordinates [${coordinates.join(',')}]}`);
   }
-  const { type, multi, optional } = resolveTypeForReference(variableContent.key, path, state);
+  const { type, multi, optional } = resolveExpressionInfoForReference(
+    variableContent.key,
+    path,
+    state,
+  );
+  const referenceKey = nextKey(contentStore);
   const referenceContent: ReferenceContent = {
     differentiator: ContentType.REFERENCE,
-    key: nextKey(contentStore),
+    key: referenceKey,
     parentKey,
     variableKey: variableContent.key,
     type,
@@ -1367,6 +1419,9 @@ function constructReference(config: ReferenceConfig, parentKey: ContentKey, stat
   };
   variableContent.referenceKeys.push(referenceContent.key);
   contentStore.indexedContent[referenceContent.key] = referenceContent;
+
+  referenceContent.errors.push(...validateReference(referenceKey, contentStore.indexedContent));
+
   return referenceContent;
 }
 
@@ -1523,6 +1578,35 @@ function findExecutableContent(
   return pointer as ActionContent;
 }
 
+function findCoordinates(indexedContent: IndexedContent, contentKey: ContentKey): Coordinates {
+  const executableParents: Array<ActionContent | BlockContent | ControlContent> = [];
+  recurseUp(
+    indexedContent,
+    (content) => {
+      const contentType = content.differentiator;
+      if (
+        contentType === ContentType.ACTION ||
+        contentType === ContentType.BLOCK ||
+        contentType === ContentType.CONTROL
+      ) {
+        executableParents.push(content as ActionContent | BlockContent | ControlContent);
+      }
+    },
+    contentKey,
+  );
+
+  const coordinates: number[] = [];
+  for (let i = 0; i < executableParents.length - 1; i++) {
+    const child = executableParents[i];
+    const parent = executableParents[i + 1] as BlockContent | ControlContent; // actions can only be leaf nodes
+    const childKey = child.key;
+    const childCoordinate = parent.childKeys.indexOf(childKey);
+    coordinates.push(childCoordinate);
+  }
+
+  return coordinates;
+}
+
 export function resolveParameterSpecForKey(key: string, state: EditorState) {
   let { contentStore } = state;
   return resolveParameterSpec(
@@ -1576,7 +1660,45 @@ export function resolveParameterSpec(
   throw new Error('Unexpected error: unable to resolve parameter spec');
 }
 
-function resolveTypeForReference(
+enum ReferenceType {
+  /** Represents a reference that is unconditionally valid */
+  VALID,
+  /** Represents a valid reference that is valid but optionally-set */
+  OPTIONAL,
+  /** Represents a reference relationship that is invalid (variable set after use, variable
+   * mutually-exclusive to referencing action) */
+  UNREACHABLE,
+}
+
+function resolveReferenceType(
+  variableKey: ContentKey,
+  referenceLocationKey: ContentKey,
+  indexedContent: IndexedContent,
+): ReferenceType {
+  const variableCoordinates = findCoordinates(indexedContent, variableKey);
+  const referenceCoordinates = findCoordinates(indexedContent, referenceLocationKey);
+
+  const variableIsPredecessor = areCoordinatesPredecessor(
+    variableCoordinates,
+    referenceCoordinates,
+  );
+  const sharedAncestor = getCoordinatesSharedAncestor(variableCoordinates, referenceCoordinates);
+  const sharedAncestorIsBlock = sharedAncestor.length % 2 === 0;
+
+  // A variable is unreachable if its coordinates are not a predecessor
+  if (!variableIsPredecessor || !sharedAncestorIsBlock) {
+    return ReferenceType.UNREACHABLE;
+  }
+
+  if (sharedAncestor.length === variableCoordinates.length - 1) {
+    // the variable is not nested in a control, relative to the reference
+    return ReferenceType.VALID;
+  } else {
+    return ReferenceType.OPTIONAL;
+  }
+}
+
+function resolveExpressionInfoForReference(
   variableKey: ContentKey,
   path: string[],
   state: EditorState,
@@ -1605,6 +1727,26 @@ function resolveTypeForReference(
     optional = optional || property.optional;
   }
   return { type, multi, optional };
+}
+
+export function validateReference(referenceKey: ContentKey, indexedContent: IndexedContent) {
+  const referenceContent = indexedContent[referenceKey] as ReferenceContent;
+  const variableKey = referenceContent.variableKey;
+
+  const referenceType = resolveReferenceType(
+    variableKey,
+    referenceContent.parentKey as string,
+    indexedContent,
+  );
+
+  const errors: ValidationError[] = [];
+  if (referenceType === ReferenceType.UNREACHABLE) {
+    errors.push(invalidReference(variableKey, referenceKey));
+  } else if (referenceType === ReferenceType.OPTIONAL) {
+    recurseUp(indexedContent, (content) => {}, referenceKey);
+    // TODO iterate up tree to see if check is made
+  }
+  return errors;
 }
 
 function resolveCurrentSlice(storeStructure: StoreStructure) {

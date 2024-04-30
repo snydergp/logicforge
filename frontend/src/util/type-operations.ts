@@ -158,9 +158,8 @@ export function doesTypeMatchRequirements(
  */
 export function expandType(type: TypeIntersection, typeSystem: TypeSystem) {
   return type
-    .filter((typeId) => typeSystem.descendants[typeId] !== undefined)
     .map((typeId) => {
-      return typeIntersection(typeId, typeSystem.descendants[typeId]);
+      return typeIntersection(typeId, typeSystem.descendants[typeId] || []);
     })
     .reduce((collect, current) => {
       return typeIntersection(collect, current);

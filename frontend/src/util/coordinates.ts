@@ -1,6 +1,6 @@
 export type Coordinates = readonly number[];
 
-export const ROOT: Coordinates = [];
+export const ROOT_COORDINATES: Coordinates = [];
 
 export function coordinatesEqual(a: Coordinates, b: Coordinates) {
   return (
@@ -36,36 +36,35 @@ export function coordinatesAbsoluteAncestor(
  * Determines whether one set of coordinates are predecessor to another. Coordinates are predecessors
  * if they appear before the target in a depth-first search. This has implications for whether one
  * actions should be able to reference another action's variables.
- * @param coordinates
- * @param possiblePredecessor
+ * @param referenceCoordinates
+ * @param testCoordinates
  */
 export function areCoordinatesPredecessor(
-  coordinates: Coordinates,
-  possiblePredecessor: Coordinates,
+  referenceCoordinates: Coordinates,
+  testCoordinates: Coordinates,
 ) {
-  const sharedAncestor = getCoordinatesSharedAncestor(coordinates, possiblePredecessor);
+  const sharedAncestor = getCoordinatesSharedAncestor(referenceCoordinates, testCoordinates);
   const sharedAncestorLength = sharedAncestor.length;
-  if (coordinatesEqual(sharedAncestor, possiblePredecessor)) {
+  if (coordinatesEqual(sharedAncestor, referenceCoordinates)) {
     return true;
   }
-  return coordinates[sharedAncestorLength] > possiblePredecessor[sharedAncestorLength];
+  return referenceCoordinates[sharedAncestorLength] < testCoordinates[sharedAncestorLength];
 }
 
 export function coordinatesNthChild(coordinates: Coordinates, n: number): Coordinates {
   return [...coordinates, ...[n]];
 }
 
-export function coordinatesAreSiblings(a: Coordinates, b: Coordinates) {}
+export function coordinatesAreSiblings(a: Coordinates, b: Coordinates) {
+  return coordinatesEqual(coordinatesParent(a), coordinatesParent(b));
+}
 
 export function getCoordinatesSharedAncestor(a: Coordinates, b: Coordinates): Coordinates {
   const minHeight = Math.min(a.length, b.length);
-  if (minHeight === 0) {
-    return ROOT;
-  }
-  for (let i = 1; i < minHeight; i++) {
-    if (!coordinatesEqual(coordinatesAbsoluteAncestor(a, i), coordinatesAbsoluteAncestor(b, i))) {
-      return coordinatesAbsoluteAncestor(a, i - 1);
+  for (let i = 0; i < minHeight; i++) {
+    if (a[i] !== b[i]) {
+      return a.slice(0, i);
     }
   }
-  return coordinatesAbsoluteAncestor(a, minHeight);
+  return a.slice(minHeight);
 }
