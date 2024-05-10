@@ -1,4 +1,4 @@
-import { Box, CssBaseline } from '@mui/material';
+import { Box, createTheme, CssBaseline, ThemeOptions, ThemeProvider } from '@mui/material';
 import { FrameEditor } from '../../components';
 import processConfig from '../../dev-data/process-config.json';
 import { EngineSpec, ProcessConfig } from '../../types';
@@ -16,8 +16,10 @@ import {
 } from '../../redux';
 import { Provider } from 'react-redux';
 import undoable, { ActionCreators } from 'redux-undo';
+import theme from '../../default-theme.json';
 
 const customizedTranslations = mergeDeep(customTranslations, translations) as MessageTree;
+export const themeOptions = createTheme(theme as ThemeOptions);
 
 /**
  * A sample app used for local verification only. Demonstrates a basic usage scenario.
@@ -48,14 +50,16 @@ export function App() {
 
   return (
     <Provider store={store}>
-      <CssBaseline />
-      <Box onKeyDown={handleKeyDown}>
-        <FrameEditor
-          config={processConfig as ProcessConfig}
-          engineSpec={engineSpec as EngineSpec}
-          translations={customizedTranslations}
-        />
-      </Box>
+      <ThemeProvider theme={themeOptions}>
+        <CssBaseline />
+        <Box onKeyDown={handleKeyDown}>
+          <FrameEditor
+            config={processConfig as ProcessConfig}
+            engineSpec={engineSpec as EngineSpec}
+            translations={customizedTranslations}
+          />
+        </Box>
+      </ThemeProvider>
     </Provider>
   );
 }
