@@ -69,7 +69,7 @@ import {
 import { WellKnownType } from '../../constant/well-known-type';
 import { MetadataProperties } from '../../constant/metadata-properties';
 
-export type EditorState = {
+export type FrameEditorState = {
   selection: string;
   engineSpec: EngineSpec;
   contentStore: ContentStore;
@@ -78,7 +78,7 @@ export type EditorState = {
 
 const frameEditorSlice = createSlice({
   name: FRAME_EDITOR_REDUX_NAMESPACE,
-  initialState: {} as EditorState,
+  initialState: {} as FrameEditorState,
   reducers: {
     initEditor: {
       reducer(state, action: PayloadAction<LogicForgeConfig, string, { engineSpec: EngineSpec }>) {
@@ -90,7 +90,12 @@ const frameEditorSlice = createSlice({
           rootConfigKey: '',
         };
         const typeSystem = generateTypeSystem(engineSpec.types);
-        const initialState: EditorState = { engineSpec, contentStore, typeSystem, selection: '' };
+        const initialState: FrameEditorState = {
+          engineSpec,
+          contentStore,
+          typeSystem,
+          selection: '',
+        };
         loadRootContent(config, initialState);
         initialState.selection = contentStore.rootConfigKey;
         return initialState;
@@ -469,7 +474,7 @@ function newConditionalConfig(): ConditionalConfig {
   };
 }
 
-function doDeleteItem(keyToDelete: string, state: EditorState) {
+function doDeleteItem(keyToDelete: string, state: FrameEditorState) {
   const { contentStore, selection } = state;
 
   const selectedSubtree = getContentAndAncestors(contentStore, selection);
@@ -508,7 +513,7 @@ function doDeleteItem(keyToDelete: string, state: EditorState) {
   }
 }
 
-function doAddInputValue(parentKey: string, value: string, state: EditorState) {
+function doAddInputValue(parentKey: string, value: string, state: FrameEditorState) {
   const { contentStore, engineSpec } = state;
   const indexedContent = contentStore.indexedContent;
   const argumentContent = resolveContent<ArgumentContent>(parentKey, indexedContent);
@@ -548,7 +553,7 @@ function doConvertValueToReference(
   valueKey: ContentKey,
   variableKey: ContentKey,
   path: string | undefined,
-  state: EditorState,
+  state: FrameEditorState,
 ) {
   const { contentStore, selection, typeSystem } = state;
   let indexedContent = contentStore.indexedContent;
@@ -592,7 +597,11 @@ function doConvertValueToReference(
   doPropagateTypeChanges(referenceKey, state);
 }
 
-function doConvertValueToFunction(valueKey: ContentKey, functionName: string, state: EditorState) {
+function doConvertValueToFunction(
+  valueKey: ContentKey,
+  functionName: string,
+  state: FrameEditorState,
+) {
   const { engineSpec, contentStore, selection, typeSystem } = state;
 
   const existingValueContent = resolveContent<ValueContent>(valueKey, contentStore.indexedContent);
@@ -649,7 +658,7 @@ function doConvertValueToFunction(valueKey: ContentKey, functionName: string, st
   doPropagateTypeChanges(functionKey, state);
 }
 
-function doPropagateTypeChanges(expressionKey: string, state: EditorState) {
+function doPropagateTypeChanges(expressionKey: string, state: FrameEditorState) {
   const { contentStore, typeSystem } = state;
   let indexedContent = contentStore.indexedContent;
   const updatedExpression = resolveContent<ExpressionContent>(expressionKey, indexedContent);
@@ -710,7 +719,7 @@ function doPropagateTypeChanges(expressionKey: string, state: EditorState) {
   }
 }
 
-function doUpdateValue(value: string, key: string, state: EditorState) {
+function doUpdateValue(value: string, key: string, state: FrameEditorState) {
   const { contentStore, engineSpec } = state;
   const valueContent = resolveContent<ValueContent>(key, contentStore.indexedContent);
   const { type, errors } = valueContent;
@@ -721,7 +730,7 @@ function doUpdateValue(value: string, key: string, state: EditorState) {
   errors.push(...newErrors);
 }
 
-function doUpdateValueType(newTypeId: TypeId, key: ContentKey, state: EditorState) {
+function doUpdateValueType(newTypeId: TypeId, key: ContentKey, state: FrameEditorState) {
   const { contentStore, engineSpec } = state;
   const indexedContent = contentStore.indexedContent;
   const valueContent = resolveContent<ValueContent>(key, indexedContent);
@@ -742,7 +751,7 @@ function doUpdateValueType(newTypeId: TypeId, key: ContentKey, state: EditorStat
   doPropagateTypeChanges(key, state);
 }
 
-function doUpdateReferencePath(newPath: string[], key: ContentKey, state: EditorState) {
+function doUpdateReferencePath(newPath: string[], key: ContentKey, state: FrameEditorState) {
   const { contentStore, typeSystem } = state;
   const indexedContent = contentStore.indexedContent;
   const referenceContent = resolveContent<ReferenceContent>(key, indexedContent);
@@ -766,7 +775,12 @@ function doUpdateReferencePath(newPath: string[], key: ContentKey, state: Editor
   doPropagateTypeChanges(key, state);
 }
 
-function doMoveExecutable(key: string, newParentKey: string, newIndex: number, state: EditorState) {
+function doMoveExecutable(
+  key: string,
+  newParentKey: string,
+  newIndex: number,
+  state: FrameEditorState,
+) {
   const { contentStore } = state;
   const indexedContent = contentStore.indexedContent;
   const executableContent = resolveContent<ExecutableContent>(key, indexedContent);
@@ -811,7 +825,12 @@ function doMoveExecutable(key: string, newParentKey: string, newIndex: number, s
   }
 }
 
-function doUpdateVariable(key: string, title: string, description: string, state: EditorState) {
+function doUpdateVariable(
+  key: string,
+  title: string,
+  description: string,
+  state: FrameEditorState,
+) {
   const { contentStore } = state;
   const variableContent = resolveContent<VariableContent>(key, contentStore.indexedContent);
   variableContent.title = title;
@@ -837,7 +856,7 @@ function ensureErrorByCode(errors: ValidationError[], error: ValidationError) {
 function findFunctionsMatchingTypeConstraints(
   type: TypeIntersection,
   multi: boolean,
-  state: EditorState,
+  state: FrameEditorState,
 ) {
   const { engineSpec, typeSystem } = state;
   const matchingFunctions: { [key: string]: CallableSpec } = {};
@@ -862,7 +881,7 @@ export type VariableModel = VariableContent & {
   conditional: boolean;
 };
 
-function findAvailableVariables(key: string, state: EditorState): VariableModel[] {
+function findAvailableVariables(key: string, state: FrameEditorState): VariableModel[] {
   const { contentStore } = state;
   const indexedContent = contentStore.indexedContent;
   const variables: VariableModel[] = [];
@@ -1004,7 +1023,7 @@ function findAvailableVariables(key: string, state: EditorState): VariableModel[
   return variables;
 }
 
-export function loadRootContent(config: LogicForgeConfig, state: EditorState) {
+export function loadRootContent(config: LogicForgeConfig, state: FrameEditorState) {
   const { contentStore } = state;
   if (config.differentiator !== ConfigType.PROCESS) {
     throw new Error(`Illegal content root type: ${config.differentiator}`);
@@ -1013,7 +1032,7 @@ export function loadRootContent(config: LogicForgeConfig, state: EditorState) {
   contentStore.rootConfigKey = rootState.key;
 }
 
-function constructProcess(config: ProcessConfig, state: EditorState) {
+function constructProcess(config: ProcessConfig, state: FrameEditorState) {
   const { engineSpec, contentStore } = state;
   const processKey = nextKey(contentStore);
   const processName = config.name;
@@ -1094,7 +1113,7 @@ function constructArgument(
   configs: ExpressionConfig[],
   parentKey: string,
   spec: InputSpec | ExpressionSpec,
-  state: EditorState,
+  state: FrameEditorState,
 ) {
   const { contentStore, typeSystem } = state;
   const { type, multi } = spec;
@@ -1135,7 +1154,7 @@ function constructArgument(
 function constructExpression(
   config: ExpressionConfig,
   parentKey: string,
-  state: EditorState,
+  state: FrameEditorState,
 ): ExpressionContent {
   switch (config.differentiator) {
     case ConfigType.VALUE:
@@ -1147,7 +1166,7 @@ function constructExpression(
   }
 }
 
-function constructBlock(config: BlockConfig, parentKey: string, state: EditorState) {
+function constructBlock(config: BlockConfig, parentKey: string, state: FrameEditorState) {
   const { contentStore } = state;
   const blockKey = nextKey(contentStore);
 
@@ -1174,7 +1193,7 @@ function constructBlock(config: BlockConfig, parentKey: string, state: EditorSta
 function constructExecutable(
   config: ExecutableConfig,
   parentKey: string,
-  state: EditorState,
+  state: FrameEditorState,
 ): ExecutableContent {
   switch (config.differentiator) {
     case ConfigType.BLOCK:
@@ -1186,7 +1205,7 @@ function constructExecutable(
   }
 }
 
-function constructControl(config: ControlConfig, parentKey: string, state: EditorState) {
+function constructControl(config: ControlConfig, parentKey: string, state: FrameEditorState) {
   let { contentStore } = state;
   const controlStatementKey = nextKey(contentStore);
   const type = config.controlType;
@@ -1227,7 +1246,11 @@ function constructControl(config: ControlConfig, parentKey: string, state: Edito
   return conditionalContent;
 }
 
-function constructValue(config: ValueConfig, parentKey: string, state: EditorState): ValueContent {
+function constructValue(
+  config: ValueConfig,
+  parentKey: string,
+  state: FrameEditorState,
+): ValueContent {
   const { contentStore, engineSpec } = state;
   const indexedContent = contentStore.indexedContent;
   const { value } = config;
@@ -1271,7 +1294,7 @@ function constructValue(config: ValueConfig, parentKey: string, state: EditorSta
   return valueContent;
 }
 
-function constructAction(config: ActionConfig, parentKey: ContentKey, state: EditorState) {
+function constructAction(config: ActionConfig, parentKey: ContentKey, state: FrameEditorState) {
   const { contentStore, engineSpec } = state;
   const key = nextKey(contentStore);
   const name = config.name;
@@ -1315,7 +1338,7 @@ function constructAction(config: ActionConfig, parentKey: ContentKey, state: Edi
   return actionContent;
 }
 
-function constructFunction(config: FunctionConfig, parentKey: ContentKey, state: EditorState) {
+function constructFunction(config: FunctionConfig, parentKey: ContentKey, state: FrameEditorState) {
   const { contentStore, engineSpec, typeSystem } = state;
   const indexedContent = contentStore.indexedContent;
   const key = nextKey(contentStore);
@@ -1362,7 +1385,11 @@ function constructFunction(config: FunctionConfig, parentKey: ContentKey, state:
   return functionContent;
 }
 
-function constructReference(config: ReferenceConfig, parentKey: ContentKey, state: EditorState) {
+function constructReference(
+  config: ReferenceConfig,
+  parentKey: ContentKey,
+  state: FrameEditorState,
+) {
   const { contentStore } = state;
   const referenceConfig = config as ReferenceConfig;
   const referencedContent = findExecutableContent(contentStore, referenceConfig.coordinates);
@@ -1433,7 +1460,7 @@ function constructVariable(
   type: TypeIntersection,
   multi: boolean,
   initial: boolean,
-  state: EditorState,
+  state: FrameEditorState,
 ) {
   const { contentStore } = state;
 
@@ -1479,7 +1506,7 @@ export function recursiveDelete(contentStore: ContentStore, keyToDelete: string)
 export function addNewExecutable(
   parentKey: string,
   newConfig: ActionConfig | ControlConfig,
-  state: EditorState,
+  state: FrameEditorState,
 ) {
   let { contentStore } = state;
   const blockContent = resolveContent<BlockContent>(parentKey, contentStore.indexedContent);
@@ -1610,7 +1637,7 @@ function findCoordinates(indexedContent: IndexedContent, contentKey: ContentKey)
   return coordinates;
 }
 
-export function resolveParameterSpecForKey(key: string, state: EditorState) {
+export function resolveParameterSpecForKey(key: string, state: FrameEditorState) {
   let { contentStore } = state;
   return resolveParameterSpec(
     resolveContent<ArgumentContent | FunctionContent | ValueContent>(
@@ -1623,7 +1650,7 @@ export function resolveParameterSpecForKey(key: string, state: EditorState) {
 
 export function resolveParameterSpec(
   expressionContent: ArgumentContent | FunctionContent | ValueContent | ReferenceContent,
-  state: EditorState,
+  state: FrameEditorState,
 ) {
   const { contentStore, engineSpec } = state;
   let pointer: Content = expressionContent;
@@ -1704,7 +1731,7 @@ function resolveReferenceType(
 function resolveExpressionInfoForReference(
   variableKey: ContentKey,
   path: string[],
-  state: EditorState,
+  state: FrameEditorState,
 ): ExpressionInfo {
   const {
     contentStore: { indexedContent },

@@ -1,4 +1,4 @@
-import { Provider, useSelector } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { Box, Divider, Slide, Stack, SxProps, Theme, Typography } from '@mui/material';
 import {
   ActionContent,
@@ -34,7 +34,7 @@ import {
 } from '../../util';
 import { Info } from '../Info/Info';
 import { ActionIcon, FunctionIcon, ProcessIcon } from '../Icons/Icons';
-import { getStore, LogicForgeReduxState } from '../../redux';
+import { LogicForgeReduxState } from '../../redux';
 import { InitialVariablesView } from '../InitialVariablesView/InitialVariablesView';
 import { I18n, MessageTree, useTranslate } from '../I18n/I18n';
 import { FrameSection } from '../FrameSection/FrameSection';
@@ -63,18 +63,15 @@ export type FrameEditorProps = {
 };
 
 export function FrameEditor({ config, engineSpec, translations }: FrameEditorProps) {
-  const store = getStore();
-
+  const dispatch = useDispatch();
   useEffect(() => {
-    store.dispatch(initEditor(config as ProcessConfig, engineSpec));
-  }, [store, config, engineSpec]);
+    dispatch(initEditor(config as ProcessConfig, engineSpec));
+  }, [dispatch, config, engineSpec]);
 
   return (
-    <Provider store={store}>
-      <I18n translations={translations}>
-        <FrameEditorInternal />
-      </I18n>
-    </Provider>
+    <I18n translations={translations}>
+      <FrameEditorInternal />
+    </I18n>
   );
 }
 
