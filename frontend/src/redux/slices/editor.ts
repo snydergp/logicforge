@@ -76,8 +76,8 @@ export type EditorState = {
   typeSystem: TypeSystem;
 };
 
-const editorSlice = createSlice({
-  name: 'LOGICFORGE',
+const frameEditorSlice = createSlice({
+  name: 'LOGICFORGE_FRAME_EDITOR',
   initialState: {} as EditorState,
   reducers: {
     initEditor: {
@@ -414,7 +414,7 @@ export const selectParameterSpecificationForKey = (key?: string) => (state: Stor
 };
 
 export const selectCanUndo = (state: StoreStructure) => {
-  const logicForgeState = state.LOGICFORGE;
+  const logicForgeState = state.LOGICFORGE_FRAME_EDITOR;
   if (logicForgeState === undefined) {
     throw new Error('Illegal state: LogicForge state is undefined');
   }
@@ -422,7 +422,7 @@ export const selectCanUndo = (state: StoreStructure) => {
 };
 
 export const selectCanRedo = (state: StoreStructure) => {
-  const logicForgeState = state.LOGICFORGE;
+  const logicForgeState = state.LOGICFORGE_FRAME_EDITOR;
   if (logicForgeState === undefined) {
     throw new Error('Illegal state: LogicForge state is undefined');
   }
@@ -1767,10 +1767,10 @@ export function validateReference(referenceKey: ContentKey, indexedContent: Inde
 }
 
 function resolveCurrentSlice(storeStructure: StoreStructure) {
-  if (!storeStructure.LOGICFORGE) {
+  if (!storeStructure.LOGICFORGE_FRAME_EDITOR) {
     throw new Error(`Unexpected state: slice is not defined`);
   }
-  return storeStructure.LOGICFORGE.present;
+  return storeStructure.LOGICFORGE_FRAME_EDITOR.present;
 }
 
 export const {
@@ -1787,6 +1787,6 @@ export const {
   updateReferencePath,
   moveExecutable,
   updateVariable,
-} = editorSlice.actions;
+} = frameEditorSlice.actions;
 
-export default editorSlice.reducer;
+export default frameEditorSlice.reducer;
