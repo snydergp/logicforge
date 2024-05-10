@@ -1,4 +1,4 @@
-import { FrameEditorState } from './slices/frameEditor';
+import { FrameEditorState } from './slices';
 
 export const FRAME_EDITOR_REDUX_NAMESPACE = 'LOGICFORGE_FRAME_EDITOR';
 

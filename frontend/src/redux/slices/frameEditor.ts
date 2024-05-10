@@ -302,7 +302,7 @@ const frameEditorSlice = createSlice({
   },
 });
 
-export function editorsGroupBy(action: AnyAction) {
+export function frameEditorGroupBy(action: AnyAction) {
   if (action.type === updateValue.type) {
     const contentKey = (action as { [key: string]: string })['payload'];
     return `${updateValue.type}:${contentKey}`;

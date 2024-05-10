@@ -9,16 +9,18 @@ import { MessageTree } from '../../components/I18n/I18n';
 import translations from '../../i18n/en.json';
 import customTranslations from '../../dev-data/custom-translations.json';
 import { combineReducers, configureStore } from '@reduxjs/toolkit';
-import frameEditorReducer from '../../redux/slices/frameEditor';
-import { FRAME_EDITOR_REDUX_NAMESPACE } from '../../redux/types';
+import { FRAME_EDITOR_REDUX_NAMESPACE, frameEditorSliceReducer } from '../../redux';
 import { Provider } from 'react-redux';
 
 const customizedTranslations = mergeDeep(customTranslations, translations) as MessageTree;
 
+/**
+ * A sample app used for local verification only. Demonstrates a basic usage scenario.
+ */
 export function App() {
   const store = configureStore({
     reducer: combineReducers({
-      [FRAME_EDITOR_REDUX_NAMESPACE]: frameEditorReducer,
+      [FRAME_EDITOR_REDUX_NAMESPACE]: frameEditorSliceReducer,
     }),
   });
 
