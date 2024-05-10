@@ -1,6 +1,6 @@
 import { Content, ContentKey, ContentType } from '../types';
 import { useSelector } from 'react-redux';
-import { selectContentByKey } from '../redux/slices/editors';
+import { selectContentByKey } from '../redux/slices/editor';
 
 /**
  * Resolves typed content by key

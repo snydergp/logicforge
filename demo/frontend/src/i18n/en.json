@@ -1,0 +1,98 @@
+{
+  "processes": {
+    "io": {
+      "logicforge": {
+        "demo": {
+          "model": {
+            "domain": {
+              "WebServerProcess": {
+                "title": "Web Server Process",
+                "description": "Process that defines a simple web server",
+                "inputs": {
+                  "request": {
+                    "title": "Incoming Request"
+                  }
+                },
+                "output": {
+                  "title": "Outgoing response"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "types": {
+    "io": {
+      "logicforge": {
+        "demo": {
+          "model": {
+            "domain": {
+              "HttpRequest": {
+                "title": "HTTP Request",
+                "properties": {
+                  "method": {
+                    "title": "Request Method"
+                  },
+                  "uri": {
+                    "title": "Request URL"
+                  }
+                }
+              },
+              "HttpResponse": {
+                "title": "HTTP Response",
+                "properties": {
+                  "body": {
+                    "title": "Response Body"
+                  },
+                  "status": {
+                    "title": "Status Code"
+                  }
+                }
+              },
+              "HttpMethod": {
+                "title": "HTTP Method"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "actions": {
+    "sendHttpRequest": {
+      "title": "Send HTTP Request",
+      "description": "Sends an HTTP request, and saves the response as a stored value",
+      "inputs": {
+        "url": {
+          "title": "URL",
+          "description": "The URL to which the request should be sent"
+        },
+        "method": {
+          "title": "HTTP Method",
+          "description": "The HTTP method to use for the request"
+        }
+      },
+      "output": {
+        "title": "HTTP Response"
+      }
+    }
+  },
+  "functions": {
+    "createHttpResponse": {
+      "title": "HTTP Response",
+      "description": "Constructs a new HTTP response",
+      "parameters": {
+        "status": {
+          "title": "HTTP State",
+          "description": "The HTTP status"
+        },
+        "body": {
+          "title": "Response Body",
+          "description": "The content to return with the response"
+        }
+      }
+    }
+  }
+}

@@ -1,15 +1,14 @@
 {
   "processes": {
-    "example": {
+    "io.logicforge.Example": {
       "inputs": {
         "request": {
-          "title": "Incoming Request",
-          "description": "The incoming HTTP Request",
           "type": [
             "io.logicforge.http.HttpRequest"
           ],
           "multi": false,
-          "optional": false
+          "optional": false,
+          "metadata": {}
         }
       },
       "output": {
@@ -33,8 +32,17 @@
             "java.lang.Object"
           ],
           "multi": false,
-          "metadata": {}
+          "metadata": {
+            "INFLUENCES_RETURN_TYPE": null
+          }
         }
+      },
+      "output": {
+        "type": [
+          "java.lang.Object"
+        ],
+        "multi": false,
+        "metadata": {}
       }
     },
     "log": {
@@ -54,6 +62,11 @@
           "multi": false,
           "metadata": {}
         }
+      },
+      "output": {
+        "type": [],
+        "multi": false,
+        "metadata": {}
       }
     }
   },

@@ -23,9 +23,9 @@ import {
   updateValue,
   updateValueType,
   VariableModel,
-} from '../../redux/slices/editors';
+} from '../../redux/slices/editor';
 import { functionTitleKey, labelKey, typeEnumValueTitleKey, typeTitleKey } from '../../util';
-import { useTranslate } from '../I18n/I18n';
+import { TranslateFunction, useTranslate } from '../I18n/I18n';
 import { StoreStructure } from '../../redux';
 import { useContent } from '../../hooks/useContent';
 import { TypeView } from '../TypeView/TypeView';
@@ -71,7 +71,7 @@ const USE_LITERAL_OPTION: Option = {
 function buildLiteralOptions(
   typeSpec: TypeSpec,
   typeId: TypeId,
-  translate: (keyof: string) => string,
+  translate: TranslateFunction,
 ): Option[] {
   const defaultLiteralSelections = [USE_FUNCTION_OPTION, USE_VARIABLE_OPTION];
   if (typeSpec.values && typeSpec.values.length > 0) {
@@ -90,29 +90,34 @@ function buildLiteralOptions(
   }
 }
 
-function buildFunctionOptions(
-  functionIds: string[],
-  translateFunction: (key: string) => string,
-): Option[] {
+function buildFunctionOptions(functionIds: string[], translate: TranslateFunction): Option[] {
   return [
     ...functionIds.map((key) => {
       return {
         id: key,
         groupId: FUNCTION_OPTION_ID,
-        label: translateFunction(functionTitleKey(key)),
+        label: translate(functionTitleKey(key)),
       } as Option;
     }),
     ...[USE_LITERAL_OPTION],
   ];
 }
 
-function buildVariableOptions(availableVariable: VariableModel[]): Option[] {
+function buildVariableOptions(
+  availableVariable: VariableModel[],
+  translate: TranslateFunction,
+): Option[] {
   return [
     ...availableVariable.map((model, index) => {
+      const title = model.title
+        ? model.title
+        : model.translationKey
+        ? translate(`${model.translationKey}.title`)
+        : '';
       return {
         id: index.toString(),
         groupId: VARIABLE_OPTION_ID,
-        label: model.title,
+        label: title,
       } as Option;
     }),
     ...[USE_LITERAL_OPTION],
@@ -150,7 +155,7 @@ export function ValueEditor({ contentKey }: ValueEditorProps) {
       case Mode.FUNCTION:
         return buildFunctionOptions(content.availableFunctionIds, translate);
       case Mode.VARIABLE:
-        return buildVariableOptions(availableVariables);
+        return buildVariableOptions(availableVariables, translate);
     }
   }, [mode, content, engineSpec, translate, availableVariables]);
 

@@ -41,7 +41,9 @@ public class CoordinateTrie<V> {
   public List<V> values() {
     final List<TrieNode> nodes = new ArrayList<>();
     listRecursive(root, nodes, -1);
-    return nodes.stream().map(TrieNode::getValue).filter(Objects::nonNull)
+    return nodes.stream()
+        .map(TrieNode::getValue)
+        .filter(Objects::nonNull)
         .collect(Collectors.toList());
   }
 
@@ -51,7 +53,9 @@ public class CoordinateTrie<V> {
     if (rootNode != null) {
       rootNode.getOrderedChildren().forEach(child -> listRecursive(child, depthFirstChildren, -1));
     }
-    return depthFirstChildren.stream().map(TrieNode::getValue).filter(Objects::nonNull)
+    return depthFirstChildren.stream()
+        .map(TrieNode::getValue)
+        .filter(Objects::nonNull)
         .collect(Collectors.toList());
   }
 
@@ -61,7 +65,9 @@ public class CoordinateTrie<V> {
     if (rootNode != null) {
       rootNode.getOrderedChildren().forEach(child -> listRecursive(child, depthFirstChildren, 1));
     }
-    return depthFirstChildren.stream().map(TrieNode::getValue).filter(Objects::nonNull)
+    return depthFirstChildren.stream()
+        .map(TrieNode::getValue)
+        .filter(Objects::nonNull)
         .collect(Collectors.toList());
   }
 

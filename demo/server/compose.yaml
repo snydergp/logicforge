@@ -8,12 +8,21 @@ services:
       - 'MONGO_INITDB_ROOT_USERNAME=root'
     ports:
       - '27017'
+    volumes:
+      - ./src/main/resources/dbinit:/docker-entrypoint-initdb.d
   mongo-express:
     image: 'mongo-express:latest'
     restart: always
     ports:
       - 8081:8081
     environment:
+      ME_CONFIG_BASICAUTH_USERNAME: root
+      ME_CONFIG_BASICAUTH_PASSWORD: secret
       ME_CONFIG_MONGODB_ADMINUSERNAME: root
       ME_CONFIG_MONGODB_ADMINPASSWORD: secret
       ME_CONFIG_MONGODB_URL: 'mongodb://root:secret@mongo:27017/'
+  logicforge:
+    image: 'logicforge/demo-server:latest'
+    restart: always
+    ports:
+      - 8080:8080

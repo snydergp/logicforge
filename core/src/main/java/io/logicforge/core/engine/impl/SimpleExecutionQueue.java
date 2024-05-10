@@ -7,7 +7,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 
 /**
- * A simple ActionQueue implementation that submits actions directly to an executor as they are queued.
+ * A simple ActionQueue implementation that submits actions directly to an executor as they are
+ * queued.
  */
 public class SimpleExecutionQueue implements ExecutionQueue {
 

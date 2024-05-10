@@ -8,10 +8,10 @@ import io.logicforge.core.exception.ConversionException;
 import io.logicforge.core.exception.MissingVariableException;
 import io.logicforge.core.exception.ProcessExecutionException;
 import io.logicforge.core.exception.UnexpectedVariableException;
-import io.logicforge.core.model.specification.ConverterSpec;
-import io.logicforge.core.model.specification.EngineSpec;
-import io.logicforge.core.model.specification.TypePropertySpec;
-import io.logicforge.core.model.specification.TypeSpec;
+import io.logicforge.core.model.domain.specification.ConverterSpec;
+import io.logicforge.core.model.domain.specification.EngineSpec;
+import io.logicforge.core.model.domain.specification.TypePropertySpec;
+import io.logicforge.core.model.domain.specification.TypeSpec;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -47,8 +47,8 @@ public class DefaultExecutionContext implements ExecutionContext {
     for (final ConverterSpec converter : engineSpec.getConverters()) {
       final Class<?> inputType = converter.getInputType();
       final Class<?> outputType = converter.getOutputType();
-      final Map<Class<?>, ConverterSpec> outputMap =
-          converters.computeIfAbsent(inputType, type -> new HashMap<>());
+      final Map<Class<?>, ConverterSpec> outputMap = converters.computeIfAbsent(inputType,
+          type -> new HashMap<>());
       outputMap.put(outputType, converter);
     }
   }
@@ -76,10 +76,13 @@ public class DefaultExecutionContext implements ExecutionContext {
       variable = ((Map<String, Object>) variable).get(name);
     }
     final Class<?> rootType = variable.getClass();
-    TypeSpec typeSpec = engineSpec.getTypes().values().stream()
-        .filter(spec -> spec.getRuntimeClass().equals(rootType)).findFirst()
-        .orElseThrow(() -> new RuntimeException(
-            "Action %s return var contains unexpected type %s".formatted(coordinates, rootType)));
+    TypeSpec typeSpec = engineSpec.getTypes()
+        .values()
+        .stream()
+        .filter(spec -> spec.getRuntimeClass().equals(rootType))
+        .findFirst()
+        .orElseThrow(() -> new RuntimeException("Action %s return var contains unexpected type %s"
+            .formatted(coordinates, rootType)));
     for (final String property : pathSegments) {
       if (variable == null) {
         return false;
@@ -133,10 +136,13 @@ public class DefaultExecutionContext implements ExecutionContext {
       variable = ((Map<String, Object>) variable).get(name);
     }
     final Class<?> rootType = variable.getClass();
-    TypeSpec typeSpec = engineSpec.getTypes().values().stream()
-        .filter(spec -> spec.getRuntimeClass().equals(rootType)).findFirst()
-        .orElseThrow(() -> new RuntimeException(
-            "Action %s return var contains unexpected type %s".formatted(coordinates, rootType)));
+    TypeSpec typeSpec = engineSpec.getTypes()
+        .values()
+        .stream()
+        .filter(spec -> spec.getRuntimeClass().equals(rootType))
+        .findFirst()
+        .orElseThrow(() -> new RuntimeException("Action %s return var contains unexpected type %s"
+            .formatted(coordinates, rootType)));
     for (final String property : pathSegments) {
       final TypePropertySpec typePropertySpec = typeSpec.getProperties().get(property);
       if (typePropertySpec == null) {
@@ -205,8 +211,8 @@ public class DefaultExecutionContext implements ExecutionContext {
   public boolean canConvert(final Object value, final Class<?> type) {
     Objects.requireNonNull(value);
     final Class<?> inputClass = value.getClass();
-    return inputClass.equals(type)
-        || (converters.containsKey(inputClass) && converters.get(inputClass).containsKey(type));
+    return inputClass.equals(type) || (converters.containsKey(inputClass) && converters.get(
+        inputClass).containsKey(type));
   }
 
   @RequiredArgsConstructor
@@ -226,6 +232,7 @@ public class DefaultExecutionContext implements ExecutionContext {
       }
     }
   }
+
 
   @RequiredArgsConstructor
   private class RunnableWrapper implements Runnable {

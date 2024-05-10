@@ -1,8 +1,18 @@
 {
   "processes": {
-    "example": {
-      "title": "Example Process",
-      "description": "A process used for demonstration"
+    "io": {
+      "logicforge": {
+        "Example": {
+          "title": "Example Process",
+          "description": "A process used for demonstration",
+          "inputs": {
+            "request": {
+              "title": "HTTP Request",
+              "description": "The incoming HTTP request"
+            }
+          }
+        }
+      }
     }
   },
   "types": {

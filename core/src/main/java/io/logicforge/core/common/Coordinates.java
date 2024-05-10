@@ -28,12 +28,16 @@ public final class Coordinates implements Iterable<Integer> {
   }
 
   /**
-   * Since Coordinates objects are immutable and iterating throw parents/children would otherwise create a lot of object
-   * churn, we maintain an internal cache. This method returns the canonical version of the Coordinates object
-   * representing the supplied coordinate list if it exists. If it does not exist, it will create a new object, cache it
+   * Since Coordinates objects are immutable and iterating throw parents/children would otherwise
+   * create a lot of object
+   * churn, we maintain an internal cache. This method returns the canonical version of the
+   * Coordinates object
+   * representing the supplied coordinate list if it exists. If it does not exist, it will create a
+   * new object, cache it
    * for reuse, and return the new object.
    *
-   * @param coordinateList the list of coordinates for which we want that canonical Coordinates object
+   * @param coordinateList the list of coordinates for which we want that canonical Coordinates
+   *                       object
    * @return the corresponding Coordinates
    */
   private static Coordinates intern(final List<Integer> coordinateList) {
@@ -61,15 +65,14 @@ public final class Coordinates implements Iterable<Integer> {
   }
 
   public Coordinates getNthChild(final int childIndex) {
-    return intern(
-        Stream.concat(coordinateList.stream(), Stream.of(childIndex)).collect(Collectors.toList()));
+    return intern(Stream.concat(coordinateList.stream(), Stream.of(childIndex))
+        .collect(Collectors.toList()));
   }
 
   public Coordinates getSibling(final int siblingIndex) {
     final int size = coordinateList.size();
-    return intern(
-        Stream.concat(coordinateList.subList(0, size - 1).stream(), Stream.of(siblingIndex))
-            .collect(Collectors.toList()));
+    return intern(Stream.concat(coordinateList.subList(0, size - 1).stream(), Stream.of(
+        siblingIndex)).collect(Collectors.toList()));
   }
 
   public Coordinates getAncestor() {

@@ -13,10 +13,8 @@ export interface VariableViewProps {
 }
 
 export function VariableView({ contentKey }: VariableViewProps) {
-  const { type, multi, optional, title, initial, referenceKeys } = useContent<VariableContent>(
-    contentKey,
-    ContentType.VARIABLE,
-  );
+  const { type, multi, optional, title, initial, referenceKeys, translationKey } =
+    useContent<VariableContent>(contentKey, ContentType.VARIABLE);
   const translate = useTranslate();
 
   const superTitleMain = translate(labelKey(initial ? 'initial-variable' : 'sets-variable'));
@@ -26,9 +24,16 @@ export function VariableView({ contentKey }: VariableViewProps) {
       <TypeView {...{ type, multi, optional }} />
     </Typography>
   );
+
+  const titleLabel = title
+    ? title
+    : translationKey
+    ? translate(`${translationKey}.title`)
+    : translate(labelKey('unnamed-variable'));
+
   const mainTitle = (
     <Typography variant={'body2'} color={(theme) => theme.palette.text.secondary}>
-      <span>{title || translate(labelKey('unnamed-variable'))}</span>
+      <span>{titleLabel}</span>
     </Typography>
   );
 

@@ -1,5 +1,30 @@
 {
   "types": {
+    "io": {
+      "logicforge": {
+        "core": {
+          "builtin": {
+            "types": {
+              "LogLevel": {
+                "title": "Log Level",
+                "description": "The level at which the message should be logged",
+                "values": {
+                  "ERROR": {
+                    "title": "Error"
+                  },
+                  "WARN": {
+                    "title": "Warning"
+                  },
+                  "INFO": {
+                    "title": "Info"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "java": {
       "lang": {
         "Object": {
@@ -46,8 +71,8 @@
     }
   },
   "actions": {
-    "store-variable": {
-      "title": "Store Variable",
+    "storeValue": {
+      "title": "Store Value",
       "description": "Stores a value for reuse",
       "parameters": {
         "value": {
@@ -58,13 +83,13 @@
     },
     "log": {
       "title": "Log Message",
-      "description": "Outputs a log message",
+      "description": "Outputs a message to the log",
       "parameters": {
         "message": {
           "title": "Message",
           "description": "The message to log"
         },
-        "level": {
+        "logLevel": {
           "title": "Level",
           "description": "The level at which the message should be logged"
         }

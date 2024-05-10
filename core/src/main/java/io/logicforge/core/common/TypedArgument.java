@@ -6,8 +6,10 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
 /**
- * TypedArgument defines an argument for a method or constructor. Used in resolving the appropriate method/constructor
- * when the argument type differs from the defined type (e.g., the argument is a subtype of the defined type)
+ * TypedArgument defines an argument for a method or constructor. Used in resolving the appropriate
+ * method/constructor
+ * when the argument type differs from the defined type (e.g., the argument is a subtype of the
+ * defined type)
  */
 @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 @EqualsAndHashCode

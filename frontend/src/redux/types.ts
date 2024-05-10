@@ -1,4 +1,4 @@
-import { EditorState } from './slices/editors';
+import { EditorState } from './slices/editor';
 
 export type FullStoreShape = {
   ['LOGICFORGE']: {

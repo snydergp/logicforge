@@ -6,21 +6,27 @@ import io.logicforge.core.exception.MissingVariableException;
 /**
  * <p>
  * </p>
- * Variables represents a store of variables that can be accessed by during execution. Rather than indexing by names,
+ * Variables represents a store of variables that can be accessed by during execution. Rather than
+ * indexing by names,
  * variables use <i>coordinates</i>, an array of integers defined as follows:
  * </p>
  * <p>
  * <ul>
  * <li>An "executable" is either an action or a control structure</li>
- * <li>An "action" is an atomic executable. A single operation with inputs an an optional output, intended to
+ * <li>An "action" is an atomic executable. A single operation with inputs an an optional output,
+ * intended to
  * encapsulate a side effect</li>
- * <li>A "control structure" is one or more blocks of executables. How or whether each blocks are executed depends of
- * the type of control block and other inputs. For example, the CONDITIONAL block takes in a boolean input value and
+ * <li>A "control structure" is one or more blocks of executables. How or whether each blocks are
+ * executed depends of
+ * the type of control block and other inputs. For example, the CONDITIONAL block takes in a boolean
+ * input value and
  * executes one of its two blocks depending on that value.</li>
- * <li>A "block" is a list of executables. Barring an error, when a block is executed, all executables in that block
+ * <li>A "block" is a list of executables. Barring an error, when a block is executed, all
+ * executables in that block
  * will eventually be executed.</li>
  * <li>A process is defined by a single "root" block</li>
- * <li>Root executables are defined by a single coordinate denoting their index ({@code [0], [1], [2]})</li>
+ * <li>Root executables are defined by a single coordinate denoting their index
+ * ({@code [0], [1], [2]})</li>
  * <li>Every additional level of nesting adds another item to the coordinates array, such that:
  * <ul>
  * <li>Root level executables have a single coordinate ({@code [0], [1], [2]})</li>
@@ -32,15 +38,18 @@ import io.logicforge.core.exception.MissingVariableException;
  * </ul>
  * </p>
  * <p>
- * Given this definition, {@code Variables} stores the output of each action as it is executed as a variable that can be
- * accessed by subsequent actions. In addition, "initial variables", or variables injected into the processes when it is
+ * Given this definition, {@code Variables} stores the output of each action as it is executed as a
+ * variable that can be
+ * accessed by subsequent actions. In addition, "initial variables", or variables injected into the
+ * processes when it is
  * started, are given coordinates made up of a single negative integer ({@code [-1], [-2], [-3]})
  * </p>
  */
 public interface ExecutionContext {
 
   /**
-   * Checks whether the resulting coordinate has both completed and outputted a non-null output variable
+   * Checks whether the resulting coordinate has both completed and outputted a non-null output
+   * variable
    *
    * @param coordinates the action's coordinates, as defined above
    * @return whether the referenced action has both completed and output a variable
@@ -59,8 +68,10 @@ public interface ExecutionContext {
       final String... path) throws MissingVariableException;
 
   /**
-   * Checks whether the referenced action has completed. For non-async types, this will return true as soon as
-   * {@link #setVariable(Coordinates, Object)} has been called for the coordinates. For async types, this will return
+   * Checks whether the referenced action has completed. For non-async types, this will return true
+   * as soon as
+   * {@link #setVariable(Coordinates, Object)} has been called for the coordinates. For async types,
+   * this will return
    * false until the async method has completed.
    */
   boolean isActionCompleted(final Coordinates coordinates);

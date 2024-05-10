@@ -1,4 +1,4 @@
-import editorsReducer, { editorsGroupBy } from './slices/editors';
+import editorsReducer, { editorsGroupBy } from './slices/editor';
 import { configureStore, Store } from '@reduxjs/toolkit';
 import undoable from 'redux-undo';
 

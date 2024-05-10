@@ -19,7 +19,7 @@ import {
   selectIsInSelectedPath,
   selectParameterSpecificationForKey,
   setSelection,
-} from '../../redux/slices/editors';
+} from '../../redux/slices/editor';
 import { useContent } from '../../hooks/useContent';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ValueEditor } from '../ValueEditor/ValueEditor';

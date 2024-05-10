@@ -7,7 +7,7 @@ import io.logicforge.core.engine.ExecutionContext;
 import io.logicforge.core.engine.ExecutionQueue;
 import io.logicforge.core.engine.impl.DefaultExecutionContext;
 import io.logicforge.core.engine.util.EngineSpecUtils;
-import io.logicforge.core.model.specification.EngineSpec;
+import io.logicforge.core.model.domain.specification.EngineSpec;
 import java.lang.Integer;
 import java.lang.String;
 import java.util.HashMap;

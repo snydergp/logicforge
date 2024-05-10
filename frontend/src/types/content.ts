@@ -4,7 +4,7 @@
  * flattening the structure stored in Redux.
  */
 
-import { ActionSpec, ControlType, FunctionSpec, ProcessSpec } from './specification';
+import { CallableSpec, ControlType } from './specification';
 import { ValidationError } from './validation';
 import { TypeIntersection } from './types';
 
@@ -72,8 +72,9 @@ export type ProcessContent = NodeContent &
     differentiator: ContentType.PROCESS;
     name: string;
     rootBlockKey?: ContentKey;
-    spec: ProcessSpec;
+    spec: CallableSpec;
     inputVariableKeys: ContentKey[];
+    externalId: any;
   };
 
 export type ControlContent = ListContent &
@@ -95,14 +96,12 @@ export type ActionContent = NodeContent &
   ExpressionContent & {
     differentiator: ContentType.ACTION;
     name: string;
-    spec: ActionSpec;
     variableContentKey?: ContentKey;
   };
 
 export type FunctionContent = NodeContent &
   ExpressionContent & {
     differentiator: ContentType.FUNCTION;
-    spec: FunctionSpec;
     name: string;
   };
 
@@ -145,8 +144,9 @@ export type ReferenceContent = Content &
 export type VariableContent = Content &
   ExpressionContent & {
     differentiator: ContentType.VARIABLE;
-    title: string;
-    description: string;
+    title?: string;
+    description?: string;
+    translationKey?: string;
     basePath?: string;
     optional: boolean;
     initial: boolean;

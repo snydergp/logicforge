@@ -1,4 +1,10 @@
 spring:
   data:
     mongodb:
-      uri: 'mongodb://root:secret@mongo:27017/logicforge'
+      host: mongo
+      username: root
+      password: secret
+      database: logicforge
+      authentication-database: logicforge
+  main:
+    banner-mode: off

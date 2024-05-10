@@ -1,6 +1,6 @@
 import { Content, ContentKey } from '../types';
 import { useSelector } from 'react-redux';
-import { selectSelectedSubtree } from '../redux/slices/editors';
+import { selectSelectedSubtree } from '../redux/slices/editor';
 import { StoreStructure } from '../redux';
 import { contentEqual } from '../util';
 

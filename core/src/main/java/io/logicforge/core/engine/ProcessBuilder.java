@@ -1,11 +1,11 @@
 package io.logicforge.core.engine;
 
 import io.logicforge.core.exception.ProcessConstructionException;
-import io.logicforge.core.model.configuration.ProcessConfig;
+import io.logicforge.core.model.domain.config.ProcessConfig;
 
 public interface ProcessBuilder {
 
-  <T extends Process> T buildProcess(final ProcessConfig<T> processConfig,
+  <T extends Process> T buildProcess(final ProcessConfig<T, ?> processConfig,
       final ExecutionQueue queue) throws ProcessConstructionException;
 
 }

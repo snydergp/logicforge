@@ -1,6 +1,6 @@
 import { ContentKey, ContentType, VariableContent } from '../../types';
 import { useDispatch, useSelector } from 'react-redux';
-import { selectContentByKey, updateVariable } from '../../redux/slices/editors';
+import { selectContentByKey, updateVariable } from '../../redux/slices/editor';
 import { FrameSection } from '../FrameSection/FrameSection';
 import { useTranslate } from '../I18n/I18n';
 import { labelKey } from '../../util';
@@ -31,16 +31,28 @@ export function VariableEditor({ contentKey }: VariableEditorProps) {
   const titleLabel = translate(labelKey('title'));
   const descriptionLabel = translate(labelKey('description'));
 
+  const resolvedTitle = variableContent.title
+    ? variableContent.title
+    : variableContent.translationKey
+    ? translate(`${variableContent.translationKey}.title`)
+    : '';
+
+  const resolvedDescription = variableContent.description
+    ? variableContent.description
+    : variableContent.translationKey
+    ? translate(`${variableContent.translationKey}.description`)
+    : '';
+
   const handleTitleUpdate = useCallback(
     (event: ChangeEvent<HTMLInputElement>) => {
-      dispatch(updateVariable(contentKey, event.target.value, variableContent.description));
+      dispatch(updateVariable(contentKey, event.target.value, resolvedDescription));
     },
     [dispatch, contentKey, variableContent.description],
   );
 
   const handleDescriptionUpdate = useCallback(
     (event: ChangeEvent<HTMLInputElement>) => {
-      dispatch(updateVariable(contentKey, variableContent.title, event.target.value));
+      dispatch(updateVariable(contentKey, resolvedTitle, event.target.value));
     },
     [dispatch, contentKey, variableContent.title],
   );

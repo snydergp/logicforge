@@ -28,37 +28,19 @@ export type ExpressionSpec = {
   multi: boolean;
 };
 
-export type VariableSpec = ExpressionSpec & {
-  title: string;
-  description?: string;
-  optional: boolean;
-};
-
 export type InputSpec = ExpressionSpec & {
-  metadata: { [key: string]: string };
+  metadata: { [key: string]: any };
 };
 
-export type FunctionSpec = {
+export type CallableSpec = {
   inputs: { [key: string]: InputSpec };
-  output: ExpressionSpec;
-  metadata: { [key: string]: string };
-};
-
-export type ActionSpec = {
-  inputs: { [key: string]: InputSpec };
-  output?: ExpressionSpec;
-  metadata: { [key: string]: string };
-};
-
-export type ProcessSpec = {
-  inputs: { [key: string]: VariableSpec };
-  output?: ExpressionSpec;
+  output: InputSpec;
 };
 
 export type EngineSpec = {
-  processes: { [key: string]: ProcessSpec };
-  actions: { [key: string]: ActionSpec };
-  functions: { [key: string]: FunctionSpec };
+  processes: { [key: string]: CallableSpec };
+  actions: { [key: string]: CallableSpec };
+  functions: { [key: string]: CallableSpec };
   types: { [key: string]: TypeSpec };
   controls: ControlType[];
 };

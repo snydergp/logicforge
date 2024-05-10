@@ -13,20 +13,19 @@ import io.logicforge.core.engine.Process;
 import io.logicforge.core.engine.ProcessBuilder;
 import io.logicforge.core.engine.impl.DefaultExecutionContext;
 import io.logicforge.core.exception.ProcessConstructionException;
-import io.logicforge.core.model.configuration.ActionConfig;
-import io.logicforge.core.model.configuration.BlockConfig;
-import io.logicforge.core.model.configuration.ConditionalConfig;
-import io.logicforge.core.model.configuration.ExecutableConfig;
-import io.logicforge.core.model.configuration.ExpressionConfig;
-import io.logicforge.core.model.configuration.FunctionConfig;
-import io.logicforge.core.model.configuration.ProcessConfig;
-import io.logicforge.core.model.configuration.ReferenceConfig;
-import io.logicforge.core.model.configuration.ValueConfig;
-import io.logicforge.core.model.specification.ActionSpec;
-import io.logicforge.core.model.specification.EngineSpec;
-import io.logicforge.core.model.specification.FunctionSpec;
-import io.logicforge.core.model.specification.InputSpec;
-import io.logicforge.core.model.specification.ProcessSpec;
+import io.logicforge.core.model.domain.config.ActionConfig;
+import io.logicforge.core.model.domain.config.BlockConfig;
+import io.logicforge.core.model.domain.config.ConditionalConfig;
+import io.logicforge.core.model.domain.config.ExecutableConfig;
+import io.logicforge.core.model.domain.config.ExpressionConfig;
+import io.logicforge.core.model.domain.config.FunctionConfig;
+import io.logicforge.core.model.domain.config.ProcessConfig;
+import io.logicforge.core.model.domain.config.ReferenceConfig;
+import io.logicforge.core.model.domain.config.ValueConfig;
+import io.logicforge.core.model.domain.specification.CallableSpec;
+import io.logicforge.core.model.domain.specification.EngineSpec;
+import io.logicforge.core.model.domain.specification.InputSpec;
+import io.logicforge.core.model.domain.specification.ProvidedCallableSpec;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -46,14 +45,15 @@ public class CompilationProcessBuilder implements ProcessBuilder {
   private static final String PACKAGE_TPL = "io.logicforge.generated.%s";
 
   /**
-   * The top-level template used for rendering process source files for compilation. This template requires the following
-   * parameters:
+   * The top-level template used for rendering process source files for compilation. This template
+   * requires the following parameters:
    *
    * <ol>
    * <li>The package name to for the generated class</li>
    * <li>A string containing a list of formatted import statements</li>
    * <li>The process interface class name</li>
-   * <li>A string containing a formatted list of fields and a constructor injecting those fields</li>
+   * <li>A string containing a formatted list of fields and a constructor injecting those
+   * fields</li>
    * <li>The signature for the process executor method</li>
    * <li>Method calls for loading the process arguments into the "args" map</li>
    * <li>The EngineSpec instance var name and queue var name (comma-separated)</li>
@@ -94,8 +94,8 @@ public class CompilationProcessBuilder implements ProcessBuilder {
       """;
 
   /**
-   * A template usd to generate the top-level class instance var definitions and constructor. This template requires the
-   * following parameters:
+   * A template usd to generate the top-level class instance var definitions and constructor. This
+   * template requires the following parameters:
    *
    * <ol>
    * <li>A formatted list of instance variable declarations (indented one tab)</li>
@@ -112,9 +112,13 @@ public class CompilationProcessBuilder implements ProcessBuilder {
       \t}
          """;
 
-  private static final Set<Class<?>> DEFAULT_IMPORTS =
-      Set.of(Action.class, ExecutionContext.class, DefaultExecutionContext.class, AtomicLong.class,
-          Coordinates.class, CoordinateTrie.class, Map.class, HashMap.class);
+  private static final Set<Class<?>> DEFAULT_IMPORTS = Set.of(Action.class, ExecutionContext.class,
+      DefaultExecutionContext.class, AtomicLong.class, Coordinates.class, CoordinateTrie.class,
+      Map.class, HashMap.class);
+
+  private static final Map<Class<?>, Class<?>> BOXED_TYPE_MAPPING = Map.of(boolean.class,
+      Boolean.class, int.class, Integer.class, long.class, Long.class, float.class, Float.class,
+      double.class, Double.class, byte.class, Byte.class, char.class, Character.class);
 
   private final EngineSpec engineSpec;
   private final ProcessCompiler compiler;
@@ -122,11 +126,11 @@ public class CompilationProcessBuilder implements ProcessBuilder {
   private final AtomicLong processCounter = new AtomicLong(0);
 
   @Override
-  public <T extends Process> T buildProcess(final ProcessConfig<T> processConfig,
+  public <T extends Process> T buildProcess(final ProcessConfig<T, ?> processConfig,
       final ExecutionQueue queue) throws ProcessConstructionException {
     final Class<T> functionalInterface = processConfig.getFunctionalInterface();
-    final SourceFileData sourceFileData =
-        new SourceFileData(processConfig, queue, functionalInterface);
+    final SourceFileData sourceFileData = new SourceFileData(processConfig, queue,
+        functionalInterface);
     final String className = sourceFileData.getClassName();
     final String code = sourceFileData.getContents();
     final List<TypedArgument> args = sourceFileData.getInstanceVariables();
@@ -138,14 +142,15 @@ public class CompilationProcessBuilder implements ProcessBuilder {
     String getContents(final int tabCount);
   }
 
+
   private class SourceFileData {
 
     private final Map<Class<?>, Pair<String, String>> toImport = new HashMap<>();
     private final Map<Object, Pair<Class<?>, String>> instanceVars = new LinkedHashMap<>();
     private final long processId;
 
-    private final ProcessConfig<?> config;
-    private final ProcessSpec processSpec;
+    private final ProcessConfig<?, ?> config;
+    private final CallableSpec processSpec;
     private final String engineSpecVarName;
     private final String queueVarName;
     private final String processInterfaceName;
@@ -153,18 +158,20 @@ public class CompilationProcessBuilder implements ProcessBuilder {
     private final String contents;
     private final BlockData rootBlock;
 
-    private SourceFileData(final ProcessConfig<?> config, final ExecutionQueue queue,
+    private SourceFileData(final ProcessConfig<?, ?> config, final ExecutionQueue queue,
         final Class<?> processInterfaceClass) throws ProcessConstructionException {
       this.processId = processCounter.getAndIncrement();
       this.config = config;
       this.engineSpecVarName = ensureInstanceVar(engineSpec);
       this.queueVarName = ensureInstanceVar(queue, ExecutionQueue.class);
-      this.processSpec = engineSpec.getProcesses().values().stream()
+      this.processSpec = engineSpec.getProcesses()
+          .values()
+          .stream()
           .filter(spec -> spec.getMethod().getDeclaringClass().equals(processInterfaceClass))
           .findFirst()
           .orElseThrow(() -> new ProcessConstructionException(
-              ("Supplied process interface %s has not been " + "registered")
-                  .formatted(processInterfaceClass)));
+              ("Supplied process interface %s has not been " + "registered").formatted(
+                  processInterfaceClass)));
       this.processInterfaceName = ensureImport(processSpec.getMethod().getDeclaringClass());
 
       DEFAULT_IMPORTS.forEach(this::ensureImport);
@@ -180,8 +187,8 @@ public class CompilationProcessBuilder implements ProcessBuilder {
 
     public String ensureInstanceVar(final Object object, final Class<?> type) {
       ensureImport(type);
-      return instanceVars
-          .computeIfAbsent(object, obj -> new Pair<>(type, "var" + instanceVars.size())).getRight();
+      return instanceVars.computeIfAbsent(object, obj -> new Pair<>(type, "var" + instanceVars
+          .size())).getRight();
     }
 
     public String ensureImport(final Class<?> classToImport) {
@@ -213,8 +220,8 @@ public class CompilationProcessBuilder implements ProcessBuilder {
       final String returnStatement = formatReturnStatement();
 
       return CLASS_FILE_TPL.formatted(formatPackageName(), formatImports(), processInterfaceName,
-          formatFieldsAndConstructor(), formatMethodSignature(), formatArgsLoadingLogic(),
-          "%s, %s".formatted(engineSpecVarName, queueVarName), executableCalls, returnStatement,
+          formatFieldsAndConstructor(), formatMethodSignature(), formatArgsLoadingLogic(), "%s, %s"
+              .formatted(engineSpecVarName, queueVarName), executableCalls, returnStatement,
           processId);
     }
 
@@ -223,8 +230,13 @@ public class CompilationProcessBuilder implements ProcessBuilder {
     }
 
     private String formatImports() {
-      return toImport.values().stream().map(Pair::getLeft).sorted().distinct()
-          .map("import %s;"::formatted).collect(Collectors.joining("\n"));
+      return toImport.values()
+          .stream()
+          .map(Pair::getLeft)
+          .sorted()
+          .distinct()
+          .map("import %s;"::formatted)
+          .collect(Collectors.joining("\n"));
     }
 
     private String formatFieldsAndConstructor() {
@@ -240,7 +252,9 @@ public class CompilationProcessBuilder implements ProcessBuilder {
         final String instanceVarName = typeNamePair.getRight();
         return "final %s %s".formatted(typeRef, instanceVarName);
       }).collect(Collectors.joining(", "));
-      final String fieldInitializations = instanceVars.values().stream().map(Pair::getRight)
+      final String fieldInitializations = instanceVars.values()
+          .stream()
+          .map(Pair::getRight)
           .map(instanceVarName -> "\t\tthis.%s = %s;".formatted(instanceVarName, instanceVarName))
           .collect(Collectors.joining("\n"));
 
@@ -253,8 +267,10 @@ public class CompilationProcessBuilder implements ProcessBuilder {
       final Method method = processSpec.getMethod();
       final Class<?> returnType = method.getReturnType();
       builder.append("\tpublic ")
-          .append(Void.class.equals(returnType) ? "void" : ensureImport(returnType)).append(" ")
-          .append(method.getName()).append("(");
+          .append(Void.class.equals(returnType) ? "void" : ensureImport(returnType))
+          .append(" ")
+          .append(method.getName())
+          .append("(");
       for (int i = 0; i < processSpec.getInputs().size(); i++) {
         builder.append(i > 0 ? ", " : "");
         final InputSpec input = processSpec.getInputs().get(i);
@@ -282,7 +298,7 @@ public class CompilationProcessBuilder implements ProcessBuilder {
     }
 
     private String formatReturnStatement() {
-      final Class<?> type = processSpec.getOutputType();
+      final Class<?> type = processSpec.getType();
       if (Void.class.equals(type)) {
         return "";
       } else {
@@ -293,11 +309,13 @@ public class CompilationProcessBuilder implements ProcessBuilder {
     }
 
     public List<TypedArgument> getInstanceVariables() {
-      return instanceVars.entrySet().stream()
+      return instanceVars.entrySet()
+          .stream()
           .map(e -> TypedArgument.from(e.getValue().getLeft(), e.getKey()))
           .collect(Collectors.toList());
     }
   }
+
 
   @RequiredArgsConstructor
   @Getter
@@ -308,6 +326,7 @@ public class CompilationProcessBuilder implements ProcessBuilder {
     protected final Coordinates coordinates;
 
   }
+
 
   private class BlockData extends ExecutableData {
 
@@ -321,14 +340,14 @@ public class CompilationProcessBuilder implements ProcessBuilder {
         final ExecutableConfig childConfig = config.getExecutables().get(i);
         final Coordinates childCoordinates = coordinates.getNthChild(i);
         switch (childConfig) {
-          case ActionConfig actionConfig ->
-            children.add(new ActionData(sourceFile, actionConfig, childCoordinates));
-          case BlockConfig blockConfig ->
-            children.add(new BlockData(sourceFile, blockConfig, childCoordinates));
-          case ConditionalConfig conditionalConfig ->
-            children.add(new ConditionalData(sourceFile, conditionalConfig, childCoordinates));
-          default -> throw new IllegalStateException(
-              "Unknown executable type: %s".formatted(childConfig.getClass()));
+          case ActionConfig actionConfig -> children.add(new ActionData(sourceFile, actionConfig,
+              childCoordinates));
+          case BlockConfig blockConfig -> children.add(new BlockData(sourceFile, blockConfig,
+              childCoordinates));
+          case ConditionalConfig conditionalConfig -> children.add(new ConditionalData(sourceFile,
+              conditionalConfig, childCoordinates));
+          default -> throw new IllegalStateException("Unknown executable type: %s".formatted(
+              childConfig.getClass()));
         }
       }
     }
@@ -342,6 +361,7 @@ public class CompilationProcessBuilder implements ProcessBuilder {
       return builder.toString();
     }
   }
+
 
   public class ActionData extends ExecutableData {
 
@@ -357,20 +377,25 @@ public class CompilationProcessBuilder implements ProcessBuilder {
     public String getContents(final int tabCount) {
       final String tab = tabs(tabCount);
       final StringBuilder builder = new StringBuilder();
-      builder.append(tab).append("// Action {").append(coordinates.asFormattedString(","))
-          .append("}").append("\n").append(tab);
+      builder.append(tab)
+          .append("// Action {")
+          .append(coordinates.asFormattedString(","))
+          .append("}")
+          .append("\n")
+          .append(tab);
 
-      final ActionSpec actionSpec = engineSpec.getActions().get(config.getName());
-      final Class<?> outputType = actionSpec.getOutputType();
-      final FunctionExpressionData expressionData =
-          new FunctionExpressionData(getSourceFile(), config, actionSpec, outputType);
+      final ProvidedCallableSpec actionSpec = engineSpec.getActions().get(config.getName());
+      final Class<?> outputType = actionSpec.getType();
+      final CallableExpressionData expressionData = new CallableExpressionData(getSourceFile(),
+          outputType, actionSpec, config.getArguments());
 
-      boolean nonVoid = !Void.class.equals(outputType);
+      boolean nonVoid = !void.class.equals(outputType);
 
       if (!nonVoid) {
         builder.append(expressionData.getContents(tabCount)).append("\n").append(tab);
       }
-      builder.append("context.setVariable(").append(coordinatesAsCodeInitializer(coordinates))
+      builder.append("context.setVariable(")
+          .append(coordinatesAsCodeInitializer(coordinates))
           .append(", ");
       if (nonVoid) {
         builder.append(expressionData.getContents(tabCount));
@@ -382,6 +407,7 @@ public class CompilationProcessBuilder implements ProcessBuilder {
       return builder.toString();
     }
   }
+
 
   private class ConditionalData extends ExecutableData {
 
@@ -401,14 +427,22 @@ public class CompilationProcessBuilder implements ProcessBuilder {
     public String getContents(final int tabCount) {
       final StringBuilder builder = new StringBuilder();
       final String tab = tabs(tabCount);
-      final ExpressionData conditional =
-          mapExpression(sourceFile, config.getCondition(), boolean.class);
-      builder.append(tab).append("if (").append(conditional.getContents(tabCount)).append(") {\n")
-          .append(thenData.getContents(tabCount + 1)).append(tab).append("} else {\n")
-          .append(elseData.getContents(tabCount + 1)).append(tab).append("}\n");
+      final ExpressionData conditional = mapExpression(sourceFile, config.getCondition(),
+          boolean.class);
+      builder.append(tab)
+          .append("if (")
+          .append(conditional.getContents(tabCount))
+          .append(") {\n")
+          .append(thenData.getContents(tabCount + 1))
+          .append(tab)
+          .append("} else {\n")
+          .append(elseData.getContents(tabCount + 1))
+          .append(tab)
+          .append("}\n");
       return builder.toString();
     }
   }
+
 
   @Getter
   private static abstract class ExpressionData implements SourceSegment {
@@ -420,37 +454,33 @@ public class CompilationProcessBuilder implements ProcessBuilder {
     }
   }
 
-  private class FunctionExpressionData extends ExpressionData {
 
-    private final Class<?> type;
+  private class CallableExpressionData extends ExpressionData {
+
+    private final Class<?> requiredType;
     private final Method method;
     private final Object provider;
     private final Class<?> outputType;
 
     private final List<ExpressionData> args;
 
-    public FunctionExpressionData(final SourceFileData sourceFile, Class<?> type,
-        final FunctionSpec spec, final FunctionConfig config) {
-      this(sourceFile, type, spec.getMethod(), spec.getProvider(), spec.getOutputType(),
-          spec.getInputs(), config.getArguments());
+    public CallableExpressionData(final SourceFileData sourceFile, final Class<?> requiredType,
+        final ProvidedCallableSpec spec, Map<String, List<ExpressionConfig>> args) {
+      this(sourceFile, requiredType, spec.getMethod(), spec.getProvider(), spec.getType(), spec
+          .getInputs(), args);
     }
 
-    public FunctionExpressionData(final SourceFileData sourceFile, final ActionConfig config,
-        final ActionSpec spec, final Class<?> type) {
-      this(sourceFile, type, spec.getMethod(), spec.getProvider(), spec.getOutputType(),
-          spec.getInputs(), config.getArguments());
-    }
-
-    public FunctionExpressionData(final SourceFileData sourceFile, final Class<?> type,
+    private CallableExpressionData(final SourceFileData sourceFile, final Class<?> requiredType,
         final Method method, final Object provider, final Class<?> outputType,
         final List<InputSpec> inputSpecs, final Map<String, List<ExpressionConfig>> arguments) {
       super(sourceFile);
 
-      this.type = type;
+      this.requiredType = requiredType;
       this.method = method;
       this.provider = provider;
       this.outputType = outputType;
-      this.args = inputSpecs.stream().map(spec -> getArgument(spec, arguments.get(spec.getName())))
+      this.args = inputSpecs.stream()
+          .map(spec -> getArgument(spec, arguments.get(spec.getName())))
           .collect(Collectors.toList());
     }
 
@@ -470,17 +500,18 @@ public class CompilationProcessBuilder implements ProcessBuilder {
     public String getContents(final int tabCount) {
       final String providerVar = this.getSourceFile().ensureInstanceVar(provider);
       final String functionName = method.getName();
-      final String implementation = providerVar + "." + functionName + "("
-          + args.stream().map(arg -> arg.getContents(tabCount)).collect(Collectors.joining(", "))
-          + ")";
-      if (!type.equals(outputType)) {
-        return "context.convert(%s, %s.class)".formatted(implementation,
-            getSourceFile().ensureImport(type));
+      final String implementation = providerVar + "." + functionName + "(" + args.stream()
+          .map(arg -> arg.getContents(tabCount))
+          .collect(Collectors.joining(", ")) + ")";
+      if (!requiredType.equals(outputType)) {
+        return "context.convert(%s, %s.class)".formatted(implementation, getSourceFile()
+            .ensureImport(requiredType));
       } else {
         return implementation;
       }
     }
   }
+
 
   private class ValueExpressionData extends ExpressionData {
 
@@ -499,13 +530,17 @@ public class CompilationProcessBuilder implements ProcessBuilder {
 
     public String generateContents() {
       final String value = config.getValue();
-      if (type.equals(int.class) || type.equals(Integer.class) || type.equals(float.class)
-          || type.equals(Float.class) || type.equals(boolean.class) || type.equals(Boolean.class)) {
+      if (type.equals(int.class) || type.equals(Integer.class) || type.equals(float.class) || type
+          .equals(Float.class) || type.equals(byte.class) || type.equals(Byte.class) || type.equals(
+              boolean.class) || type.equals(Boolean.class)) {
         // code representation is equivalent to string representation
         return value;
       } else if (type.equals(String.class)) {
         // strings require quotes
         return "\"" + value + "\"";
+      } else if (type.equals(char.class) || type == Character.class) {
+        // char requires single quotes
+        return "'" + value + "'";
       } else if (type.equals(long.class) || type == Long.class) {
         // longs require "L" suffix
         return value + "L";
@@ -522,6 +557,7 @@ public class CompilationProcessBuilder implements ProcessBuilder {
     }
   }
 
+
   private class VariableReferenceData extends ExpressionData {
 
     private final ReferenceConfig config;
@@ -537,36 +573,37 @@ public class CompilationProcessBuilder implements ProcessBuilder {
     @Override
     public String getContents(final int tabCount) {
       final StringBuilder writer = new StringBuilder();
-      final String typeName = getSourceFile().ensureImport(type);
+      final Class<?> boxedType = BOXED_TYPE_MAPPING.getOrDefault(type, type);
+      final String typeName = getSourceFile().ensureImport(boxedType);
 
-      for (final ReferenceConfig.Reference reference : config.getReferences()) {
-        final Coordinates coordinates = Coordinates.from(reference.getCoordinateList());
-        final List<String> path = Objects.requireNonNullElse(reference.getPath(), List.of());
-        writer.append("context.isVariableSet(").append(coordinatesAsCodeInitializer(coordinates))
-            .append(", ").append(typeName).append(".class");
-        for (final String p : path) {
-          writer.append(", \"").append(p).append("\"");
-        }
-        writer.append(")");
-        writer.append(" ? ");
-        writer.append("context.getVariable(").append(coordinatesAsCodeInitializer(coordinates))
-            .append(", ").append(typeName).append(".class");
-        for (final String p : path) {
-          writer.append(", \"").append(p).append("\"");
-        }
-        writer.append(")");
-        writer.append(" : ");
+      final Coordinates coordinates = Coordinates.from(config.getCoordinateList());
+      final List<String> path = Objects.requireNonNullElse(config.getPath(), List.of());
+      writer.append("context.isVariableSet(")
+          .append(coordinatesAsCodeInitializer(coordinates))
+          .append(", ")
+          .append(typeName)
+          .append(".class");
+      for (final String p : path) {
+        writer.append(", \"").append(p).append("\"");
       }
-      if (config.getFallback() != null) {
-        writer.append(
-            mapExpression(getSourceFile(), config.getFallback(), type).getContents(tabCount));
-      } else {
-        writer.append("null");
+      writer.append(")");
+      writer.append(" ? ");
+      writer.append("context.getVariable(")
+          .append(coordinatesAsCodeInitializer(coordinates))
+          .append(", ")
+          .append(typeName)
+          .append(".class");
+      for (final String p : path) {
+        writer.append(", \"").append(p).append("\"");
       }
+      writer.append(")");
+      writer.append(" : ");
+      writer.append("null");
       writer.append(" ");
       return writer.toString();
     }
   }
+
 
   private class ArrayExpressionData extends ExpressionData {
 
@@ -577,7 +614,8 @@ public class CompilationProcessBuilder implements ProcessBuilder {
         final List<ExpressionConfig> configs, final Class<?> type) {
       super(sourceFile);
       this.type = type;
-      args = configs.stream().map(config -> mapExpression(sourceFile, config, type))
+      args = configs.stream()
+          .map(config -> mapExpression(sourceFile, config, type))
           .collect(Collectors.toList());
       getSourceFile().ensureImport(type);
     }
@@ -588,9 +626,12 @@ public class CompilationProcessBuilder implements ProcessBuilder {
       final String typeName = getSourceFile().ensureImport(type);
 
       // output all expressions as an array
-      builder.append("new ").append(typeName).append("[]{")
-          .append(
-              args.stream().map(arg -> arg.getContents(tabCount)).collect(Collectors.joining(", ")))
+      builder.append("new ")
+          .append(typeName)
+          .append("[]{")
+          .append(args.stream()
+              .map(arg -> arg.getContents(tabCount))
+              .collect(Collectors.joining(", ")))
           .append("}");
       return builder.toString();
     }
@@ -598,21 +639,23 @@ public class CompilationProcessBuilder implements ProcessBuilder {
 
 
   private ExpressionData mapExpression(final SourceFileData sourceFile,
-      final ExpressionConfig config, final Class<?> type) {
+      final ExpressionConfig config, final Class<?> requiredType) {
     if (config instanceof FunctionConfig functionConfig) {
-      final FunctionSpec functionSpec = engineSpec.getFunctions().get(functionConfig.getName());
-      return new FunctionExpressionData(sourceFile, type, functionSpec, functionConfig);
+      final ProvidedCallableSpec functionSpec = engineSpec.getFunctions()
+          .get(functionConfig.getName());
+      return new CallableExpressionData(sourceFile, requiredType, functionSpec, functionConfig
+          .getArguments());
     } else if (config instanceof ValueConfig valueConfig) {
-      return new ValueExpressionData(sourceFile, valueConfig, type);
+      return new ValueExpressionData(sourceFile, valueConfig, requiredType);
     } else if (config instanceof ReferenceConfig referenceConfig) {
-      return new VariableReferenceData(sourceFile, referenceConfig, type);
+      return new VariableReferenceData(sourceFile, referenceConfig, requiredType);
     }
-    throw new IllegalStateException("Unknown expression config type: " + config.getClass());
+    throw new IllegalStateException("Unknown expression config requiredType: " + config.getClass());
   }
 
   /**
-   * Formats coordinates as a string that can be inserted into Java source code that will evaluate as an identical
-   * instance of Coordinates at runtime
+   * Formats coordinates as a string that can be inserted into Java source code that will evaluate
+   * as an identical instance of Coordinates at runtime
    */
   private static String coordinatesAsCodeInitializer(final Coordinates coordinates) {
     return "Coordinates.from(%s)".formatted(coordinates.asFormattedString(","));

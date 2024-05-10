@@ -1,18 +1,17 @@
 package io.logicforge.core.validation;
 
+import static io.logicforge.core.common.Coordinates.ROOT;
+
 import io.logicforge.core.common.CoordinateTrie;
 import io.logicforge.core.common.Coordinates;
-import io.logicforge.core.model.configuration.BlockConfig;
-import io.logicforge.core.model.configuration.ControlStatementConfig;
-import io.logicforge.core.model.configuration.ExecutableConfig;
-import io.logicforge.core.model.configuration.ProcessConfig;
-import io.logicforge.core.model.specification.EngineSpec;
-import lombok.RequiredArgsConstructor;
-
+import io.logicforge.core.model.domain.config.BlockConfig;
+import io.logicforge.core.model.domain.config.ControlStatementConfig;
+import io.logicforge.core.model.domain.config.ExecutableConfig;
+import io.logicforge.core.model.domain.config.ProcessConfig;
+import io.logicforge.core.model.domain.specification.EngineSpec;
 import java.util.List;
 import java.util.stream.Stream;
-
-import static io.logicforge.core.common.Coordinates.ROOT;
+import lombok.RequiredArgsConstructor;
 
 /**
  * A service that validates process configurations. This includes the following error scenarios:
@@ -35,8 +34,10 @@ public class ProcessValidator {
   }
 
   private interface Validator {
+
     Stream<ValidationError> validate();
   }
+
 
   private class ProcessConfigValidator implements Validator {
 
@@ -50,8 +51,8 @@ public class ProcessValidator {
 
     private void newExecutableConfigValidator(final ExecutableConfig config,
         final Coordinates coordinates) {
-      final ExecutableConfigValidator validator =
-          new ExecutableConfigValidator(this, config, coordinates);
+      final ExecutableConfigValidator validator = new ExecutableConfigValidator(this, config,
+          coordinates);
       trie.put(coordinates, validator);
 
       if (config instanceof BlockConfig blockConfig) {
@@ -74,6 +75,7 @@ public class ProcessValidator {
       return trie.values().stream().flatMap(Validator::validate);
     }
   }
+
 
   private class ExecutableConfigValidator implements Validator {
 

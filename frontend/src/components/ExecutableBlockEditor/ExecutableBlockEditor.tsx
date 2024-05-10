@@ -6,7 +6,7 @@ import {
   selectEngineSpec,
   selectIsInSelectedPath,
   setSelection,
-} from '../../redux/slices/editors';
+} from '../../redux/slices/editor';
 import {
   ActionContent,
   BlockContent,

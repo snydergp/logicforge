@@ -7,7 +7,7 @@ import {
 } from '../../types';
 import { useContent } from '../../hooks/useContent';
 import { useSelector } from 'react-redux';
-import { selectEngineSpec } from '../../redux/slices/editors';
+import { selectEngineSpec } from '../../redux/slices/editor';
 import React, { useMemo } from 'react';
 import { useTranslate } from '../I18n/I18n';
 import { typePropertyTitleKey } from '../../util';

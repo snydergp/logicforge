@@ -9,7 +9,7 @@ import io.logicforge.core.engine.util.EngineSpecUtils;
 import io.logicforge.core.engine.util.FileUtil;
 import io.logicforge.core.exception.EngineConfigurationException;
 import io.logicforge.core.exception.ProcessConstructionException;
-import io.logicforge.core.model.specification.EngineSpec;
+import io.logicforge.core.model.domain.specification.EngineSpec;
 import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -33,19 +33,18 @@ class ProcessCompilerTest {
     compiler = new ProcessCompiler();
     functions = new EngineSpecUtils.Functions();
     engineSpec = EngineSpecUtils.buildSpec(functions);
-    executorService =
-        new ThreadPoolExecutor(4, 16, 10, TimeUnit.SECONDS, new ArrayBlockingQueue<>(128));
+    executorService = new ThreadPoolExecutor(4, 16, 10, TimeUnit.SECONDS, new ArrayBlockingQueue<>(
+        128));
     queue = new SimpleExecutionQueue(executorService);
   }
 
   // @Test
-  void compileAndInstantiate_compilesValidBasicProcess()
-      throws IOException, ProcessConstructionException, InterruptedException {
+  void compileAndInstantiate_compilesValidBasicProcess() throws IOException,
+      ProcessConstructionException, InterruptedException {
     final String basicSource = FileUtil.loadGeneratedJavaFileSource("basic");
-    final List<TypedArgument> constructorArgs =
-        List.of(TypedArgument.from(EngineSpec.class, engineSpec),
-            TypedArgument.from(ExecutionQueue.class, queue),
-            TypedArgument.from(EngineSpecUtils.Functions.class, functions));
+    final List<TypedArgument> constructorArgs = List.of(TypedArgument.from(EngineSpec.class,
+        engineSpec), TypedArgument.from(ExecutionQueue.class, queue), TypedArgument.from(
+            EngineSpecUtils.Functions.class, functions));
     final EngineSpecUtils.TestProcess testProcess = compiler.compileAndInstantiate(BASIC_CLASSNAME,
         basicSource, constructorArgs, EngineSpecUtils.TestProcess.class);
 
@@ -76,10 +75,10 @@ class ProcessCompilerTest {
   }
 
   private String doTheThing(final String text, final Integer number) {
-    final Integer a =
-        functions.recordPair(functions.concat("Hello, ", text), functions.add(3, number));
-    final Integer b =
-        functions.recordPair(functions.concat("Hi, ", text), functions.add(7, number));
+    final Integer a = functions.recordPair(functions.concat("Hello, ", text), functions.add(3,
+        number));
+    final Integer b = functions.recordPair(functions.concat("Hi, ", text), functions.add(7,
+        number));
     return functions.concat("The sum is ", functions.integerToString(functions.add(a, b)));
   }
 }

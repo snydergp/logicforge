@@ -10,7 +10,7 @@ import { useTranslate } from '../I18n/I18n';
 import { labelKey } from '../../util';
 import { Box, ListItemText, Typography } from '@mui/material';
 import { shallowEqual, useSelector } from 'react-redux';
-import { selectReferenceExpressionType } from '../../redux/slices/editors';
+import { selectReferenceExpressionType } from '../../redux/slices/editor';
 import { TypeView } from '../TypeView/TypeView';
 import { StoreStructure } from '../../redux';
 
@@ -43,6 +43,11 @@ export function ReferenceView({ contentKey }: ReferenceViewProps) {
     </Typography>
   );
 
+  const varTitle =
+    variableContent.title || variableContent.translationKey
+      ? translate(`${variableContent.translationKey}.title`)
+      : translate(labelKey('unnamed-variable'));
+
   const secondaryLabel = (
     <Typography
       sx={(theme) => ({
@@ -50,7 +55,7 @@ export function ReferenceView({ contentKey }: ReferenceViewProps) {
         fontSize: theme.typography.body2.fontSize,
       })}
     >
-      {variableContent.title || translate(labelKey('unnamed-variable'))}&nbsp; (
+      {varTitle}&nbsp; (
       <TypeView {...variableContent} />)
     </Typography>
   );

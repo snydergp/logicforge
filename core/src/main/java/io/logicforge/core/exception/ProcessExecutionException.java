@@ -1,7 +1,8 @@
 package io.logicforge.core.exception;
 
 public class ProcessExecutionException extends RuntimeException {
-  public ProcessExecutionException() {}
+  public ProcessExecutionException() {
+  }
 
   public ProcessExecutionException(final String message) {
     super(message);

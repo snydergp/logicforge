@@ -1,6 +1,7 @@
 {
   "differentiator": "PROCESS",
-  "name": "example",
+  "name": "io.logicforge.Example",
+  "externalId": 123,
   "rootBlock": {
     "differentiator": "BLOCK",
     "executables": [
@@ -16,15 +17,18 @@
                 "values": [
                   {
                     "differentiator": "VALUE",
-                    "value": "Hello"
+                    "value": "Hello",
+                    "typeId": "java.lang.String"
                   },
                   {
                     "differentiator": "VALUE",
-                    "value": ", "
+                    "value": ", ",
+                    "typeId": "java.lang.String"
                   },
                   {
                     "differentiator": "VALUE",
-                    "value": "World"
+                    "value": "World",
+                    "typeId": "java.lang.String"
                   },
                   {
                     "differentiator": "FUNCTION",
@@ -33,11 +37,13 @@
                       "values": [
                         {
                           "differentiator": "VALUE",
-                          "value": "!"
+                          "value": "!",
+                          "typeId": "java.lang.String"
                         },
                         {
                           "differentiator": "VALUE",
-                          "value": "!"
+                          "value": "!",
+                          "typeId": "java.lang.String"
                         }
                       ]
                     }
@@ -49,7 +55,8 @@
           "level": [
             {
               "differentiator": "VALUE",
-              "value": "INFO"
+              "value": "INFO",
+              "typeId": "io.logicforge.core.builtin.types.LogLevel"
             }
           ]
         }
@@ -66,15 +73,18 @@
                 "values": [
                   {
                     "differentiator": "VALUE",
-                    "value": "Hello"
+                    "value": "Hello",
+                    "typeId": "java.lang.String"
                   },
                   {
                     "differentiator": "VALUE",
-                    "value": ", "
+                    "value": ", ",
+                    "typeId": "java.lang.String"
                   },
                   {
                     "differentiator": "VALUE",
-                    "value": "World"
+                    "value": "World",
+                    "typeId": "java.lang.String"
                   },
                   {
                     "differentiator": "FUNCTION",
@@ -83,11 +93,13 @@
                       "values": [
                         {
                           "differentiator": "VALUE",
-                          "value": "!"
+                          "value": "!",
+                          "typeId": "java.lang.String"
                         },
                         {
                           "differentiator": "VALUE",
-                          "value": "!"
+                          "value": "!",
+                          "typeId": "java.lang.String"
                         }
                       ]
                     }
@@ -99,7 +111,8 @@
           "level": [
             {
               "differentiator": "VALUE",
-              "value": "INFO"
+              "value": "INFO",
+              "typeId": "io.logicforge.core.builtin.types.LogLevel"
             }
           ]
         }

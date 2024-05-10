@@ -36,8 +36,8 @@ public class ProcessCompiler {
     final InMemorySource source = new InMemorySource(className, code);
 
     final JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
-    final InMemoryFileManager fileManager =
-        new InMemoryFileManager(compiler.getStandardFileManager(null, null, null));
+    final InMemoryFileManager fileManager = new InMemoryFileManager(compiler.getStandardFileManager(
+        null, null, null));
     final DiagnosticCollector<JavaFileObject> diagnostics = new DiagnosticCollector<>();
 
     final StringWriter javacLog = new StringWriter();
@@ -51,9 +51,12 @@ public class ProcessCompiler {
     if (success) {
       return loadClassInstance(fileManager, className, argumentsAndTypes, type);
     } else {
-      throw new ProcessConstructionException("Error compiling process actions: "
-          + diagnostics.getDiagnostics().stream().map(diagnostic -> diagnostic.getLineNumber() + " "
-              + diagnostic.getMessage(Locale.ENGLISH)).collect(Collectors.joining("\n")));
+      throw new ProcessConstructionException("Error compiling process actions: " + diagnostics
+          .getDiagnostics()
+          .stream()
+          .map(diagnostic -> diagnostic.getLineNumber() + " " + diagnostic.getMessage(
+              Locale.ENGLISH))
+          .collect(Collectors.joining("\n")));
     }
   }
 
@@ -68,14 +71,16 @@ public class ProcessCompiler {
         throw new ProcessConstructionException("Compiled process does not represent expected type");
       }
       final Class<? extends T> actionClass = (Class<? extends T>) loaded;
-      final Class<?>[] argTypes =
-          argumentsAndTypes.stream().map(TypedArgument::getType).toArray(Class<?>[]::new);
-      final Object[] args =
-          argumentsAndTypes.stream().map(TypedArgument::getArgument).toArray(Object[]::new);
+      final Class<?>[] argTypes = argumentsAndTypes.stream()
+          .map(TypedArgument::getType)
+          .toArray(Class<?>[]::new);
+      final Object[] args = argumentsAndTypes.stream()
+          .map(TypedArgument::getArgument)
+          .toArray(Object[]::new);
       final Constructor<? extends T> constructor = actionClass.getConstructor(argTypes);
       return constructor.newInstance(args);
-    } catch (ClassNotFoundException | NoSuchMethodException | InstantiationException
-        | IllegalAccessException | InvocationTargetException e) {
+    } catch (ClassNotFoundException | NoSuchMethodException | InstantiationException |
+        IllegalAccessException | InvocationTargetException e) {
       throw new ProcessConstructionException("Error loading generated process class", e);
     }
   }
@@ -113,6 +118,7 @@ public class ProcessCompiler {
       return compiled.toByteArray();
     }
   }
+
 
   public static class InMemoryFileManager extends ForwardingJavaFileManager<JavaFileManager> {
     private final HashMap<String, InMemorySource> classes = new HashMap<>();

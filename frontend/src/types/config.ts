@@ -23,6 +23,7 @@ export type Config = {
 export type ValueConfig = Config & {
   differentiator: ConfigType.VALUE;
   value: string;
+  typeId: string;
 };
 
 export type FunctionConfig = Config & {
@@ -72,12 +73,18 @@ export type ProcessConfig = Config & {
   name: string;
   rootBlock: BlockConfig;
   returnExpression?: ExpressionConfig[];
+  /**
+   * Extra data sent by the server to identify the config. This is not used by the front end, but
+   * will be held with the process model and returned to the server when updates are made
+   * */
+  externalId: any;
 };
 
 export type VariableConfig = Config & {
   differentiator: ConfigType.VARIABLE;
-  title: string;
+  title?: string;
   description?: string;
+  translationKey?: string;
 };
 
 export type ExpressionConfig = ValueConfig | FunctionConfig | ReferenceConfig;
