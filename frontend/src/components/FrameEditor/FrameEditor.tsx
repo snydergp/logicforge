@@ -16,7 +16,7 @@ import {
   initEditor,
   selectEngineSpec,
   selectSelectedSubtree,
-} from '../../redux/slices/frameEditor';
+} from '../../redux/slices/frameEditorSlice';
 import React, { useEffect, useMemo, useRef } from 'react';
 import {
   actionDescriptionKey,

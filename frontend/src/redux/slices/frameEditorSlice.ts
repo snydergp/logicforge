@@ -1780,10 +1780,10 @@ export function validateReference(referenceKey: ContentKey, indexedContent: Inde
 }
 
 function resolveCurrentSlice(storeStructure: LogicForgeReduxState) {
-  if (!storeStructure[FRAME_EDITOR_REDUX_NAMESPACE]) {
+  if (!storeStructure.present[FRAME_EDITOR_REDUX_NAMESPACE]) {
     throw new Error(`Unexpected state: slice is not defined`);
   }
-  return storeStructure[FRAME_EDITOR_REDUX_NAMESPACE];
+  return storeStructure.present[FRAME_EDITOR_REDUX_NAMESPACE];
 }
 
 export const {

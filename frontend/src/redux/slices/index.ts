@@ -1,2 +1,2 @@
-export { default as frameEditorSliceReducer } from './frameEditor';
-export * from './frameEditor';
+export { default as frameEditorSliceReducer } from './frameEditorSlice';
+export * from './frameEditorSlice';

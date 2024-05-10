@@ -25,7 +25,7 @@ import { useTranslate } from '../I18n/I18n';
 import { labelKey, typePropertyTitleKey } from '../../util';
 import { VariableView } from '../VariableView/VariableView';
 import { useDispatch, useSelector } from 'react-redux';
-import { selectEngineSpec, updateReferencePath } from '../../redux/slices/frameEditor';
+import { selectEngineSpec, updateReferencePath } from '../../redux/slices/frameEditorSlice';
 import { TypeView } from '../TypeView/TypeView';
 import { ListItemView, ListView } from '../SharedElements/SharedElements';
 
