@@ -1,5 +1,5 @@
 import { AnyAction, createSelector, createSlice, PayloadAction } from '@reduxjs/toolkit';
-import { StoreStructure } from '../types';
+import { LogicForgeReduxState } from '../types';
 import {
   ActionConfig,
   ActionContent,
@@ -307,14 +307,14 @@ export function editorsGroupBy(action: AnyAction) {
   return null;
 }
 
-export const selectEditorSelection = (state: StoreStructure) => {
+export const selectEditorSelection = (state: LogicForgeReduxState) => {
   return resolveCurrentSlice(state).selection;
 };
 
 /**
  * Internal-only selector used for creating memoizable composite selectors
  */
-const selectContentStore = (state: StoreStructure) => {
+const selectContentStore = (state: LogicForgeReduxState) => {
   return resolveCurrentSlice(state).contentStore;
 };
 
@@ -328,7 +328,7 @@ export const selectSelectedSubtree = createSelector(
   },
 );
 
-export const selectContentByKey = (key: ContentKey) => (state: StoreStructure) => {
+export const selectContentByKey = (key: ContentKey) => (state: LogicForgeReduxState) => {
   const contentStore = resolveCurrentSlice(state).contentStore;
   if (contentStore === undefined) {
     throw new Error('Illegal state: content store is not defined');
@@ -336,7 +336,7 @@ export const selectContentByKey = (key: ContentKey) => (state: StoreStructure) =
   return contentStore.indexedContent[key];
 };
 
-export const selectIsInSelectedPath = (key: ContentKey) => (state: StoreStructure) => {
+export const selectIsInSelectedPath = (key: ContentKey) => (state: LogicForgeReduxState) => {
   const slice = resolveCurrentSlice(state);
   const contentStore = slice.contentStore;
   const selection = slice.selection;
@@ -359,7 +359,7 @@ export const selectIsInSelectedPath = (key: ContentKey) => (state: StoreStructur
   return selected;
 };
 
-export const selectContent = (state: StoreStructure) => {
+export const selectContent = (state: LogicForgeReduxState) => {
   const contentStore = resolveCurrentSlice(state).contentStore;
   if (contentStore === undefined) {
     throw new Error('Illegal state: content store is not defined');
@@ -367,7 +367,7 @@ export const selectContent = (state: StoreStructure) => {
   return contentStore.indexedContent;
 };
 
-export const selectEngineSpec = (state: StoreStructure) => {
+export const selectEngineSpec = (state: LogicForgeReduxState) => {
   const engineSpec = resolveCurrentSlice(state).engineSpec;
   if (engineSpec === undefined) {
     throw new Error('Illegal state: engine spec is not defined');
@@ -375,7 +375,7 @@ export const selectEngineSpec = (state: StoreStructure) => {
   return engineSpec;
 };
 
-export const selectFunctionSpec = (functionName: string) => (state: StoreStructure) => {
+export const selectFunctionSpec = (functionName: string) => (state: LogicForgeReduxState) => {
   const engineSpec = resolveCurrentSlice(state).engineSpec;
   if (engineSpec === undefined) {
     throw new Error('Illegal state: engine spec is not defined');
@@ -383,35 +383,37 @@ export const selectFunctionSpec = (functionName: string) => (state: StoreStructu
   return engineSpec.functions[functionName];
 };
 
-export const selectAvailableVariables = (key: string) => (state: StoreStructure) => {
+export const selectAvailableVariables = (key: string) => (state: LogicForgeReduxState) => {
   return findAvailableVariables(key, resolveCurrentSlice(state));
 };
 
-export const selectReferenceExpressionType = (referenceKey: string) => (state: StoreStructure) => {
-  const editorState = resolveCurrentSlice(state);
-  const contentStore = editorState.contentStore;
-  if (contentStore === undefined) {
-    throw new Error('Illegal state: content store is not defined');
-  }
-  const referenceContent = resolveContent<ReferenceContent>(
-    referenceKey,
-    contentStore.indexedContent,
-  );
-  return resolveExpressionInfoForReference(
-    referenceContent.variableKey,
-    referenceContent.path,
-    editorState,
-  );
-};
-
-export const selectParameterSpecificationForKey = (key?: string) => (state: StoreStructure) => {
-  if (key !== undefined) {
+export const selectReferenceExpressionType =
+  (referenceKey: string) => (state: LogicForgeReduxState) => {
     const editorState = resolveCurrentSlice(state);
-    if (editorState !== undefined) {
-      return resolveParameterSpecForKey(key, editorState);
+    const contentStore = editorState.contentStore;
+    if (contentStore === undefined) {
+      throw new Error('Illegal state: content store is not defined');
     }
-  }
-};
+    const referenceContent = resolveContent<ReferenceContent>(
+      referenceKey,
+      contentStore.indexedContent,
+    );
+    return resolveExpressionInfoForReference(
+      referenceContent.variableKey,
+      referenceContent.path,
+      editorState,
+    );
+  };
+
+export const selectParameterSpecificationForKey =
+  (key?: string) => (state: LogicForgeReduxState) => {
+    if (key !== undefined) {
+      const editorState = resolveCurrentSlice(state);
+      if (editorState !== undefined) {
+        return resolveParameterSpecForKey(key, editorState);
+      }
+    }
+  };
 
 function removeChildKey(content: ListContent, key: string) {
   content.childKeys.splice(content.childKeys.indexOf(key), 1);
@@ -1750,7 +1752,7 @@ export function validateReference(referenceKey: ContentKey, indexedContent: Inde
   return errors;
 }
 
-function resolveCurrentSlice(storeStructure: StoreStructure) {
+function resolveCurrentSlice(storeStructure: LogicForgeReduxState) {
   if (!storeStructure.LOGICFORGE_FRAME_EDITOR) {
     throw new Error(`Unexpected state: slice is not defined`);
   }

@@ -30,7 +30,7 @@ import {
 } from '../../util';
 import { Info } from '../Info/Info';
 import { ActionIcon, FunctionIcon, ProcessIcon } from '../Icons/Icons';
-import { getStore, StoreStructure } from '../../redux';
+import { getStore, LogicForgeReduxState } from '../../redux';
 import { InitialVariablesView } from '../InitialVariablesView/InitialVariablesView';
 import { I18n, MessageTree, useTranslate } from '../I18n/I18n';
 import { FrameSection } from '../FrameSection/FrameSection';
@@ -75,7 +75,10 @@ export function FrameEditor({ config, engineSpec, translations }: FrameEditorPro
 }
 
 function FrameEditorInternal() {
-  const selection = useSelector<StoreStructure, Content[]>(selectSelectedSubtree, contentEqual);
+  const selection = useSelector<LogicForgeReduxState, Content[]>(
+    selectSelectedSubtree,
+    contentEqual,
+  );
 
   const childFrames = useMemo(() => {
     const children: React.JSX.Element[] = [];

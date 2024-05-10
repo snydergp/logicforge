@@ -1,11 +1,11 @@
 import { Content, ContentKey } from '../types';
 import { useSelector } from 'react-redux';
 import { selectSelectedSubtree } from '../redux/slices/editor';
-import { StoreStructure } from '../redux';
+import { LogicForgeReduxState } from '../redux';
 import { contentEqual } from '../util';
 
 export function useSelectedPath(): ContentKey[] {
-  const selectedSubtree = useSelector<StoreStructure, Content[]>(
+  const selectedSubtree = useSelector<LogicForgeReduxState, Content[]>(
     selectSelectedSubtree,
     contentEqual,
   );

@@ -26,7 +26,7 @@ import {
 } from '../../redux/slices/editor';
 import { functionTitleKey, labelKey, typeEnumValueTitleKey, typeTitleKey } from '../../util';
 import { TranslateFunction, useTranslate } from '../I18n/I18n';
-import { StoreStructure } from '../../redux';
+import { LogicForgeReduxState } from '../../redux';
 import { useContent } from '../../hooks/useContent';
 import { TypeView } from '../TypeView/TypeView';
 
@@ -137,7 +137,7 @@ export function ValueEditor({ contentKey }: ValueEditorProps) {
   const argumentContent = useSelector(
     selectContentByKey(content.parentKey as string),
   ) as ArgumentContent;
-  const availableVariables = useSelector<StoreStructure, VariableModel[]>(
+  const availableVariables = useSelector<LogicForgeReduxState, VariableModel[]>(
     selectAvailableVariables(contentKey),
     variableModelEqual,
   );

@@ -12,7 +12,7 @@ import { Box, ListItemText, Typography } from '@mui/material';
 import { shallowEqual, useSelector } from 'react-redux';
 import { selectReferenceExpressionType } from '../../redux/slices/editor';
 import { TypeView } from '../TypeView/TypeView';
-import { StoreStructure } from '../../redux';
+import { LogicForgeReduxState } from '../../redux';
 
 export interface ReferenceViewProps {
   contentKey: ContentKey;
@@ -26,7 +26,7 @@ export function ReferenceView({ contentKey }: ReferenceViewProps) {
     referenceContent.variableKey,
     ContentType.VARIABLE,
   );
-  const referenceInfo = useSelector<StoreStructure, ExpressionInfo>(
+  const referenceInfo = useSelector<LogicForgeReduxState, ExpressionInfo>(
     selectReferenceExpressionType(contentKey),
     shallowEqual,
   );
