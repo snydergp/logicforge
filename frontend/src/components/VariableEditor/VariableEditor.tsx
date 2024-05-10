@@ -1,6 +1,6 @@
 import { ContentKey, ContentType, VariableContent } from '../../types';
 import { useDispatch, useSelector } from 'react-redux';
-import { selectContentByKey, updateVariable } from '../../redux/slices/editor';
+import { selectContentByKey, updateVariable } from '../../redux/slices/frameEditor';
 import { FrameSection } from '../FrameSection/FrameSection';
 import { useTranslate } from '../I18n/I18n';
 import { labelKey } from '../../util';

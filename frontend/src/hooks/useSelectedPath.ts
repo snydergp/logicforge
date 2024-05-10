@@ -1,6 +1,6 @@
 import { Content, ContentKey } from '../types';
 import { useSelector } from 'react-redux';
-import { selectSelectedSubtree } from '../redux/slices/editor';
+import { selectSelectedSubtree } from '../redux/slices/frameEditor';
 import { LogicForgeReduxState } from '../redux';
 import { contentEqual } from '../util';
 

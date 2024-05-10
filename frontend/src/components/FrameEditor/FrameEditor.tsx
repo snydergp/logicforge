@@ -12,7 +12,11 @@ import {
   ProcessContent,
   ReferenceContent,
 } from '../../types';
-import { initEditor, selectEngineSpec, selectSelectedSubtree } from '../../redux/slices/editor';
+import {
+  initEditor,
+  selectEngineSpec,
+  selectSelectedSubtree,
+} from '../../redux/slices/frameEditor';
 import React, { useEffect, useMemo, useRef } from 'react';
 import {
   actionDescriptionKey,

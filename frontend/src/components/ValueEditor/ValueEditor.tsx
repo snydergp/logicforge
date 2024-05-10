@@ -23,7 +23,7 @@ import {
   updateValue,
   updateValueType,
   VariableModel,
-} from '../../redux/slices/editor';
+} from '../../redux/slices/frameEditor';
 import { functionTitleKey, labelKey, typeEnumValueTitleKey, typeTitleKey } from '../../util';
 import { TranslateFunction, useTranslate } from '../I18n/I18n';
 import { LogicForgeReduxState } from '../../redux';

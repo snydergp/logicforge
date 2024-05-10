@@ -1,1 +1,1 @@
-export { selectEditorSelection } from './slices/editor';
+export { selectEditorSelection } from './slices/frameEditor';

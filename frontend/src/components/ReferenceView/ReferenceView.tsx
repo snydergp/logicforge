@@ -10,7 +10,7 @@ import { useTranslate } from '../I18n/I18n';
 import { labelKey } from '../../util';
 import { Box, ListItemText, Typography } from '@mui/material';
 import { shallowEqual, useSelector } from 'react-redux';
-import { selectReferenceExpressionType } from '../../redux/slices/editor';
+import { selectReferenceExpressionType } from '../../redux/slices/frameEditor';
 import { TypeView } from '../TypeView/TypeView';
 import { LogicForgeReduxState } from '../../redux';
 

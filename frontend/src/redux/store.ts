@@ -1,5 +1,6 @@
-import frameEditorReducer from './slices/editor';
+import frameEditorReducer from './slices/frameEditor';
 import { configureStore, Store } from '@reduxjs/toolkit';
+import { FRAME_EDITOR_REDUX_NAMESPACE } from './types';
 
 let store: Store;
 
@@ -10,7 +11,7 @@ function initializeStore() {
 
   store = configureStore({
     reducer: {
-      LOGICFORGE_FRAME_EDITOR: frameEditorReducer,
+      [FRAME_EDITOR_REDUX_NAMESPACE]: frameEditorReducer,
     },
   });
 }

@@ -1,6 +1,6 @@
 import { useDispatch, useSelector } from 'react-redux';
 import { ErrorLevel, ValidationError } from '../../types';
-import { deleteItem, selectContent } from '../../redux/slices/editor';
+import { deleteItem, selectContent } from '../../redux/slices/frameEditor';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ContextMenu, ContextMenuAction } from '../ContextMenu/ContentMenu';
 import { Box, IconButton, Stack } from '@mui/material';

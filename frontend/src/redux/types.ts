@@ -1,5 +1,7 @@
-import { EditorState } from './slices/editor';
+import { EditorState } from './slices/frameEditor';
+
+export const FRAME_EDITOR_REDUX_NAMESPACE = 'LOGICFORGE_FRAME_EDITOR';
 
 export type LogicForgeReduxState = {
-  LOGICFORGE_FRAME_EDITOR: EditorState;
+  [FRAME_EDITOR_REDUX_NAMESPACE]: EditorState;
 };

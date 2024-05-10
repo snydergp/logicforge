@@ -1,5 +1,5 @@
 import { AnyAction, createSelector, createSlice, PayloadAction } from '@reduxjs/toolkit';
-import { LogicForgeReduxState } from '../types';
+import { FRAME_EDITOR_REDUX_NAMESPACE, LogicForgeReduxState } from '../types';
 import {
   ActionConfig,
   ActionContent,
@@ -77,7 +77,7 @@ export type EditorState = {
 };
 
 const frameEditorSlice = createSlice({
-  name: 'LOGICFORGE_FRAME_EDITOR',
+  name: FRAME_EDITOR_REDUX_NAMESPACE,
   initialState: {} as EditorState,
   reducers: {
     initEditor: {
@@ -1753,10 +1753,10 @@ export function validateReference(referenceKey: ContentKey, indexedContent: Inde
 }
 
 function resolveCurrentSlice(storeStructure: LogicForgeReduxState) {
-  if (!storeStructure.LOGICFORGE_FRAME_EDITOR) {
+  if (!storeStructure[FRAME_EDITOR_REDUX_NAMESPACE]) {
     throw new Error(`Unexpected state: slice is not defined`);
   }
-  return storeStructure.LOGICFORGE_FRAME_EDITOR;
+  return storeStructure[FRAME_EDITOR_REDUX_NAMESPACE];
 }
 
 export const {

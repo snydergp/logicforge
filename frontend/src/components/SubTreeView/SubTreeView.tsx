@@ -3,7 +3,7 @@ import {
   selectContent,
   selectFunctionSpec,
   selectIsInSelectedPath,
-} from '../../redux/slices/editor';
+} from '../../redux/slices/frameEditor';
 import {
   ArgumentContent,
   Content,
