@@ -1,1 +1,1 @@
-export { selectEditorSelection, selectCanUndo, selectCanRedo } from './slices/editor';
+export { selectEditorSelection } from './slices/editor';

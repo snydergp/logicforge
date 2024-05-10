@@ -413,22 +413,6 @@ export const selectParameterSpecificationForKey = (key?: string) => (state: Stor
   }
 };
 
-export const selectCanUndo = (state: StoreStructure) => {
-  const logicForgeState = state.LOGICFORGE_FRAME_EDITOR;
-  if (logicForgeState === undefined) {
-    throw new Error('Illegal state: LogicForge state is undefined');
-  }
-  return logicForgeState.past !== undefined && logicForgeState.past.length > 0;
-};
-
-export const selectCanRedo = (state: StoreStructure) => {
-  const logicForgeState = state.LOGICFORGE_FRAME_EDITOR;
-  if (logicForgeState === undefined) {
-    throw new Error('Illegal state: LogicForge state is undefined');
-  }
-  return logicForgeState.future !== undefined && logicForgeState.future.length > 0;
-};
-
 function removeChildKey(content: ListContent, key: string) {
   content.childKeys.splice(content.childKeys.indexOf(key), 1);
 }
@@ -1770,7 +1754,7 @@ function resolveCurrentSlice(storeStructure: StoreStructure) {
   if (!storeStructure.LOGICFORGE_FRAME_EDITOR) {
     throw new Error(`Unexpected state: slice is not defined`);
   }
-  return storeStructure.LOGICFORGE_FRAME_EDITOR.present;
+  return storeStructure.LOGICFORGE_FRAME_EDITOR;
 }
 
 export const {

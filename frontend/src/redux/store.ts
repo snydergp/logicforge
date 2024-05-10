@@ -1,6 +1,5 @@
-import frameEditorReducer, { editorsGroupBy } from './slices/editor';
+import frameEditorReducer from './slices/editor';
 import { configureStore, Store } from '@reduxjs/toolkit';
-import undoable from 'redux-undo';
 
 let store: Store;
 
@@ -11,7 +10,7 @@ function initializeStore() {
 
   store = configureStore({
     reducer: {
-      LOGICFORGE_FRAME_EDITOR: undoable(frameEditorReducer, { groupBy: editorsGroupBy }),
+      LOGICFORGE_FRAME_EDITOR: frameEditorReducer,
     },
   });
 }

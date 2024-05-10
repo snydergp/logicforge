@@ -1,4 +1,4 @@
-import { Provider, useDispatch, useSelector } from 'react-redux';
+import { Provider, useSelector } from 'react-redux';
 import { Box, Divider, Slide, Stack, SxProps, Theme, Typography } from '@mui/material';
 import {
   ActionContent,
@@ -13,7 +13,7 @@ import {
   ReferenceContent,
 } from '../../types';
 import { initEditor, selectEngineSpec, selectSelectedSubtree } from '../../redux/slices/editor';
-import React, { useCallback, useEffect, useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import {
   actionDescriptionKey,
   actionParameterDescriptionKey,
@@ -38,7 +38,6 @@ import { ExecutableBlockEditor } from '../ExecutableBlockEditor/ExecutableBlockE
 import { VariableEditor } from '../VariableEditor/VariableEditor';
 import { ArgumentEditor } from '../ArgumentEditor/ArgumentEditor';
 import { TypeView } from '../TypeView/TypeView';
-import { ActionCreators } from 'redux-undo';
 
 enum FrameType {
   PROCESS,
@@ -96,23 +95,8 @@ function FrameEditorInternal() {
     return children;
   }, [selection]);
 
-  const dispatch = useDispatch();
-  const handleKeyDown = useCallback(
-    (event: React.KeyboardEvent<HTMLDivElement>) => {
-      const { key, metaKey, shiftKey } = event;
-      if (metaKey && key === 'z') {
-        if (!shiftKey) {
-          dispatch(ActionCreators.undo());
-        } else {
-          dispatch(ActionCreators.redo());
-        }
-      }
-    },
-    [dispatch],
-  );
-
   return (
-    <div onKeyDown={handleKeyDown} tabIndex={0}>
+    <div tabIndex={0}>
       <Stack
         direction="row"
         flexWrap={'nowrap'}
