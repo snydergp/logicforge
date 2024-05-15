@@ -302,8 +302,14 @@ public class CompilationProcessBuilder implements ProcessBuilder {
       if (Void.class.equals(type)) {
         return "";
       } else {
-        final ExpressionConfig returnStatement = config.getReturnStatement();
-        final ExpressionData expressionData = mapExpression(this, returnStatement, type);
+        final List<ExpressionConfig> returnStatement = config.getReturnExpression();
+        final ExpressionData expressionData;
+        if (processSpec.getType().isArray()) {
+          expressionData = new ArrayExpressionData(this, returnStatement, type);
+        } else {
+          // TODO add validation and handling
+          expressionData = mapExpression(this, returnStatement.getFirst(), type);
+        }
         return "\n\t\treturn %s;".formatted(expressionData.getContents(0));
       }
     }

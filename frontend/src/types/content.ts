@@ -26,7 +26,7 @@ export enum ContentType {
 export type ContentStore = {
   count: number;
   indexedContent: IndexedContent;
-  rootConfigKey: string;
+  rootKey: string;
 };
 
 export type IndexedContent = { [key: ContentKey]: Content };

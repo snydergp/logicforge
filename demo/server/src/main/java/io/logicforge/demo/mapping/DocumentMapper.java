@@ -2,6 +2,7 @@ package io.logicforge.demo.mapping;
 
 import io.logicforge.core.common.Pair;
 import io.logicforge.core.constant.ControlStatementType;
+import io.logicforge.core.engine.Process;
 import io.logicforge.core.model.domain.config.ActionConfig;
 import io.logicforge.core.model.domain.config.BlockConfig;
 import io.logicforge.core.model.domain.config.ConditionalConfig;
@@ -13,7 +14,6 @@ import io.logicforge.core.model.domain.config.ProcessConfig;
 import io.logicforge.core.model.domain.config.ValueConfig;
 import io.logicforge.core.model.domain.config.VariableConfig;
 import io.logicforge.core.model.domain.specification.EngineSpec;
-import io.logicforge.demo.model.domain.WebServerProcess;
 import io.logicforge.demo.model.persistence.ActionConfigDocument;
 import io.logicforge.demo.model.persistence.BlockConfigDocument;
 import io.logicforge.demo.model.persistence.ConditionalConfigDocument;
@@ -40,10 +40,14 @@ public class DocumentMapper {
     this.engineSpec = engineSpec;
   }
 
-  public ProcessConfigDocument internal(final ProcessConfig<WebServerProcess, UUID> external) {
+  public ProcessConfigDocument internal(final ProcessConfig<?, UUID> external) {
     return ProcessConfigDocument.builder()
         .id(external.getId())
         .rootBlock(this.blockInternal(external.getRootBlock()))
+        .returnStatement(external.getReturnExpression()
+            .stream()
+            .map(this::expressionInternal)
+            .collect(Collectors.toList()))
         .build();
   }
 
@@ -139,11 +143,15 @@ public class DocumentMapper {
         .build();
   }
 
-  public ProcessConfig<WebServerProcess, UUID> external(final ProcessConfigDocument internal) {
-    return ProcessConfig.<WebServerProcess, UUID>builder()
-        .functionalInterface(WebServerProcess.class)
+  public <T extends Process> ProcessConfig<T, UUID> external(final ProcessConfigDocument internal,
+      final Class<T> processClass) {
+    return ProcessConfig.<T, UUID>builder()
+        .functionalInterface(processClass)
         .id(internal.getId())
-        .returnStatement(expressionExternal(internal.getReturnStatement()))
+        .returnExpression(internal.getReturnStatement()
+            .stream()
+            .map(this::expressionExternal)
+            .collect(Collectors.toList()))
         .rootBlock(blockExternal(internal.getRootBlock()))
         .build();
   }
@@ -230,6 +238,4 @@ public class DocumentMapper {
         .orElseThrow();
     return ValueConfig.builder().value(internal.getValue()).typeId(matchingType).build();
   }
-
-
 }

@@ -5,11 +5,9 @@ import java.util.List;
 import java.util.Map;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
-import lombok.experimental.SuperBuilder;
 
 @EqualsAndHashCode(callSuper = true)
 @Data
-@SuperBuilder
 public class ActionConfigDTO extends ExecutableConfigDTO {
 
   private String name;

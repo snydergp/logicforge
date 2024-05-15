@@ -34,7 +34,7 @@ export type FunctionConfig = Config & {
 
 export type ReferenceConfig = Config & {
   differentiator: ConfigType.REFERENCE;
-  coordinates: number[];
+  coordinates: readonly number[];
   path: string[];
 };
 

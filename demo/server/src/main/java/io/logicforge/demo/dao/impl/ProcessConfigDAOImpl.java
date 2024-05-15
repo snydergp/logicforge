@@ -1,9 +1,9 @@
 package io.logicforge.demo.dao.impl;
 
+import io.logicforge.core.engine.Process;
 import io.logicforge.core.model.domain.config.ProcessConfig;
 import io.logicforge.demo.dao.ProcessConfigDAO;
 import io.logicforge.demo.mapping.DocumentMapper;
-import io.logicforge.demo.model.domain.WebServerProcess;
 import io.logicforge.demo.model.persistence.ProcessConfigDocument;
 import io.logicforge.demo.repository.ProcessConfigRepository;
 import java.util.Optional;
@@ -25,15 +25,16 @@ public class ProcessConfigDAOImpl implements ProcessConfigDAO {
   }
 
   @Override
-  public void save(final ProcessConfig<WebServerProcess, UUID> processConfig) {
+  public void save(final ProcessConfig<?, UUID> processConfig) {
     final ProcessConfigDocument internal = mapper.internal(processConfig);
     repository.save(internal);
   }
 
   @Override
-  public Optional<ProcessConfig<WebServerProcess, UUID>> getById(final UUID id) {
+  public <T extends Process> Optional<ProcessConfig<T, UUID>> getById(UUID id,
+      Class<T> processClass) {
     final Optional<ProcessConfigDocument> optionalInternal = repository.findById(id);
-    return optionalInternal.map(mapper::external);
+    return optionalInternal.map(document -> mapper.external(document, processClass));
   }
 
   @Override

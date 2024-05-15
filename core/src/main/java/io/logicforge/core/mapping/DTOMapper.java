@@ -56,7 +56,10 @@ public abstract class DTOMapper<ID> {
         .functionalInterface(functionalInterface)
         .id(internalId)
         .name(external.getName())
-        .returnStatement(expressionInternal(external.getReturnStatement()))
+        .returnExpression(external.getReturnExpression()
+            .stream()
+            .map(this::expressionInternal)
+            .collect(Collectors.toList()))
         .build();
   }
 
@@ -66,7 +69,10 @@ public abstract class DTOMapper<ID> {
         .externalId(externalId)
         .name(internal.getName())
         .rootBlock(blockExternal(internal.getRootBlock()))
-        .returnStatement(expressionExternal(internal.getReturnStatement()))
+        .returnExpression(internal.getReturnExpression()
+            .stream()
+            .map(this::expressionExternal)
+            .collect(Collectors.toList()))
         .build();
   }
 
@@ -190,39 +196,39 @@ public abstract class DTOMapper<ID> {
   }
 
   protected BlockConfigDTO blockExternal(final BlockConfig internal) {
-    return BlockConfigDTO.builder()
-        .executables(internal.getExecutables()
-            .stream()
-            .map(this::executableExternal)
-            .collect(Collectors.toList()))
-        .build();
+    final BlockConfigDTO out = new BlockConfigDTO();
+    out.setExecutables(internal.getExecutables()
+        .stream()
+        .map(this::executableExternal)
+        .collect(Collectors.toList()));
+    return out;
   }
 
   protected ActionConfigDTO providedCallableSpecExternal(final ActionConfig internal) {
-    return ActionConfigDTO.builder()
-        .name(internal.getName())
-        .arguments(internal.getArguments()
-            .entrySet()
+    final ActionConfigDTO out = new ActionConfigDTO();
+    out.setName(internal.getName());
+    out.setArguments(internal.getArguments()
+        .entrySet()
+        .stream()
+        .map(e -> new Pair<>(e.getKey(), e.getValue()
             .stream()
-            .map(e -> new Pair<>(e.getKey(), e.getValue()
-                .stream()
-                .map(this::expressionExternal)
-                .collect(Collectors.toList())))
-            .collect(Collectors.toMap(Pair::getLeft, Pair::getRight)))
-        .build();
+            .map(this::expressionExternal)
+            .collect(Collectors.toList())))
+        .collect(Collectors.toMap(Pair::getLeft, Pair::getRight)));
+    return out;
   }
 
   protected ControlStatementConfigDTO controlStatementExternal(
       final ControlStatementConfig internal) {
     if (internal instanceof ConditionalConfig conditionalConfig) {
-      return ConditionalConfigDTO.builder()
-          .type(ControlStatementType.CONDITIONAL)
-          .blocks(internal.getBlocks()
-              .stream()
-              .map(this::blockExternal)
-              .collect(Collectors.toList()))
-          .condition(expressionExternal(conditionalConfig.getCondition()))
-          .build();
+      final ConditionalConfigDTO out = new ConditionalConfigDTO();
+      out.setControlType(ControlStatementType.CONDITIONAL);
+      out.setBlocks(internal.getBlocks()
+          .stream()
+          .map(this::blockExternal)
+          .collect(Collectors.toList()));
+      out.setCondition(expressionExternal(conditionalConfig.getCondition()));
+      return out;
     }
     throw new RuntimeException("Unknown ControlStatementConfig type: " + internal.getClass());
   }
@@ -239,35 +245,37 @@ public abstract class DTOMapper<ID> {
   }
 
   protected FunctionConfigDTO functionExternal(final FunctionConfig internal) {
-    return FunctionConfigDTO.builder()
-        .name(internal.getName())
-        .arguments(internal.getArguments()
-            .entrySet()
+    final FunctionConfigDTO out = new FunctionConfigDTO();
+    out.setName(internal.getName());
+    out.setArguments(internal.getArguments()
+        .entrySet()
+        .stream()
+        .map(e -> new Pair<>(e.getKey(), e.getValue()
             .stream()
-            .map(e -> new Pair<>(e.getKey(), e.getValue()
-                .stream()
-                .map(this::expressionExternal)
-                .collect(Collectors.toList())))
-            .collect(Collectors.toMap(Pair::getLeft, Pair::getRight)))
-        .build();
+            .map(this::expressionExternal)
+            .collect(Collectors.toList())))
+        .collect(Collectors.toMap(Pair::getLeft, Pair::getRight)));
+    return out;
   }
 
   protected ValueConfigDTO valueExternal(final ValueConfig internal) {
-
     final String matchingType = engineSpec.getTypes()
         .keySet()
         .stream()
         .filter(id -> id.equals(internal.getTypeId()))
         .findFirst()
         .orElseThrow();
-    return ValueConfigDTO.builder().value(internal.getValue()).typeId(matchingType).build();
+    final ValueConfigDTO out = new ValueConfigDTO();
+    out.setValue(internal.getValue());
+    out.setTypeId(matchingType);
+    return out;
   }
 
   protected ReferenceConfigDTO referenceExternal(final ReferenceConfig internal) {
-    return ReferenceConfigDTO.builder()
-        .path(internal.getPath().toArray(new String[0]))
-        .coordinates(internal.getCoordinateList().stream().mapToInt(Integer::intValue).toArray())
-        .build();
+    final ReferenceConfigDTO out = new ReferenceConfigDTO();
+    out.setPath(internal.getPath().toArray(new String[0]));
+    out.setCoordinates(internal.getCoordinateList().stream().mapToInt(Integer::intValue).toArray());
+    return out;
   }
 
   protected Map<String, CallableSpecDTO> callableSpecsExternal(

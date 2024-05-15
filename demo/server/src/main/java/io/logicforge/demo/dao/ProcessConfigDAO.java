@@ -1,15 +1,16 @@
 package io.logicforge.demo.dao;
 
+import io.logicforge.core.engine.Process;
 import io.logicforge.core.model.domain.config.ProcessConfig;
-import io.logicforge.demo.model.domain.WebServerProcess;
 import java.util.Optional;
 import java.util.UUID;
 
 public interface ProcessConfigDAO {
 
-  void save(final ProcessConfig<WebServerProcess, UUID> processConfig);
+  void save(final ProcessConfig<?, UUID> processConfig);
 
-  Optional<ProcessConfig<WebServerProcess, UUID>> getById(final UUID id);
+  <T extends Process> Optional<ProcessConfig<T, UUID>> getById(final UUID id,
+      final Class<T> processClass);
 
   void delete(final UUID id);
 

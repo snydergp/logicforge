@@ -1,6 +1,7 @@
 package io.logicforge.core.model.dto.config;
 
 import io.logicforge.core.constant.ConfigType;
+import java.util.List;
 import lombok.Builder;
 import lombok.Data;
 
@@ -10,7 +11,7 @@ public class ProcessConfigDTO implements ConfigDTO {
 
   private String name;
   private BlockConfigDTO rootBlock;
-  private ExpressionConfigDTO returnStatement;
+  private List<ExpressionConfigDTO> returnExpression;
   private Object externalId;
 
   @Override

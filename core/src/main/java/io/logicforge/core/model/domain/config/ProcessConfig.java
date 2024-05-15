@@ -1,5 +1,6 @@
 package io.logicforge.core.model.domain.config;
 
+import java.util.List;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.SuperBuilder;
@@ -17,6 +18,6 @@ public class ProcessConfig<INTERFACE, ID> {
 
   private final BlockConfig rootBlock;
 
-  private final ExpressionConfig returnStatement;
+  private final List<ExpressionConfig> returnExpression;
 
 }

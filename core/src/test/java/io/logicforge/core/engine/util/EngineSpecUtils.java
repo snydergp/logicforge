@@ -80,7 +80,7 @@ public class EngineSpecUtils {
         .id(UUID.randomUUID())
         .name("example")
         .rootBlock(blockConfig)
-        .returnStatement(returnFunction)
+        .returnExpression(List.of(returnFunction))
         .build();
   }
 
