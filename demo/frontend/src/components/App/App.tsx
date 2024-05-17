@@ -1,9 +1,9 @@
 import api from '../../api/api';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  ConfigType,
   en,
   EngineSpec,
+  ExpressionType,
   FRAME_EDITOR_REDUX_NAMESPACE,
   FrameEditor,
   frameEditorGroupBy,
@@ -88,23 +88,22 @@ export function App({}: AppProps) {
           (returnedProcess) => setProcess(returnedProcess),
           () =>
             setProcess({
-              differentiator: ConfigType.PROCESS,
               name: 'io.logicforge.demo.model.domain.WebServerProcess',
               returnExpression: [
                 {
-                  differentiator: ConfigType.FUNCTION,
+                  differentiator: ExpressionType.FUNCTION,
                   name: 'createHttpResponse',
                   arguments: {
                     status: [
                       {
-                        differentiator: ConfigType.VALUE,
+                        differentiator: ExpressionType.VALUE,
                         value: '200',
                         typeId: 'int',
                       },
                     ],
                     body: [
                       {
-                        differentiator: ConfigType.VALUE,
+                        differentiator: ExpressionType.VALUE,
                         value: 'Hello, World!',
                         typeId: 'java.lang.String',
                       },
@@ -113,7 +112,7 @@ export function App({}: AppProps) {
                 },
               ],
               externalId: WEB_SERVER_PROCESS_ID,
-              rootBlock: { differentiator: ConfigType.BLOCK, executables: [] },
+              rootBlock: { executables: [] },
             }),
         );
       });

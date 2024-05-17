@@ -9,7 +9,7 @@ import lombok.experimental.SuperBuilder;
 @EqualsAndHashCode(callSuper = false)
 @Data
 @SuperBuilder
-public class ControlStatementConfig extends ExecutableConfig {
+public abstract class ControlStatementConfig extends ExecutableConfig {
 
   private final ControlStatementType type;
 

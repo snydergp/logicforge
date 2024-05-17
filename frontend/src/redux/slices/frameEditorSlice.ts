@@ -11,7 +11,6 @@ import {
   CONDITIONAL_CONTROL_SPEC,
   ConditionalConfig,
   ConditionalContent,
-  ConfigType,
   Content,
   ContentKey,
   ContentStore,
@@ -24,17 +23,18 @@ import {
   ErrorLevel,
   ExecutableConfig,
   ExecutableContent,
+  ExecutableType,
   ExpressionConfig,
   ExpressionContent,
   ExpressionInfo,
   ExpressionSpec,
+  ExpressionType,
   FunctionConfig,
   FunctionContent,
   IndexedContent,
   InputSpec,
   invalidReference,
   ListContent,
-  LogicForgeConfig,
   PROCESS_RETURN_PROP,
   ProcessConfig,
   ProcessContent,
@@ -81,7 +81,7 @@ const frameEditorSlice = createSlice({
   initialState: {} as FrameEditorState,
   reducers: {
     initEditor: {
-      reducer(state, action: PayloadAction<LogicForgeConfig, string, { engineSpec: EngineSpec }>) {
+      reducer(state, action: PayloadAction<ProcessConfig, string, { engineSpec: EngineSpec }>) {
         const config = action.payload;
         const { engineSpec } = action.meta;
         const contentStore: ContentStore = {
@@ -446,7 +446,7 @@ function newActionConfigForSpec(actionName: string, spec: CallableSpec): ActionC
     const valueType = spec.output.type[0];
     inputArgumentConfigs[key] = [
       {
-        differentiator: ConfigType.VALUE,
+        differentiator: ExpressionType.VALUE,
         value: '',
         typeId: valueType,
       },
@@ -454,7 +454,7 @@ function newActionConfigForSpec(actionName: string, spec: CallableSpec): ActionC
   });
 
   return {
-    differentiator: ConfigType.ACTION,
+    differentiator: ExecutableType.ACTION,
     name: actionName,
     arguments: inputArgumentConfigs,
   };
@@ -462,20 +462,18 @@ function newActionConfigForSpec(actionName: string, spec: CallableSpec): ActionC
 
 function newConditionalConfig(): ConditionalConfig {
   return {
-    differentiator: ConfigType.CONTROL_STATEMENT,
+    differentiator: ExecutableType.CONTROL_STATEMENT,
     controlType: ControlType.CONDITIONAL,
-    conditionalExpression: {
-      differentiator: ConfigType.VALUE,
+    condition: {
+      differentiator: ExpressionType.VALUE,
       value: '',
       typeId: 'boolean',
     },
     blocks: [
       {
-        differentiator: ConfigType.BLOCK,
         executables: [],
       },
       {
-        differentiator: ConfigType.BLOCK,
         executables: [],
       },
     ],
@@ -509,7 +507,7 @@ function doDeleteItem(keyToDelete: string, state: FrameEditorState) {
       const replacementType = parentArgContent.declaredType[0];
       const replacementValue = importValue(
         {
-          differentiator: ConfigType.VALUE,
+          differentiator: ExpressionType.VALUE,
           value: '',
           typeId: replacementType,
         },
@@ -1031,11 +1029,8 @@ function findAvailableVariables(key: string, state: FrameEditorState): VariableM
   return variables;
 }
 
-export function loadRootContent(config: LogicForgeConfig, state: FrameEditorState) {
+export function loadRootContent(config: ProcessConfig, state: FrameEditorState) {
   const { contentStore } = state;
-  if (config.differentiator !== ConfigType.PROCESS) {
-    throw new Error(`Illegal content root type: ${config.differentiator}`);
-  }
   const rootState = importProcess(config, state);
   contentStore.rootKey = rootState.key;
 }
@@ -1068,6 +1063,21 @@ function importProcess(config: ProcessConfig, state: FrameEditorState) {
   // set process as root content
   contentStore.rootKey = processKey;
 
+  // construct input var content and link to process
+  processContent.inputVariableKeys.push(
+    ...Object.entries(processSpec.inputs).map(([name, variableSpec]) => {
+      const variableConfig: VariableConfig = {
+        translationKey: `processes.${processName}.inputs.${name}`,
+      };
+      const { type, multi } = variableSpec;
+      const variableContent = importVariable(variableConfig, processKey, type, multi, true, state);
+      variableContent.parentKey = processKey;
+      variableContent.basePath = name;
+      variableContent.optional = false; // TODO need to rethink how to handle optionality consistently
+      return variableContent.key;
+    }),
+  );
+
   // construct root block and link to process
   const rootBlockContent = importBlock(config.rootBlock, processKey, state);
   rootBlockContent.parentKey = processKey;
@@ -1077,7 +1087,7 @@ function importProcess(config: ProcessConfig, state: FrameEditorState) {
   if (processSpec.output !== undefined) {
     const returnExpressionConfig = config.returnExpression || [
       {
-        differentiator: ConfigType.VALUE,
+        differentiator: ExpressionType.VALUE,
         value: '',
       } as ValueConfig,
     ];
@@ -1090,22 +1100,6 @@ function importProcess(config: ProcessConfig, state: FrameEditorState) {
     returnArgContent.parentKey = processKey;
     processContent.childKeyMap[PROCESS_RETURN_PROP] = returnArgContent.key;
   }
-
-  // construct input var content and link to process
-  processContent.inputVariableKeys.push(
-    ...Object.entries(processSpec.inputs).map(([name, variableSpec]) => {
-      const variableConfig: VariableConfig = {
-        differentiator: ConfigType.VARIABLE,
-        translationKey: `processes.${processName}.inputs.${name}`,
-      };
-      const { type, multi } = variableSpec;
-      const variableContent = importVariable(variableConfig, processKey, type, multi, true, state);
-      variableContent.parentKey = processKey;
-      variableContent.basePath = name;
-      variableContent.optional = false; // TODO need to rethink how to handle optionality consistently
-      return variableContent.key;
-    }),
-  );
 
   return processContent;
 }
@@ -1158,11 +1152,11 @@ function importExpression(
   state: FrameEditorState,
 ): ExpressionContent {
   switch (config.differentiator) {
-    case ConfigType.VALUE:
+    case ExpressionType.VALUE:
       return importValue(config as ValueConfig, parentKey, state);
-    case ConfigType.FUNCTION:
+    case ExpressionType.FUNCTION:
       return importFunction(config as FunctionConfig, parentKey, state);
-    case ConfigType.REFERENCE:
+    case ExpressionType.REFERENCE:
       return importReference(config as ReferenceConfig, parentKey, state);
   }
 }
@@ -1197,11 +1191,9 @@ function importExecutable(
   state: FrameEditorState,
 ): ExecutableContent {
   switch (config.differentiator) {
-    case ConfigType.BLOCK:
-      return importBlock(config as BlockConfig, parentKey, state);
-    case ConfigType.ACTION:
+    case ExecutableType.ACTION:
       return importAction(config as ActionConfig, parentKey, state);
-    case ConfigType.CONTROL_STATEMENT:
+    case ExecutableType.CONTROL_STATEMENT:
       return importControl(config as ControlConfig, parentKey, state);
   }
 }
@@ -1230,12 +1222,12 @@ function importControl(config: ControlConfig, parentKey: string, state: FrameEdi
   const conditionSpec = CONDITIONAL_CONTROL_SPEC.inputs.condition;
   const conditionalConfig = config as ConditionalConfig;
   const conditionalArgContent = importArgument(
-    [conditionalConfig.conditionalExpression],
+    [conditionalConfig.condition],
     controlStatementKey,
     conditionSpec,
     state,
   );
-  conditionalContent.childKeyMap['condition'] = conditionalArgContent.key;
+  conditionalContent.childKeyMap[CONDITIONAL_CONDITION_PROP] = conditionalArgContent.key;
 
   // Construct child blocks and link to parent
   const blockChildKeys = config.blocks.map((block) => {
@@ -1412,9 +1404,12 @@ function importReference(config: ReferenceConfig, parentKey: ContentKey, state: 
         'Invalid Reference Config: initial variable references require at least one path segment',
       );
     }
-    const [basePath, [...internalPath]] = path;
+    const [basePath, ...internalPath] = path;
     const matchingVariableKey = processContent.inputVariableKeys.find((contentKey) => {
-      const initialVariableContent = contentStore.indexedContent[contentKey] as VariableContent;
+      const initialVariableContent = resolveContent<VariableContent>(
+        contentKey,
+        contentStore.indexedContent,
+      );
       return basePath === initialVariableContent.basePath;
     });
     if (matchingVariableKey === undefined) {
@@ -1768,7 +1763,6 @@ export function exportProcess(key: ContentKey, indexedContent: IndexedContent): 
   const returnExpression = exportArgument(returnExpressionKey, indexedContent);
 
   return {
-    differentiator: ConfigType.PROCESS,
     name,
     externalId,
     rootBlock,
@@ -1782,7 +1776,6 @@ function exportBlock(key: ContentKey, indexedContent: IndexedContent): BlockConf
   const executables = childKeys.map((childKey) => exportExecutable(childKey, indexedContent));
 
   return {
-    differentiator: ConfigType.BLOCK,
     executables,
   };
 }
@@ -1814,7 +1807,7 @@ function exportAction(key: ContentKey, indexedContent: IndexedContent): ActionCo
     : undefined;
 
   return {
-    differentiator: ConfigType.ACTION,
+    differentiator: ExecutableType.ACTION,
     name,
     output,
     arguments: args,
@@ -1829,17 +1822,18 @@ function exportControl(key: ContentKey, indexedContent: IndexedContent): Control
 
   const blocks = childKeys.map((key) => exportBlock(key, indexedContent));
 
-  const conditionalExpression = exportExpression(
+  const conditionalArgContent = resolveContent<ArgumentContent>(
     childKeyMap[CONDITIONAL_CONDITION_PROP],
     indexedContent,
   );
+  const condition = exportExpression(conditionalArgContent.childKeys[0], indexedContent);
 
   if (controlType === ControlType.CONDITIONAL) {
     return {
-      differentiator: ConfigType.CONTROL_STATEMENT,
+      differentiator: ExecutableType.CONTROL_STATEMENT,
       controlType: ControlType.CONDITIONAL,
       blocks,
-      conditionalExpression,
+      condition,
     } as ConditionalConfig;
   } else {
     throw new Error(`Illegal state: invalid control type: ${controlType}`);
@@ -1849,7 +1843,6 @@ function exportControl(key: ContentKey, indexedContent: IndexedContent): Control
 function exportVariable(key: ContentKey, indexedContent: IndexedContent): VariableConfig {
   const { title, description } = resolveContent<VariableContent>(key, indexedContent);
   return {
-    differentiator: ConfigType.VARIABLE,
     title,
     description,
   };
@@ -1884,7 +1877,7 @@ function exportFunction(key: ContentKey, indexedContent: IndexedContent): Functi
   );
 
   return {
-    differentiator: ConfigType.FUNCTION,
+    differentiator: ExpressionType.FUNCTION,
     name,
     arguments: args,
   };
@@ -1892,13 +1885,15 @@ function exportFunction(key: ContentKey, indexedContent: IndexedContent): Functi
 
 function exportReference(key: ContentKey, indexedContent: IndexedContent): ReferenceConfig {
   const { variableKey, path } = resolveContent<ReferenceContent>(key, indexedContent);
+  const { basePath } = resolveContent<VariableContent>(variableKey, indexedContent);
 
   const coordinates = findCoordinates(indexedContent, variableKey);
+  const adjustedPath = [...(basePath ? [basePath] : []), ...path];
 
   return {
-    differentiator: ConfigType.REFERENCE,
+    differentiator: ExpressionType.REFERENCE,
     coordinates,
-    path,
+    path: adjustedPath,
   };
 }
 
@@ -1909,7 +1904,7 @@ function exportValue(key: ContentKey, indexedContent: IndexedContent): ValueConf
   } = resolveContent<ValueContent>(key, indexedContent);
 
   return {
-    differentiator: ConfigType.VALUE,
+    differentiator: ExpressionType.VALUE,
     value,
     typeId,
   };

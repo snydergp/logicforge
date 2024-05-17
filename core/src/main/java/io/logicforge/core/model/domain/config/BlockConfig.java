@@ -8,7 +8,7 @@ import lombok.experimental.SuperBuilder;
 @EqualsAndHashCode(callSuper = false)
 @Data
 @SuperBuilder
-public class BlockConfig extends ExecutableConfig {
+public class BlockConfig {
 
   private final List<ExecutableConfig> executables;
 }

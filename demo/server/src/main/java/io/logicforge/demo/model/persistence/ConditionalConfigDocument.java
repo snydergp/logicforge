@@ -1,18 +1,18 @@
 package io.logicforge.demo.model.persistence;
 
-import io.logicforge.core.constant.ControlStatementType;
 import java.util.List;
 import lombok.Builder;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
+import lombok.ToString;
 
 @EqualsAndHashCode(callSuper = true)
 @Builder
 @Data
+@ToString
 public class ConditionalConfigDocument extends ControlStatementConfigDocument {
 
-  private final ControlStatementType type = ControlStatementType.CONDITIONAL;
-  private final ExpressionConfigDocument condition;
-  private final List<BlockConfigDocument> blocks;
+  private ExpressionConfigDocument condition;
+  private List<BlockConfigDocument> blocks;
 
 }

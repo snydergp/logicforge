@@ -1,5 +1,6 @@
 package io.logicforge.core.model.domain.config;
 
+import io.logicforge.core.common.Coordinates;
 import java.util.List;
 import lombok.Builder;
 import lombok.Data;
@@ -10,7 +11,7 @@ import lombok.EqualsAndHashCode;
 @Builder
 public class ReferenceConfig extends ExpressionConfig {
 
-  private final List<Integer> coordinateList;
+  private final Coordinates coordinates;
 
   private final List<String> path;
 

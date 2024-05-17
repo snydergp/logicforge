@@ -348,8 +348,6 @@ public class CompilationProcessBuilder implements ProcessBuilder {
         switch (childConfig) {
           case ActionConfig actionConfig -> children.add(new ActionData(sourceFile, actionConfig,
               childCoordinates));
-          case BlockConfig blockConfig -> children.add(new BlockData(sourceFile, blockConfig,
-              childCoordinates));
           case ConditionalConfig conditionalConfig -> children.add(new ConditionalData(sourceFile,
               conditionalConfig, childCoordinates));
           default -> throw new IllegalStateException("Unknown executable type: %s".formatted(
@@ -582,7 +580,7 @@ public class CompilationProcessBuilder implements ProcessBuilder {
       final Class<?> boxedType = BOXED_TYPE_MAPPING.getOrDefault(type, type);
       final String typeName = getSourceFile().ensureImport(boxedType);
 
-      final Coordinates coordinates = Coordinates.from(config.getCoordinateList());
+      final Coordinates coordinates = config.getCoordinates();
       final List<String> path = Objects.requireNonNullElse(config.getPath(), List.of());
       writer.append("context.isVariableSet(")
           .append(coordinatesAsCodeInitializer(coordinates))

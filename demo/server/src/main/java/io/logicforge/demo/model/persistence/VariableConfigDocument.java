@@ -2,13 +2,12 @@ package io.logicforge.demo.model.persistence;
 
 import lombok.Builder;
 import lombok.Data;
-import lombok.EqualsAndHashCode;
-import org.bson.BsonDocument;
+import lombok.ToString;
 
-@EqualsAndHashCode(callSuper = true)
 @Data
 @Builder
-public class VariableConfigDocument extends BsonDocument {
+@ToString
+public class VariableConfigDocument {
 
   private String title;
   private String description;

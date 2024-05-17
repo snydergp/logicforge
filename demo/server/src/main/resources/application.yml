@@ -6,5 +6,6 @@ spring:
       password: secret
       database: logicforge
       authentication-database: logicforge
+      uuid-representation: standard
   main:
     banner-mode: off

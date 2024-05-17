@@ -4,15 +4,17 @@ import java.util.List;
 import java.util.UUID;
 import lombok.Builder;
 import lombok.Data;
-import lombok.EqualsAndHashCode;
+import lombok.ToString;
+import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
-@EqualsAndHashCode(callSuper = true)
 @Data
 @Builder
 @Document
-public class ProcessConfigDocument extends org.bson.Document {
+@ToString
+public class ProcessConfigDocument {
 
+  @Id
   private UUID id;
   private String name;
   private BlockConfigDocument rootBlock;

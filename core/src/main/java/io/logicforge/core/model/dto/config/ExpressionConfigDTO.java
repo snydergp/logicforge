@@ -1,13 +1,9 @@
 package io.logicforge.core.model.dto.config;
 
-import com.fasterxml.jackson.annotation.JsonSubTypes;
-import com.fasterxml.jackson.annotation.JsonSubTypes.Type;
-import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import io.logicforge.core.constant.ExpressionType;
 
-@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "differentiator")
-@JsonSubTypes({@Type(value = FunctionConfigDTO.class, name = "FUNCTION"), @Type(
-    value = ReferenceConfigDTO.class, name = "REFERENCE"), @Type(value = ValueConfigDTO.class,
-        name = "VALUE")})
-public abstract class ExpressionConfigDTO implements ConfigDTO {
+public abstract class ExpressionConfigDTO {
+
+  public abstract ExpressionType getDifferentiator();
 
 }

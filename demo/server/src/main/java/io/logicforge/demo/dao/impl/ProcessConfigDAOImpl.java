@@ -8,10 +8,12 @@ import io.logicforge.demo.model.persistence.ProcessConfigDocument;
 import io.logicforge.demo.repository.ProcessConfigRepository;
 import java.util.Optional;
 import java.util.UUID;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 @Component
+@Slf4j
 public class ProcessConfigDAOImpl implements ProcessConfigDAO {
 
   private final ProcessConfigRepository repository;
@@ -27,6 +29,7 @@ public class ProcessConfigDAOImpl implements ProcessConfigDAO {
   @Override
   public void save(final ProcessConfig<?, UUID> processConfig) {
     final ProcessConfigDocument internal = mapper.internal(processConfig);
+    log.info("Saving document: {}", internal.toString());
     repository.save(internal);
   }
 

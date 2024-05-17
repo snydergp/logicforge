@@ -1,5 +1,6 @@
 package io.logicforge.core.mapping;
 
+import io.logicforge.core.common.Coordinates;
 import io.logicforge.core.common.Pair;
 import io.logicforge.core.constant.ControlStatementType;
 import io.logicforge.core.model.domain.config.ActionConfig;
@@ -60,6 +61,7 @@ public abstract class DTOMapper<ID> {
             .stream()
             .map(this::expressionInternal)
             .collect(Collectors.toList()))
+        .rootBlock(this.blockInternal(external.getRootBlock()))
         .build();
   }
 
@@ -91,9 +93,7 @@ public abstract class DTOMapper<ID> {
   protected abstract ID internalID(final Object externalId);
 
   protected ExecutableConfig executableInternal(final ExecutableConfigDTO external) {
-    if (external instanceof BlockConfigDTO blockConfig) {
-      return blockInternal(blockConfig);
-    } else if (external instanceof ActionConfigDTO actionConfig) {
+    if (external instanceof ActionConfigDTO actionConfig) {
       return actionInternal(actionConfig);
     } else if (external instanceof ControlStatementConfigDTO controlStatementConfig) {
       return controlStatementInternal(controlStatementConfig);
@@ -177,17 +177,13 @@ public abstract class DTOMapper<ID> {
 
   protected ReferenceConfig referenceInternal(final ReferenceConfigDTO external) {
     return ReferenceConfig.builder()
-        .coordinateList(Arrays.stream(external.getCoordinates())
-            .boxed()
-            .collect(Collectors.toList()))
+        .coordinates(Coordinates.from(external.getCoordinates()))
         .path(Arrays.stream(external.getPath()).collect(Collectors.toList()))
         .build();
   }
 
   protected ExecutableConfigDTO executableExternal(final ExecutableConfig internal) {
-    if (internal instanceof BlockConfig blockConfig) {
-      return blockExternal(blockConfig);
-    } else if (internal instanceof ActionConfig actionConfig) {
+    if (internal instanceof ActionConfig actionConfig) {
       return providedCallableSpecExternal(actionConfig);
     } else if (internal instanceof ControlStatementConfig controlStatementConfig) {
       return controlStatementExternal(controlStatementConfig);
@@ -274,7 +270,7 @@ public abstract class DTOMapper<ID> {
   protected ReferenceConfigDTO referenceExternal(final ReferenceConfig internal) {
     final ReferenceConfigDTO out = new ReferenceConfigDTO();
     out.setPath(internal.getPath().toArray(new String[0]));
-    out.setCoordinates(internal.getCoordinateList().stream().mapToInt(Integer::intValue).toArray());
+    out.setCoordinates(internal.getCoordinates().asArray());
     return out;
   }
 

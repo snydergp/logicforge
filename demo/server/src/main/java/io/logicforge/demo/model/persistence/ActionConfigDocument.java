@@ -5,10 +5,12 @@ import java.util.Map;
 import lombok.Builder;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
+import lombok.ToString;
 
 @EqualsAndHashCode(callSuper = true)
 @Data
 @Builder
+@ToString
 public class ActionConfigDocument extends ExecutableConfigDocument {
 
   private String name;

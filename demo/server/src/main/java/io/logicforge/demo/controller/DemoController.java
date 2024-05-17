@@ -1,6 +1,5 @@
 package io.logicforge.demo.controller;
 
-import io.logicforge.core.engine.Process;
 import io.logicforge.core.exception.ProcessConstructionException;
 import io.logicforge.core.model.domain.config.ProcessConfig;
 import io.logicforge.core.model.dto.config.ProcessConfigDTO;
@@ -47,9 +46,9 @@ public class DemoController {
   @GetMapping(value = "/process/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
   public ProcessConfigDTO getProcess(@PathVariable
   final UUID id) {
-    final Optional<ProcessConfig<Process, UUID>> extendedProcessConfig = service.loadConfigById(id,
-        Process.class);
-    final ProcessConfig<Process, UUID> internal = extendedProcessConfig.orElseThrow(
+    final Optional<ProcessConfig<WebServerProcess, UUID>> extendedProcessConfig = service
+        .loadConfigById(id, WebServerProcess.class);
+    final ProcessConfig<WebServerProcess, UUID> internal = extendedProcessConfig.orElseThrow(
         () -> new ResponseStatusException(HttpStatus.NOT_FOUND));
     return mapper.external(internal);
   }

@@ -1,8 +1,7 @@
 package io.logicforge.core.common;
 
-import lombok.Data;
-
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -11,6 +10,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import lombok.Data;
 
 @Data
 public final class Coordinates implements Iterable<Integer> {
@@ -23,18 +23,19 @@ public final class Coordinates implements Iterable<Integer> {
     return intern(coordinateList);
   }
 
-  public static Coordinates from(final Integer... coordinateList) {
-    return intern(List.of(coordinateList));
+  public static Coordinates from(final int[] coordinateList) {
+    return intern(Arrays.stream(coordinateList).boxed().collect(Collectors.toList()));
+  }
+
+  public static Coordinates from(final Integer... coordinates) {
+    return intern(Arrays.stream(coordinates).collect(Collectors.toList()));
   }
 
   /**
    * Since Coordinates objects are immutable and iterating throw parents/children would otherwise
-   * create a lot of object
-   * churn, we maintain an internal cache. This method returns the canonical version of the
-   * Coordinates object
-   * representing the supplied coordinate list if it exists. If it does not exist, it will create a
-   * new object, cache it
-   * for reuse, and return the new object.
+   * create a lot of object churn, we maintain an internal cache. This method returns the canonical
+   * version of the Coordinates object representing the supplied coordinate list if it exists. If it
+   * does not exist, it will create a new object, cache it for reuse, and return the new object.
    *
    * @param coordinateList the list of coordinates for which we want that canonical Coordinates
    *                       object
@@ -54,6 +55,10 @@ public final class Coordinates implements Iterable<Integer> {
 
   private Coordinates(final List<Integer> coordinates) {
     this.coordinateList = coordinates;
+  }
+
+  private Coordinates(final int[] coordinates) {
+    this.coordinateList = Arrays.stream(coordinates).boxed().collect(Collectors.toList());
   }
 
   public Coordinates getParent() {
@@ -114,5 +119,9 @@ public final class Coordinates implements Iterable<Integer> {
 
   public List<Integer> asList() {
     return coordinateList;
+  }
+
+  public int[] asArray() {
+    return coordinateList.stream().mapToInt(Integer::intValue).toArray();
   }
 }

@@ -41,12 +41,18 @@ public class ProcessValidator {
 
   private class ProcessConfigValidator implements Validator {
 
-    private final ProcessConfig processConfig;
+    private final ProcessConfig<?, ?> processConfig;
     private final CoordinateTrie<ExecutableConfigValidator> trie = new CoordinateTrie<>();
 
-    private ProcessConfigValidator(ProcessConfig processConfig) {
+    private ProcessConfigValidator(ProcessConfig<?, ?> processConfig) {
       this.processConfig = processConfig;
-      newExecutableConfigValidator(processConfig.getRootBlock(), ROOT);
+      BlockConfig rootBlock = processConfig.getRootBlock();
+      for (int executableIndex = 0; executableIndex < rootBlock.getExecutables().size();
+          executableIndex++) {
+        final ExecutableConfig executable = rootBlock.getExecutables().get(executableIndex);
+        final Coordinates executableCoordinates = ROOT.getNthChild(executableIndex);
+        newExecutableConfigValidator(executable, executableCoordinates);
+      }
     }
 
     private void newExecutableConfigValidator(final ExecutableConfig config,
@@ -55,17 +61,17 @@ public class ProcessValidator {
           coordinates);
       trie.put(coordinates, validator);
 
-      if (config instanceof BlockConfig blockConfig) {
-        for (int i = 0; i < blockConfig.getExecutables().size(); i++) {
-          final ExecutableConfig child = blockConfig.getExecutables().get(i);
-          final Coordinates childCoordinates = coordinates.getNthChild(i);
-          newExecutableConfigValidator(child, childCoordinates);
-        }
-      } else if (config instanceof ControlStatementConfig controlStatementConfig) {
-        for (int i = 0; i < controlStatementConfig.getBlocks().size(); i++) {
-          final BlockConfig child = controlStatementConfig.getBlocks().get(i);
-          final Coordinates childCoordinates = coordinates.getNthChild(i);
-          newExecutableConfigValidator(child, childCoordinates);
+      if (config instanceof ControlStatementConfig controlStatementConfig) {
+        for (int blockIndex = 0; blockIndex < controlStatementConfig.getBlocks().size();
+            blockIndex++) {
+          final BlockConfig block = controlStatementConfig.getBlocks().get(blockIndex);
+          final Coordinates blockCoordinates = coordinates.getNthChild(blockIndex);
+          for (int executableIndex = 0; executableIndex < block.getExecutables().size();
+              executableIndex++) {
+            final ExecutableConfig executable = block.getExecutables().get(executableIndex);
+            final Coordinates executableCoordinates = blockCoordinates.getNthChild(executableIndex);
+            newExecutableConfigValidator(executable, executableCoordinates);
+          }
         }
       }
     }

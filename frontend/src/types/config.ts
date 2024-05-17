@@ -4,72 +4,62 @@
 
 import { ControlType } from './specification';
 
-export enum ConfigType {
-  PROCESS = 'PROCESS',
+export enum ExecutableType {
   ACTION = 'ACTION',
-  BLOCK = 'BLOCK',
   CONTROL_STATEMENT = 'CONTROL_STATEMENT',
-  VALUE = 'VALUE',
-  CONDITIONAL_REFERENCE = 'CONDITIONAL_REFERENCE',
-  REFERENCE = 'REFERENCE',
-  FUNCTION = 'FUNCTION',
-  VARIABLE = 'VARIABLE',
 }
 
-export type Config = {
-  differentiator: ConfigType;
-};
+export enum ExpressionType {
+  FUNCTION = 'FUNCTION',
+  REFERENCE = 'REFERENCE',
+  VALUE = 'VALUE',
+}
 
-export type ValueConfig = Config & {
-  differentiator: ConfigType.VALUE;
-  value: string;
-  typeId: string;
-};
-
-export type FunctionConfig = Config & {
-  differentiator: ConfigType.FUNCTION;
+export type FunctionConfig = {
+  differentiator: ExpressionType.FUNCTION;
   name: string;
   arguments: { [key: string]: ExpressionConfig[] };
 };
 
-export type ReferenceConfig = Config & {
-  differentiator: ConfigType.REFERENCE;
+export type ReferenceConfig = {
+  differentiator: ExpressionType.REFERENCE;
   coordinates: readonly number[];
   path: string[];
 };
 
-export type ConditionalReferenceConfig = Config & {
-  differentiator: ConfigType.CONDITIONAL_REFERENCE;
-  references: number[][];
-  expression: ExpressionConfig;
-  fallback: ExpressionConfig;
+export type ValueConfig = {
+  differentiator: ExpressionType.VALUE;
+  value: string;
+  typeId: string;
 };
 
-export type ActionConfig = Config & {
-  differentiator: ConfigType.ACTION;
+export type ExpressionConfig = FunctionConfig | ReferenceConfig | ValueConfig;
+
+export type ActionConfig = {
+  differentiator: ExecutableType.ACTION;
   name: string;
   arguments: { [key: string]: ExpressionConfig[] };
   output?: VariableConfig;
 };
 
-export type BlockConfig = Config & {
-  differentiator: ConfigType.BLOCK;
-  executables: ExecutableConfig[];
-};
-
-export type ControlConfig = Config & {
-  differentiator: ConfigType.CONTROL_STATEMENT;
+export type ControlConfig = {
+  differentiator: ExecutableType.CONTROL_STATEMENT;
   controlType: ControlType;
   blocks: BlockConfig[];
 };
 
+export type ExecutableConfig = ActionConfig | ControlConfig;
+
 export type ConditionalConfig = ControlConfig & {
   controlType: ControlType.CONDITIONAL;
-  conditionalExpression: ExpressionConfig;
+  condition: ExpressionConfig;
 };
 
-export type ProcessConfig = Config & {
-  differentiator: ConfigType.PROCESS;
+export type BlockConfig = {
+  executables: ExecutableConfig[];
+};
+
+export type ProcessConfig = {
   name: string;
   rootBlock: BlockConfig;
   returnExpression?: ExpressionConfig[];
@@ -80,16 +70,11 @@ export type ProcessConfig = Config & {
   externalId: any;
 };
 
-export type VariableConfig = Config & {
-  differentiator: ConfigType.VARIABLE;
+export type VariableConfig = {
   title?: string;
   description?: string;
   translationKey?: string;
 };
-
-export type ExpressionConfig = ValueConfig | FunctionConfig | ReferenceConfig;
-
-export type ExecutableConfig = ActionConfig | BlockConfig | ControlConfig;
 
 export type LogicForgeConfig =
   | ProcessConfig

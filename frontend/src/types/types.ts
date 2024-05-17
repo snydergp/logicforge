@@ -1,7 +1,7 @@
 export type TypeId = string;
 
 /**
- * A list of type IDs representing type intersection. The data structure should always be sorted
+ * A list of type IDs representing type intersection. The data structure should always be sorted and
  * non-repeating
  */
 export type TypeIntersection = readonly TypeId[];

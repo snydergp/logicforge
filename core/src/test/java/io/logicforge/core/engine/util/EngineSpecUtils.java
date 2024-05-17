@@ -5,6 +5,7 @@ import static io.logicforge.core.common.Coordinates.ROOT;
 import io.logicforge.core.annotations.elements.Action;
 import io.logicforge.core.annotations.elements.Converter;
 import io.logicforge.core.annotations.elements.Function;
+import io.logicforge.core.common.Coordinates;
 import io.logicforge.core.common.Pair;
 import io.logicforge.core.engine.Process;
 import io.logicforge.core.exception.EngineConfigurationException;
@@ -65,13 +66,13 @@ public class EngineSpecUtils {
     final FunctionConfig returnFunction = FunctionConfig.builder()
         .name("concat")
         .arguments(Map.of("a", List.of(ReferenceConfig.builder()
-            .coordinateList(List.of(0))
+            .coordinates(Coordinates.from(0))
             .build()), "b", List.of(FunctionConfig.builder()
                 .name("add")
                 .arguments(Map.of("a", List.of(ReferenceConfig.builder()
-                    .coordinateList(List.of(1))
+                    .coordinates(Coordinates.from(1))
                     .build()), "b", List.of(ReferenceConfig.builder()
-                        .coordinateList(List.of(2))
+                        .coordinates(Coordinates.from(2))
                         .build())))
                 .build())))
         .build();
@@ -103,7 +104,7 @@ public class EngineSpecUtils {
     return FunctionConfig.builder()
         .name("concat")
         .arguments(Map.of("a", List.of(ValueConfig.builder().value(a).build()), "b", List.of(
-            ReferenceConfig.builder().coordinateList(ROOT.asList()).path(List.of("text")).build())))
+            ReferenceConfig.builder().coordinates(ROOT).path(List.of("text")).build())))
         .build();
   }
 
@@ -112,7 +113,7 @@ public class EngineSpecUtils {
         .name("add")
         .arguments(Map.of("a", List.of(ValueConfig.builder().value(Integer.toString(a)).build()),
             "b", List.of(ReferenceConfig.builder()
-                .coordinateList(ROOT.asList())
+                .coordinates(ROOT)
                 .path(List.of("number"))
                 .build())))
         .build();

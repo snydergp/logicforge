@@ -1,5 +1,6 @@
 package io.logicforge.demo.mapping;
 
+import io.logicforge.core.common.Coordinates;
 import io.logicforge.core.common.Pair;
 import io.logicforge.core.constant.ControlStatementType;
 import io.logicforge.core.engine.Process;
@@ -11,6 +12,7 @@ import io.logicforge.core.model.domain.config.ExecutableConfig;
 import io.logicforge.core.model.domain.config.ExpressionConfig;
 import io.logicforge.core.model.domain.config.FunctionConfig;
 import io.logicforge.core.model.domain.config.ProcessConfig;
+import io.logicforge.core.model.domain.config.ReferenceConfig;
 import io.logicforge.core.model.domain.config.ValueConfig;
 import io.logicforge.core.model.domain.config.VariableConfig;
 import io.logicforge.core.model.domain.specification.EngineSpec;
@@ -22,8 +24,10 @@ import io.logicforge.demo.model.persistence.ExecutableConfigDocument;
 import io.logicforge.demo.model.persistence.ExpressionConfigDocument;
 import io.logicforge.demo.model.persistence.FunctionConfigDocument;
 import io.logicforge.demo.model.persistence.ProcessConfigDocument;
+import io.logicforge.demo.model.persistence.ReferenceConfigDocument;
 import io.logicforge.demo.model.persistence.ValueConfigDocument;
 import io.logicforge.demo.model.persistence.VariableConfigDocument;
+import java.util.Arrays;
 import java.util.Map.Entry;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -43,6 +47,7 @@ public class DocumentMapper {
   public ProcessConfigDocument internal(final ProcessConfig<?, UUID> external) {
     return ProcessConfigDocument.builder()
         .id(external.getId())
+        .name(external.getName())
         .rootBlock(this.blockInternal(external.getRootBlock()))
         .returnStatement(external.getReturnExpression()
             .stream()
@@ -63,8 +68,6 @@ public class DocumentMapper {
   private ExecutableConfigDocument executableInternal(final ExecutableConfig external) {
     if (external instanceof ActionConfig actionConfig) {
       return actionInternal(actionConfig);
-    } else if (external instanceof BlockConfig blockConfig) {
-      return blockInternal(blockConfig);
     } else if (external instanceof ControlStatementConfig controlStatementConfig) {
       return controlStatementInternal(controlStatementConfig);
     }
@@ -106,6 +109,8 @@ public class DocumentMapper {
       return functionInternal(functionConfig);
     } else if (external instanceof ValueConfig valueConfig) {
       return valueInternal(valueConfig);
+    } else if (external instanceof ReferenceConfig referenceConfig) {
+      return referenceInternal(referenceConfig);
     } else {
       throw new RuntimeException("Unknown ExpressionConfig type: " + external.getClass());
     }
@@ -122,6 +127,13 @@ public class DocumentMapper {
                 .map(this::expressionInternal)
                 .collect(Collectors.toList())))
             .collect(Collectors.toMap(Pair::getLeft, Pair::getRight)))
+        .build();
+  }
+
+  private ReferenceConfigDocument referenceInternal(final ReferenceConfig external) {
+    return ReferenceConfigDocument.builder()
+        .coordinates(external.getCoordinates().asArray())
+        .path(external.getPath().toArray(new String[0]))
         .build();
   }
 
@@ -148,6 +160,7 @@ public class DocumentMapper {
     return ProcessConfig.<T, UUID>builder()
         .functionalInterface(processClass)
         .id(internal.getId())
+        .name(internal.getName())
         .returnExpression(internal.getReturnStatement()
             .stream()
             .map(this::expressionExternal)
@@ -159,8 +172,6 @@ public class DocumentMapper {
   private ExecutableConfig executableExternal(final ExecutableConfigDocument internal) {
     if (internal instanceof ActionConfigDocument actionConfigDocument) {
       return actionExternal(actionConfigDocument);
-    } else if (internal instanceof BlockConfigDocument blockConfigDocument) {
-      return blockExternal(blockConfigDocument);
     } else if (internal instanceof ControlStatementConfigDocument controlStatementConfigDocument) {
       return controlStatementExternal(controlStatementConfigDocument);
     }
@@ -211,6 +222,8 @@ public class DocumentMapper {
       return functionExternal(functionConfig);
     } else if (internal instanceof ValueConfigDocument valueConfig) {
       return valueExternal(valueConfig);
+    } else if (internal instanceof ReferenceConfigDocument referenceConfig) {
+      return referenceExternal(referenceConfig);
     }
     throw new RuntimeException("Unknown ExpressionConfigDocument type: " + internal.getClass());
   }
@@ -226,6 +239,13 @@ public class DocumentMapper {
                 .map(this::expressionExternal)
                 .collect(Collectors.toList())))
             .collect(Collectors.toMap(Pair::getLeft, Pair::getRight)))
+        .build();
+  }
+
+  private ReferenceConfig referenceExternal(final ReferenceConfigDocument internal) {
+    return ReferenceConfig.builder()
+        .coordinates(Coordinates.from(internal.getCoordinates()))
+        .path(Arrays.asList(internal.getPath()))
         .build();
   }
 
