@@ -1,0 +1,59 @@
+package io.logicforge.generated.process_0;
+
+import io.logicforge.core.common.CoordinateTrie;
+import io.logicforge.core.common.Coordinates;
+import io.logicforge.core.engine.Action;
+import io.logicforge.core.engine.ExecutionContext;
+import io.logicforge.core.engine.ExecutionQueue;
+import io.logicforge.core.engine.impl.DefaultExecutionContext;
+import io.logicforge.core.engine.util.EngineSpecUtils;
+import io.logicforge.core.model.domain.specification.EngineSpec;
+import java.lang.Integer;
+import java.lang.String;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
+
+public class CompiledProcess implements EngineSpecUtils.TestProcess {
+
+	private final AtomicLong executionCount = new AtomicLong(0L);
+	private final CoordinateTrie<Action> trie = new CoordinateTrie<>();
+
+	final EngineSpec var0;
+	final ExecutionQueue var1;
+	final EngineSpecUtils.Functions var2;
+
+	public CompiledProcess(final EngineSpec var0, final ExecutionQueue var1, final EngineSpecUtils.Functions var2) {
+		// initialize instance variables
+		this.var0 = var0;
+		this.var1 = var1;
+		this.var2 = var2;
+	}
+
+	@Override
+		public String doTheThing(final String text, final int number) {
+		final long executionNumber = executionCount.getAndIncrement();
+		final Map<String, Object> args = new HashMap<>();
+		args.put("text", text);
+		args.put("number", number);
+
+		final ExecutionContext context = new DefaultExecutionContext(var0, var1, args);
+				// Action {0}
+		context.setVariable(Coordinates.from(0), var2.asyncString("The sum is "));
+		// Action {1}
+		context.setVariable(Coordinates.from(1), var2.recordPair(var2.concat("Hello, ", context.isVariableSet(Coordinates.from(), String.class, "text") ? context.getVariable(Coordinates.from(), String.class, "text") : null ), var2.add(3, context.isVariableSet(Coordinates.from(), Integer.class, "number") ? context.getVariable(Coordinates.from(), Integer.class, "number") : null )));
+		// Action {2}
+		context.setVariable(Coordinates.from(2), var2.recordPair(var2.concat("Hi, ", context.isVariableSet(Coordinates.from(), String.class, "text") ? context.getVariable(Coordinates.from(), String.class, "text") : null ), var2.add(7, context.isVariableSet(Coordinates.from(), Integer.class, "number") ? context.getVariable(Coordinates.from(), Integer.class, "number") : null )));
+
+		context.await();
+		return var2.concat(context.isVariableSet(Coordinates.from(0), String.class) ? context.getVariable(Coordinates.from(0), String.class) : null , context.convert(var2.add(context.isVariableSet(Coordinates.from(1), Integer.class) ? context.getVariable(Coordinates.from(1), Integer.class) : null , context.isVariableSet(Coordinates.from(2), Integer.class) ? context.getVariable(Coordinates.from(2), Integer.class) : null ), String.class));
+	}
+
+	public String getProcessId() {
+		return "0";
+	}
+
+	public long getExecutionCount() {
+		return executionCount.get();
+	}
+}

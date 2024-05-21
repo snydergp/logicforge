@@ -1,7 +1,8 @@
 package io.logicforge.core.exception;
 
 public class ProcessConstructionException extends Exception {
-  public ProcessConstructionException() {}
+  public ProcessConstructionException() {
+  }
 
   public ProcessConstructionException(final String message) {
     super(message);

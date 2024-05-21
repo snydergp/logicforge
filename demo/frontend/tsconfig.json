@@ -1,4 +1,4 @@
-  {
+{
   "compilerOptions": {
     "target": "es2017",
     "lib": [
@@ -19,7 +19,7 @@
     "isolatedModules": true,
     "jsx": "react-jsx",
     "outDir": "dist",
-    "declaration": true,
+    "declaration": true
   },
   "include": [
     "src"

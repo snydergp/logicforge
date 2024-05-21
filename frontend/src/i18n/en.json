@@ -1,28 +1,204 @@
 {
-  "actions": {
-    "set-variable": {
-      "title": "Set Variable",
-      "description": "Stores a value in the execution context using a given variable name",
-      "inputs": {
-        "value": {
-          "title": "Value",
-          "description": "The value to store"
-        },
-        "variableName": {
-          "title": "Variable Name",
-          "description": "The name to use for the stored variable"
+  "types": {
+    "io": {
+      "logicforge": {
+        "core": {
+          "builtin": {
+            "types": {
+              "LogLevel": {
+                "title": "Log Level",
+                "description": "The level at which the message should be logged",
+                "values": {
+                  "ERROR": {
+                    "title": "Error"
+                  },
+                  "WARN": {
+                    "title": "Warning"
+                  },
+                  "INFO": {
+                    "title": "Info"
+                  }
+                }
+              }
+            }
+          }
         }
       }
     },
-    "delete-variable": {
-      "title": "Delete Variable",
-      "description": "Deletes a value from the execution context",
-      "inputs": {
-        "variableName": {
-          "title": "Variable Name",
-          "description": "The name of the variable to delete"
+    "java": {
+      "lang": {
+        "Object": {
+          "title": "Any",
+          "description": "Allows any type of value"
+        },
+        "String": {
+          "title": "Text",
+          "description": "A text string"
+        },
+        "Number": {
+          "title": "Number",
+          "description": "A whole number or decimal"
+        }
+      }
+    },
+    "boolean": {
+      "title": "Boolean",
+      "description": "A true/false value",
+      "values": {
+        "true": {
+          "title": "True"
+        },
+        "false": {
+          "title": "False"
+        }
+      }
+    },
+    "int": {
+      "title": "Integer",
+      "description": "A whole number (non-decimal) value"
+    },
+    "long": {
+      "title": "Integer",
+      "description": "A whole number (non-decimal) value"
+    },
+    "float": {
+      "title": "Decimal",
+      "description": "A decimal number"
+    },
+    "double": {
+      "title": "Decimal",
+      "description": "A decimal number"
+    }
+  },
+  "actions": {
+    "storeValue": {
+      "title": "Store Value",
+      "description": "Stores a value for reuse",
+      "parameters": {
+        "value": {
+          "title": "Value",
+          "description": "The value to store"
+        }
+      }
+    },
+    "log": {
+      "title": "Log Message",
+      "description": "Outputs a message to the log",
+      "parameters": {
+        "message": {
+          "title": "Message",
+          "description": "The message to log"
+        },
+        "logLevel": {
+          "title": "Level",
+          "description": "The level at which the message should be logged"
         }
       }
     }
+  },
+  "functions": {
+    "and": {
+      "title": "And",
+      "description": "Returns the boolean value \"true\" if all of its child values evaluate to \"true\"",
+      "parameters": {
+        "values": {
+          "title": "Values",
+          "description": "The list of expressions to evaluate"
+        }
+      }
+    },
+    "or": {
+      "title": "Or",
+      "description": "Returns the boolean value \"true\" if any of its child values evaluate to \"true\"",
+      "parameters": {
+        "values": {
+          "title": "Values",
+          "description": "The list of expressions to evaluate"
+        }
+      }
+    },
+    "concatenate": {
+      "title": "Concatenate",
+      "description": "Joins a list of values together into a single string of text",
+      "parameters": {
+        "values": {
+          "title": "Values",
+          "description": "The list of values to join"
+        }
+      }
+    }
+  },
+  "controls": {
+    "CONDITIONAL": {
+      "title": "Conditional",
+      "description": "A control statement that executes one of two branches depending on a boolean input",
+      "parameters": {
+        "condition": {
+          "title": "If",
+          "description": "A boolean expression used to determine which block to execute."
+        }
+      },
+      "blocks": {
+        "then": {
+          "title": "Then",
+          "description": "The block executed when the condition evaluates to \"true\""
+        },
+        "else": {
+          "title": "Else",
+          "description": "The block executed when the condition evaluates to \"false\""
+        }
+      }
+    }
+  },
+  "errors": {
+    "INVALID_VALUE": "Invalid Value: {message}",
+    "INVALID_VALUE_NO_LITERAL": "The required type ({i18n:types.[typeId].title}) cannot be provided from a literal value. Select a function or reference to use.",
+    "UNSATISFIED_INPUT_TYPE_MISMATCH": "The provided type ({i18n:types.[type].title}) is not compatible with the required type ({i18n:types.[requiredType].title})",
+    "messages": {
+      "integer": "A valid integer (whole number) value is required",
+      "required": "Required"
+    }
+  },
+  "labels": {
+    "logicforge": {
+      "enum": "Literal Options",
+      "non-literal": "Other Options"
+    },
+    "action": "Action",
+    "actions": "Actions",
+    "add-input": "Add Input",
+    "available-properties": "Available Properties",
+    "child-errors": "Child Errors",
+    "child-warnings": "Child Warnings",
+    "control": "Control",
+    "conditional-click-to-edit": "Click to edit condition",
+    "description": "Description",
+    "edit-reference": "Edit Variable Reference",
+    "errors": "Errors",
+    "function": "Function",
+    "initial-variable": "Variable",
+    "initial-variables": "Initial Variables",
+    "new-executable": "Add Action/Condition",
+    "multiple": "multi",
+    "process": "Process",
+    "property": "Property",
+    "reference": "Reference",
+    "reference-count-multi": "{count} References",
+    "reference-count-single": "1 Reference",
+    "return-value": "Return Value",
+    "selected-variable": "Selected Variable",
+    "sets-variable": "Variable",
+    "title": "Title",
+    "type-label": "Type:",
+    "unnamed-variable": "(Unnamed)",
+    "use-variable": "Use Variable",
+    "value-mode-FUNCTION": "function",
+    "value-mode-LITERAL": "literal",
+    "value-mode-VARIABLE": "variable",
+    "value-with-mode": "Value ({mode})",
+    "variable": "Variable",
+    "variable-output": "Variable Output",
+    "variable-editor-info": "This action will output a variable which can be used by subsequent actions. You can provide an optional title or description to clarify the variable's identity when selecting it.",
+    "warnings": "Warnings"
   }
 }

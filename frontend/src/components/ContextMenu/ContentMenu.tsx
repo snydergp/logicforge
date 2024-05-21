@@ -1,5 +1,4 @@
-import { IconButton, Menu, MenuItem } from '@mui/material';
-import MenuIcon from '@mui/icons-material/Menu';
+import { Menu, MenuItem } from '@mui/material';
 import React from 'react';
 
 export interface ContextMenuAction {

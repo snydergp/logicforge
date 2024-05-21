@@ -1,38 +1,47 @@
-import { Provider, useDispatch, useSelector } from 'react-redux';
-import { Box, Container, Divider, Paper, Stack, Typography } from '@mui/material';
+import { useDispatch, useSelector } from 'react-redux';
+import { Box, Divider, Slide, Stack, SxProps, Theme, Typography } from '@mui/material';
 import {
   ActionContent,
+  Content,
   ContentType,
   EngineSpec,
   FunctionContent,
   LogicForgeConfig,
+  PROCESS_RETURN_PROP,
   ProcessConfig,
   ProcessContent,
+  ReferenceContent,
 } from '../../types';
-import { initEditor, selectSelectedSubtree } from '../../redux/slices/editors';
-import React, { useContext, useEffect, useState } from 'react';
-import { I18n, useTranslate } from 'react-polyglot';
 import {
-  actionDescriptionPath,
-  actionTitlePath,
-  functionDescriptionPath,
-  functionTitlePath,
-  generateTypeMappings,
-  processDescriptionPath,
-  processTitlePath,
-  TypeInfo,
+  initEditor,
+  selectEngineSpec,
+  selectSelectedSubtree,
+} from '../../redux/slices/frameEditorSlice';
+import React, { useEffect, useMemo, useRef } from 'react';
+import {
+  actionDescriptionKey,
+  actionParameterDescriptionKey,
+  actionParameterTitleKey,
+  actionTitleKey,
+  contentEqual,
+  functionDescriptionKey,
+  functionParameterDescriptionKey,
+  functionParameterTitleKey,
+  functionTitleKey,
+  labelKey,
+  processDescriptionKey,
+  processTitleKey,
 } from '../../util';
 import { Info } from '../Info/Info';
 import { ActionIcon, FunctionIcon, ProcessIcon } from '../Icons/Icons';
-import { getStore, StoreStructure } from '../../redux';
-import { ActionParameterList } from '../ActionParameterList/ActionParameterList';
-import { InputParameterList } from '../InputParameterList/InputParameterList';
-
-export type EditorInfo = {
-  engineSpec: EngineSpec;
-  typeMappings: { [key: string]: TypeInfo };
-};
-export const EditorContext = React.createContext<EditorInfo | undefined>(undefined);
+import { LogicForgeReduxState } from '../../redux';
+import { InitialVariablesView } from '../InitialVariablesView/InitialVariablesView';
+import { I18n, MessageTree, useTranslate } from '../I18n/I18n';
+import { FrameSection } from '../FrameSection/FrameSection';
+import { ExecutableBlockEditor } from '../ExecutableBlockEditor/ExecutableBlockEditor';
+import { VariableEditor } from '../VariableEditor/VariableEditor';
+import { ArgumentEditor } from '../ArgumentEditor/ArgumentEditor';
+import { TypeView } from '../TypeView/TypeView';
 
 enum FrameType {
   PROCESS,
@@ -40,56 +49,44 @@ enum FrameType {
   FUNCTION,
 }
 
+const FRAME_WIDTH = '400px';
+
 /**
  * The content types that are rendered using frames
  */
-type FrameContent = ProcessContent | ActionContent | FunctionContent;
+type FrameContent = ProcessContent | ActionContent | FunctionContent | ReferenceContent;
 
 export type FrameEditorProps = {
   config: LogicForgeConfig;
   engineSpec: EngineSpec;
-  translations: object;
-  locale: string;
+  translations: MessageTree;
 };
 
-export function FrameEditor({ config, engineSpec, translations, locale }: FrameEditorProps) {
-  const store = getStore();
-
+export function FrameEditor({ config, engineSpec, translations }: FrameEditorProps) {
+  const dispatch = useDispatch();
   useEffect(() => {
-    store.dispatch(initEditor(config as ProcessConfig, engineSpec));
-  }, []);
-
-  const [childFrames, setChildFrames] = useState<React.JSX.Element[]>([]);
-
-  const typeMappings = generateTypeMappings(engineSpec.types);
-
-  const editorInfo: EditorInfo = {
-    engineSpec,
-    typeMappings,
-  };
+    dispatch(initEditor(config as ProcessConfig, engineSpec));
+  }, [dispatch, config, engineSpec]);
 
   return (
-    <Provider store={store}>
-      <EditorContext.Provider value={editorInfo}>
-        <I18n messages={translations} locale={locale}>
-          <FrameEditorInternal />
-        </I18n>
-      </EditorContext.Provider>
-    </Provider>
+    <I18n translations={translations}>
+      <FrameEditorInternal />
+    </I18n>
   );
 }
 
 function FrameEditorInternal() {
-  const selection = useSelector((state: StoreStructure) => selectSelectedSubtree(state));
+  const selection = useSelector<LogicForgeReduxState, Content[]>(
+    selectSelectedSubtree,
+    contentEqual,
+  );
 
-  const [childFrames, setChildFrames] = useState<React.JSX.Element[]>([]);
-
-  useEffect(() => {
+  const childFrames = useMemo(() => {
     const children: React.JSX.Element[] = [];
     if (selection !== undefined) {
       for (let i = 0; i < selection.length; i++) {
         const content = selection[i];
-        const contentType = content.type;
+        const contentType = content.differentiator;
         if (
           contentType === ContentType.PROCESS ||
           contentType === ContentType.ACTION ||
@@ -99,23 +96,32 @@ function FrameEditorInternal() {
         }
       }
     }
-    setChildFrames(children);
-  }, [selection, setChildFrames]);
+    return children;
+  }, [selection]);
 
   return (
-    <Stack direction="row" spacing={0} divider={<Divider orientation="vertical" flexItem />}>
-      {childFrames}
-    </Stack>
+    <div tabIndex={0}>
+      <Stack
+        direction="row"
+        flexWrap={'nowrap'}
+        overflow={'scroll'}
+        sx={{ overflowX: 'scroll', width: '100%', height: '100%' }}
+        spacing={0}
+        divider={<Divider orientation="vertical" flexItem />}
+      >
+        {childFrames}
+      </Stack>
+    </div>
   );
 }
 
-interface FrameProps {
-  content: FrameContent;
+interface FrameProps<TYPE extends FrameContent = FrameContent> {
+  content: TYPE;
 }
 
 function Frame({ content }: FrameProps) {
   let renderedFrameContents = null;
-  switch (content.type) {
+  switch (content.differentiator) {
     case ContentType.PROCESS:
       renderedFrameContents = <ProcessFrame content={content} />;
       break;
@@ -127,158 +133,154 @@ function Frame({ content }: FrameProps) {
       break;
   }
 
+  const sx: SxProps<Theme> = {
+    my: 1,
+    flexShrink: 0,
+  };
+  // Since the process frame can nest deeply, allow it to expand as needed. Constrain all other frames.
+  if (content.differentiator === ContentType.PROCESS) {
+    sx.minWidth = FRAME_WIDTH;
+  } else {
+    sx.width = FRAME_WIDTH;
+  }
+
+  const containerRef = useRef<HTMLDivElement>(null);
+
   return (
-    <div className={'logicforgeFrameEditor__frame'}>
-      <Container sx={{ my: 1, width: '400px' }}>{renderedFrameContents}</Container>
-    </div>
+    <Box ref={containerRef} sx={{ ...sx, overflow: 'hidden' }}>
+      <Slide
+        direction={'right'}
+        in={true}
+        container={containerRef.current}
+        appear={content.differentiator !== ContentType.PROCESS}
+      >
+        <Stack spacing={1} sx={{ m: 1.5 }}>
+          {renderedFrameContents}
+        </Stack>
+      </Slide>
+    </Box>
   );
 }
 
-interface ProcessFrameProps extends FrameProps {
-  content: ProcessContent;
-}
-
-function ProcessFrame({ content }: ProcessFrameProps) {
-  const editorInfo = useContext(EditorContext) as EditorInfo;
+function ProcessFrame({ content }: FrameProps<ProcessContent>) {
+  const engineSpec = useSelector(selectEngineSpec);
 
   const processName = content.name;
-  const specification = editorInfo.engineSpec.processes[processName];
+  const specification = engineSpec.processes[processName];
 
   const translate = useTranslate();
-  const title = translate(processTitlePath(processName));
-  const description = translate(processDescriptionPath(processName));
+  const title = translate(processTitleKey(processName));
+  const description = translate(processDescriptionKey(processName));
+  const subtitle = translate(labelKey('process'));
+
+  const initVarsTitle = translate(labelKey('initial-variables'));
+  const actionsTitle = translate(labelKey('actions'));
+  const returnValueTitle = translate(labelKey('return-value'));
 
   return (
-    <Stack spacing={1} className={'logicforgeFrameEditor__processFrame'}>
-      <FrameHeading
-        title={title}
-        description={description}
-        subtitle={'Process'}
-        type={FrameType.PROCESS}
-      />
-      <Paper>
-        <ActionParameterList contentKey={content.key} name={'root'} parent={content} />
-      </Paper>
+    <Stack spacing={1}>
+      <FrameHeading type={FrameType.PROCESS} {...{ title, description, subtitle }} />
+      <FrameSection title={initVarsTitle}>
+        <InitialVariablesView variableKeys={content.inputVariableKeys} />
+      </FrameSection>
+      <FrameSection title={actionsTitle}>
+        <ExecutableBlockEditor contentKey={content.rootBlockKey as string} />
+      </FrameSection>
+      {specification.output && content.childKeyMap.hasOwnProperty(PROCESS_RETURN_PROP) && (
+        <FrameSection title={returnValueTitle}>
+          <ArgumentEditor contentKey={content.childKeyMap[PROCESS_RETURN_PROP]} />
+        </FrameSection>
+      )}
     </Stack>
   );
 }
 
-interface ActionFrameProps extends FrameProps {
-  content: ActionContent;
-}
-
-function ActionFrame({ content }: ActionFrameProps) {
-  const editorInfo = useContext(EditorContext) as EditorInfo;
+function ActionFrame({ content }: FrameProps<ActionContent>) {
+  const engineSpec = useSelector(selectEngineSpec);
 
   const actionName = content.name;
-  const specification = editorInfo.engineSpec.actions[actionName];
+  const specification = engineSpec.actions[actionName];
 
   const translate = useTranslate();
-  const title = translate(actionTitlePath(actionName));
-  const description = translate(actionDescriptionPath(actionName));
+  const title = translate(actionTitleKey(actionName));
+  const description = translate(actionDescriptionKey(actionName));
+  const subtitle = translate(labelKey('action'));
 
   return (
-    <Stack spacing={1} className={'logicforgeFrameEditor__actionFrame'}>
-      <FrameHeading
-        title={title}
-        subtitle={'Action'}
-        description={description}
-        type={FrameType.ACTION}
-      />
-      {Object.entries(specification.actionParameters)?.map(([name]) => {
+    <>
+      <FrameHeading type={FrameType.ACTION} {...{ title, description, subtitle }} />
+      {Object.entries(specification.inputs)?.map(([name, spec]) => {
+        const title = translate(actionParameterTitleKey(actionName, name));
+        const description = translate(actionParameterDescriptionKey(actionName, name));
+        const subtitle = <TypeView type={spec.type} multi={spec.multi} />;
         return (
-          <Paper key={name}>
-            <ActionParameterList
-              contentKey={content.actionChildKeys[name]}
-              name={name}
-              parent={content}
-            />
-          </Paper>
+          <FrameSection key={name} {...{ title, description, subtitle }}>
+            <ArgumentEditor contentKey={content.childKeyMap[name]} />
+          </FrameSection>
         );
       })}
-      {Object.entries(specification.inputParameters)?.map(([name]) => {
-        return (
-          <Paper key={name}>
-            <InputParameterList
-              contentKey={content.inputChildKeys[name]}
-              name={name}
-              parent={content}
-            />
-          </Paper>
-        );
-      })}
-    </Stack>
+      {content.variableContentKey !== undefined && (
+        <VariableEditor contentKey={content.variableContentKey} />
+      )}
+    </>
   );
 }
 
-export interface FunctionFrameProps extends FrameProps {
-  content: FunctionContent;
-}
-
-export function FunctionFrame({ content }: FunctionFrameProps) {
-  const editorInfo = useContext(EditorContext) as EditorInfo;
+function FunctionFrame({ content }: FrameProps<FunctionContent>) {
+  const engineSpec = useSelector(selectEngineSpec);
 
   const functionName = content.name;
-  const specification = editorInfo.engineSpec.functions[functionName];
+  const specification = engineSpec.functions[functionName];
 
   const translate = useTranslate();
-  const title = translate(functionTitlePath(functionName));
-  const description = translate(functionDescriptionPath(functionName));
+  const title = translate(functionTitleKey(functionName));
+  const description = translate(functionDescriptionKey(functionName));
+  const subtitle = translate(labelKey('function'));
 
   return (
-    <div className={'logicforgeFrameEditor__functionFrame'}>
-      <FrameHeading
-        title={title}
-        subtitle={'Function'}
-        description={description}
-        type={FrameType.FUNCTION}
-      />
-      <Stack spacing={1}>
-        {Object.entries(specification.parameters)?.map(([name]) => {
-          return (
-            <Paper key={name}>
-              <InputParameterList
-                contentKey={content.childKeys[name]}
-                name={name}
-                parent={content}
-              />
-            </Paper>
-          );
-        })}
-      </Stack>
-    </div>
+    <>
+      <FrameHeading type={FrameType.FUNCTION} {...{ title, description, subtitle }} />
+      {Object.entries(specification.inputs)?.map(([name, spec]) => {
+        const title = translate(functionParameterTitleKey(functionName, name));
+        const description = translate(functionParameterDescriptionKey(functionName, name));
+        const subtitle = <TypeView type={spec.type} multi={spec.multi} />;
+        return (
+          <FrameSection key={name} {...{ title, description, subtitle }}>
+            <ArgumentEditor contentKey={content.childKeyMap[name]} />
+          </FrameSection>
+        );
+      })}
+    </>
   );
 }
 
-export interface FrameHeadingProps {
+interface FrameHeadingProps {
   title: string;
   description?: string;
   subtitle: string;
   type: FrameType;
 }
 
-export function FrameHeading({ title, description, subtitle, type }: FrameHeadingProps) {
+function FrameHeading({ title, description, subtitle, type }: FrameHeadingProps) {
   return (
-    <Stack direction="row">
-      <Box sx={{ mb: 1.5 }}>
-        <Typography variant={'h4'} fontSize={'1.5rem'}>
-          {title}
-          {description !== undefined && <Info text={description} />}
+    <Box sx={{ mb: 1.5 }}>
+      <Typography variant={'h4'} fontSize={'1.5rem'}>
+        {title}
+        {description !== undefined && <Info text={description} />}
+      </Typography>
+      {subtitle !== undefined && (
+        <Typography
+          variant={'h5'}
+          color={(theme) => theme.palette.primary.main}
+          fontSize={'1rem'}
+          fontWeight={500}
+          style={{ fontVariant: 'all-small-caps' }}
+        >
+          {FrameIcon({ type })}
+          {subtitle}
         </Typography>
-        {subtitle !== undefined && (
-          <Typography
-            variant={'h5'}
-            color={'#37ac8f'}
-            fontSize={'1rem'}
-            fontWeight={500}
-            style={{ fontVariant: 'all-small-caps' }}
-          >
-            {FrameIcon({ type })}
-            {subtitle}
-          </Typography>
-        )}
-      </Box>
-    </Stack>
+      )}
+    </Box>
   );
 }
 

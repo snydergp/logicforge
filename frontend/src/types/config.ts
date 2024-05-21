@@ -2,42 +2,83 @@
  * Configs represent the serialization structure for loading/storing process data.
  */
 
-export enum ConfigType {
-  PROCESS = 'process',
-  ACTION = 'action',
-  VALUE = 'value',
-  VARIABLE = 'variable',
-  FUNCTION = 'function',
+import { ControlType } from './specification';
+
+export enum ExecutableType {
+  ACTION = 'ACTION',
+  CONTROL_STATEMENT = 'CONTROL_STATEMENT',
 }
 
-export type ValueConfig = {
-  type: ConfigType.VALUE;
-  value: string;
-};
+export enum ExpressionType {
+  FUNCTION = 'FUNCTION',
+  REFERENCE = 'REFERENCE',
+  VALUE = 'VALUE',
+}
 
 export type FunctionConfig = {
-  type: ConfigType.FUNCTION;
+  differentiator: ExpressionType.FUNCTION;
   name: string;
-  arguments: { [key: string]: InputConfig[] };
+  arguments: { [key: string]: ExpressionConfig[] };
 };
 
+export type ReferenceConfig = {
+  differentiator: ExpressionType.REFERENCE;
+  coordinates: readonly number[];
+  path: string[];
+};
+
+export type ValueConfig = {
+  differentiator: ExpressionType.VALUE;
+  value: string;
+  typeId: string;
+};
+
+export type ExpressionConfig = FunctionConfig | ReferenceConfig | ValueConfig;
+
 export type ActionConfig = {
-  type: ConfigType.ACTION;
+  differentiator: ExecutableType.ACTION;
   name: string;
-  actionArguments: { [key: string]: ActionConfig[] };
-  inputArguments: { [key: string]: InputConfig[] };
+  arguments: { [key: string]: ExpressionConfig[] };
+  output?: VariableConfig;
+};
+
+export type ControlConfig = {
+  differentiator: ExecutableType.CONTROL_STATEMENT;
+  controlType: ControlType;
+  blocks: BlockConfig[];
+};
+
+export type ExecutableConfig = ActionConfig | ControlConfig;
+
+export type ConditionalConfig = ControlConfig & {
+  controlType: ControlType.CONDITIONAL;
+  condition: ExpressionConfig;
+};
+
+export type BlockConfig = {
+  executables: ExecutableConfig[];
 };
 
 export type ProcessConfig = {
-  type: ConfigType.PROCESS;
   name: string;
-  actions: ActionConfig[];
+  rootBlock: BlockConfig;
+  returnExpression?: ExpressionConfig[];
+  /**
+   * Extra data sent by the server to identify the config. This is not used by the front end, but
+   * will be held with the process model and returned to the server when updates are made
+   * */
+  externalId: any;
 };
 
-export type InputConfig = ValueConfig | FunctionConfig;
+export type VariableConfig = {
+  title?: string;
+  description?: string;
+  translationKey?: string;
+};
 
-export type ArgumentConfig = InputConfig | ActionConfig;
-
-export type ParentConfig = ProcessConfig | ActionConfig | FunctionConfig;
-
-export type LogicForgeConfig = ProcessConfig | ActionConfig | FunctionConfig | ValueConfig;
+export type LogicForgeConfig =
+  | ProcessConfig
+  | ExecutableConfig
+  | ExpressionConfig
+  | ReferenceConfig
+  | VariableConfig;

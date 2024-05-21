@@ -3,63 +3,72 @@
  * These include the type system, the structure of processes, and the available actions and functions.
  */
 
-export enum SpecType {
-  ENGINE = 'ENGINE',
-  TYPE = 'TYPE',
-  PROCESS = 'PROCESS',
-  ACTION_LIST = 'ACTION_LIST',
-  ACTION = 'ACTION',
-  FUNCTION = 'FUNCTION',
-  PARAMETER = 'PARAMETER',
+import { WellKnownType } from '../constant/well-known-type';
+import { TypeId, TypeUnion } from './types';
+
+export enum ControlType {
+  CONDITIONAL = 'CONDITIONAL',
 }
 
-export type TypeSpec = {
-  type: SpecType.TYPE;
-  id: string;
-  supertypes: string[];
-  values?: string[];
-};
-
-export type FunctionSpec = {
-  type: SpecType.FUNCTION;
-  returnType: string;
-  parameters: { [key: string]: ParameterSpec };
-};
-
-export type ParameterSpec = {
-  type: SpecType.PARAMETER;
-  returnType: string;
+export type TypePropertySpec = {
+  type: TypeUnion;
   multi: boolean;
-  properties?: { [key: string]: string[] };
+  optional: boolean;
 };
 
-export type ActionListSpec = {
-  type: SpecType.ACTION_LIST;
+export type TypeSpec = {
+  supertypes: TypeId[];
+  values?: string[];
+  properties: { [key: string]: TypePropertySpec };
+  valueType: boolean;
 };
 
-export type ActionSpec = {
-  type: SpecType.ACTION;
-  actionParameters: { [key: string]: ActionListSpec };
-  inputParameters: { [key: string]: ParameterSpec };
+export type ExpressionSpec = {
+  type: TypeId[];
+  multi: boolean;
 };
 
-export type ProcessSpec = {
-  type: SpecType.PROCESS;
-  name: string;
+export type InputSpec = ExpressionSpec & {
+  metadata: { [key: string]: any };
+};
+
+export type CallableSpec = {
+  inputs: { [key: string]: InputSpec };
+  output: InputSpec;
 };
 
 export type EngineSpec = {
-  type: SpecType.ENGINE;
-  processes: { [key: string]: ProcessSpec };
-  actions: { [key: string]: ActionSpec };
-  functions: { [key: string]: FunctionSpec };
+  processes: { [key: string]: CallableSpec };
+  actions: { [key: string]: CallableSpec };
+  functions: { [key: string]: CallableSpec };
   types: { [key: string]: TypeSpec };
+  controls: ControlType[];
 };
 
-export type LogicForgeSpec =
-  | EngineSpec
-  | TypeSpec
-  | ProcessSpec
-  | ActionSpec
-  | FunctionSpec
-  | ParameterSpec;
+export type ControlSpec = {
+  controlType: ControlType;
+  inputs: { [key: string]: InputSpec };
+};
+
+/**
+ * The hardcoded name of the input used to control a conditional statement
+ */
+export const CONDITIONAL_CONDITION_PROP = 'condition';
+
+/**
+ * The hardcoded name of the input used to define a process' return statement
+ */
+export const PROCESS_RETURN_PROP = 'return';
+
+// controls are not extensible. This hard-coded type provides the structure needed to reuse the
+// input code used by actions/functions for controls
+export const CONDITIONAL_CONTROL_SPEC: ControlSpec = {
+  controlType: ControlType.CONDITIONAL,
+  inputs: {
+    [CONDITIONAL_CONDITION_PROP]: {
+      type: [WellKnownType.BOOLEAN],
+      multi: false,
+      metadata: {},
+    },
+  },
+};

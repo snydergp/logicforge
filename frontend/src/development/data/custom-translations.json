@@ -1,0 +1,92 @@
+{
+  "processes": {
+    "io": {
+      "logicforge": {
+        "Example": {
+          "title": "Example Process",
+          "description": "A process used for demonstration",
+          "inputs": {
+            "request": {
+              "title": "HTTP Request",
+              "description": "The incoming HTTP request"
+            }
+          }
+        }
+      }
+    }
+  },
+  "types": {
+    "io": {
+      "logicforge": {
+        "logging": {
+          "LogLevel": {
+            "title": "Log Level",
+            "description": "The level at which the message should be logged",
+            "values": {
+              "ERROR": {
+                "title": "Error"
+              },
+              "WARNING": {
+                "title": "Warning"
+              },
+              "INFO": {
+                "title": "Info"
+              },
+              "DEBUG": {
+                "title": "Debug"
+              },
+              "TRACE": {
+                "title": "Trace"
+              }
+            }
+          }
+        },
+        "http": {
+          "HttpRequest": {
+            "title": "HTTP Request",
+            "description": "An HTTP Request",
+            "properties": {
+              "method": {
+                "title": "HTTP Method"
+              },
+              "path": {
+                "title": "Request Path"
+              },
+              "recursiveRequest": {
+                "title": "Recursive Request"
+              }
+            }
+          },
+          "HttpResponse": {
+            "title": "HTTP Response",
+            "description": "An HTTP Response",
+            "properties": {
+              "status": {
+                "title": "Response Status"
+              },
+              "body": {
+                "title": "Response Body"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "functions": {
+    "newHttpResponse": {
+      "title": "New HTTP Response",
+      "description": "Generates a new HTTP Response",
+      "parameters": {
+        "status": {
+          "title": "Status",
+          "description": "The HTTP Status"
+        },
+        "body": {
+          "title": "Body",
+          "description": "The HTTP Body"
+        }
+      }
+    }
+  }
+}

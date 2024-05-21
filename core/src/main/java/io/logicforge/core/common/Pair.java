@@ -12,4 +12,9 @@ public class Pair<LEFT, RIGHT> {
   private final LEFT left;
   private final RIGHT right;
 
+  @Override
+  public String toString() {
+    return "Pair{" + left + ", " + right + "}";
+  }
+
 }

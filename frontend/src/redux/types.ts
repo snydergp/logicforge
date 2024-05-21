@@ -1,7 +1,10 @@
-import { EditorState } from './slices/editors';
+import { StateWithHistory } from 'redux-undo';
+import { FrameEditorState } from './slices';
 
-export type FullStoreShape = {
-  ['LOGICFORGE']: EditorState;
+export const FRAME_EDITOR_REDUX_NAMESPACE = 'LOGICFORGE_FRAME_EDITOR';
+
+export type LogicForgeReduxStateSnapshot = {
+  [FRAME_EDITOR_REDUX_NAMESPACE]: FrameEditorState;
 };
 
-export type StoreStructure = Partial<FullStoreShape>;
+export type LogicForgeReduxState = StateWithHistory<LogicForgeReduxStateSnapshot>;

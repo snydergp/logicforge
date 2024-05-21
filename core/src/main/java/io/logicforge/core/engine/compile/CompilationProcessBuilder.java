@@ -1,685 +1,671 @@
 package io.logicforge.core.engine.compile;
 
-import io.logicforge.core.annotations.runtime.Injectable;
-import io.logicforge.core.common.OneOf;
+import static io.logicforge.core.common.Coordinates.ROOT;
+
+import io.logicforge.core.common.CoordinateTrie;
+import io.logicforge.core.common.Coordinates;
 import io.logicforge.core.common.Pair;
+import io.logicforge.core.common.TypedArgument;
 import io.logicforge.core.engine.Action;
-import io.logicforge.core.engine.ActionExecutor;
-import io.logicforge.core.engine.ChildActionsImpl;
-import io.logicforge.core.engine.InjectableFactory;
+import io.logicforge.core.engine.ExecutionContext;
+import io.logicforge.core.engine.ExecutionQueue;
 import io.logicforge.core.engine.Process;
 import io.logicforge.core.engine.ProcessBuilder;
+import io.logicforge.core.engine.impl.DefaultExecutionContext;
 import io.logicforge.core.exception.ProcessConstructionException;
-import io.logicforge.core.exception.ProcessExecutionException;
-import io.logicforge.core.injectable.ChildActions;
-import io.logicforge.core.injectable.ExecutionContext;
-import io.logicforge.core.injectable.ModifiableExecutionContext;
-import io.logicforge.core.model.configuration.ActionConfig;
-import io.logicforge.core.model.configuration.FunctionConfig;
-import io.logicforge.core.model.configuration.InputConfig;
-import io.logicforge.core.model.configuration.ProcessConfig;
-import io.logicforge.core.model.configuration.ValueConfig;
-import io.logicforge.core.model.specification.ActionSpec;
-import io.logicforge.core.model.specification.ComputedParameterSpec;
-import io.logicforge.core.model.specification.EngineSpec;
-import io.logicforge.core.model.specification.FunctionSpec;
-import io.logicforge.core.model.specification.MethodSpec;
-import io.logicforge.core.model.specification.ParameterSpec;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.RequiredArgsConstructor;
-
-import javax.tools.DiagnosticCollector;
-import javax.tools.FileObject;
-import javax.tools.ForwardingJavaFileManager;
-import javax.tools.JavaCompiler;
-import javax.tools.JavaCompiler.CompilationTask;
-import javax.tools.JavaFileManager;
-import javax.tools.JavaFileObject;
-import javax.tools.JavaFileObject.Kind;
-import javax.tools.SimpleJavaFileObject;
-import javax.tools.StandardJavaFileManager;
-import javax.tools.ToolProvider;
-import java.io.ByteArrayOutputStream;
-import java.io.OutputStream;
-import java.io.StringWriter;
-import java.lang.reflect.Constructor;
-import java.lang.reflect.InvocationTargetException;
+import io.logicforge.core.model.domain.config.ActionConfig;
+import io.logicforge.core.model.domain.config.BlockConfig;
+import io.logicforge.core.model.domain.config.ConditionalConfig;
+import io.logicforge.core.model.domain.config.ExecutableConfig;
+import io.logicforge.core.model.domain.config.ExpressionConfig;
+import io.logicforge.core.model.domain.config.FunctionConfig;
+import io.logicforge.core.model.domain.config.ProcessConfig;
+import io.logicforge.core.model.domain.config.ReferenceConfig;
+import io.logicforge.core.model.domain.config.ValueConfig;
+import io.logicforge.core.model.domain.specification.CallableSpec;
+import io.logicforge.core.model.domain.specification.EngineSpec;
+import io.logicforge.core.model.domain.specification.InputSpec;
+import io.logicforge.core.model.domain.specification.ProvidedCallableSpec;
 import java.lang.reflect.Method;
-import java.net.URI;
-import java.security.SecureClassLoader;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
-import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor
 public class CompilationProcessBuilder implements ProcessBuilder {
 
-  private static final String PROCESS_CLASS_FILE_TPL =
-      """
-          package %s;
+  private static final String PACKAGE_TPL = "io.logicforge.generated.%s";
 
-          %s
+  /**
+   * The top-level template used for rendering process source files for compilation. This template
+   * requires the following parameters:
+   *
+   * <ol>
+   * <li>The package name to for the generated class</li>
+   * <li>A string containing a list of formatted import statements</li>
+   * <li>The process interface class name</li>
+   * <li>A string containing a formatted list of fields and a constructor injecting those
+   * fields</li>
+   * <li>The signature for the process executor method</li>
+   * <li>Method calls for loading the process arguments into the "args" map</li>
+   * <li>The EngineSpec instance var name and queue var name (comma-separated)</li>
+   * <li>the executable method calls</li>
+   * <li>the function's return statement</li>
+   * <li>The Process's unique ID string</li>
+   * </ol>
+   */
+  private static final String CLASS_FILE_TPL = """
+      package %s;
 
-          public class %s implements Process {
+      %s
 
-          \tprivate final AtomicLong executionCount = new AtomicLong(0L);
+      public class CompiledProcess implements %s {
 
-          %s
+      \tprivate final AtomicLong executionCount = new AtomicLong(0L);
+      \tprivate final CoordinateTrie<Action> trie = new CoordinateTrie<>();
 
-          \tpublic void execute(final ModifiableExecutionContext context, final ActionExecutor executor) {
+      %s
+      \t@Override
+      \t%s {
+      \t\tfinal long executionNumber = executionCount.getAndIncrement();
+      \t\tfinal Map<String, Object> args = new HashMap<>();
+      %s
+      \t\tfinal ExecutionContext context = new DefaultExecutionContext(%s, args);
+      \t\t%s
+      \t\tcontext.await();%s
+      \t}
 
-          \t\tfinal long executionNumber = executionCount.getAndIncrement();
-          \t\tfinal ChildActions rootActions = new ChildActionsImpl(executor, %s);
-          \t\trootActions.executeSync(context);
-          \t}
+      \tpublic String getProcessId() {
+      \t\treturn "%s";
+      \t}
 
-          \tpublic String getProcessId() {
-            return "%s";
-          \t}
+      \tpublic long getExecutionCount() {
+      \t\treturn executionCount.get();
+      \t}
+      }
+      """;
 
-          \tpublic long getExecutionCount() {
-            return executionCount.get();
-          \t}
+  /**
+   * A template usd to generate the top-level class instance var definitions and constructor. This
+   * template requires the following parameters:
+   *
+   * <ol>
+   * <li>A formatted list of instance variable declarations (indented one tab)</li>
+   * <li>A formatted list of instance variable constructor parameters (comma separated)</li>
+   * <li>A formatted list of instance variable initializations (indented two tabs)</li>
+   * </ol>
+   */
+  private static final String PROCESS_CONSTRUCTOR_TPL = """
+      %s
 
-          %s
+      \tpublic CompiledProcess(%s) {
+      \t\t// initialize instance variables
+      %s
+      \t}
+         """;
 
-          }
-          """;
+  private static final Set<Class<?>> DEFAULT_IMPORTS = Set.of(Action.class, ExecutionContext.class,
+      DefaultExecutionContext.class, AtomicLong.class, Coordinates.class, CoordinateTrie.class,
+      Map.class, HashMap.class);
 
-  private static final String PACKAGE_TPL = "io.metalmind.generated.action.%s";
-
-  private static final Set<Class<?>> DEFAULT_INCLUDES =
-      Set.of(Process.class, Action.class, ActionExecutor.class, ModifiableExecutionContext.class,
-          ExecutionContext.class, ChildActions.class, ChildActionsImpl.class, AtomicLong.class,
-          ProcessExecutionException.class);
-
-  private static final String ACTION_INNER_CLASS_TPL =
-      """
-          \tprivate class %s implements Action {
-
-          \t\tpublic void execute(final ModifiableExecutionContext context) throws ProcessExecutionException {
-          \t\t\tfinal ExecutionContext readonlyContext = context.getReadonlyView();
-
-          \t\t\t%s;
-          \t\t}
-
-          \t\tpublic String getName() {
-          \t\t\treturn "%s";
-          \t\t}
-
-          \t\tpublic String getProcessId() {
-          \t\t\treturn "%s";
-          \t\t}
-
-          \t\tpublic String getPath() {
-          \t\t\treturn "%s";
-          \t\t}
-
-          \t\tpublic int getIndex() {
-          \t\t\treturn %s;
-          \t\t}
-
-          \t\tpublic String toString() {
-          \t\t\treturn "%s";
-          \t\t}
-          \t}
-
-          """;
+  private static final Map<Class<?>, Class<?>> BOXED_TYPE_MAPPING = Map.of(boolean.class,
+      Boolean.class, int.class, Integer.class, long.class, Long.class, float.class, Float.class,
+      double.class, Double.class, byte.class, Byte.class, char.class, Character.class);
 
   private final EngineSpec engineSpec;
+  private final ProcessCompiler compiler;
 
   private final AtomicLong processCounter = new AtomicLong(0);
-  private final Map<Class<? extends InjectableFactory>, InjectableFactory> factoryCache =
-      new HashMap<>();
 
-  public Process buildProcess(final ProcessConfig processConfig)
-      throws ProcessConstructionException {
-    final long index = processCounter.getAndIncrement();
-    final String processId = Long.toString(index);
-
-    final ProcessClassInfo processClassInfo = new ProcessClassInfo(processId, processConfig, index);
-    final String code = processClassInfo.getFileContents();
-    final InMemorySource source =
-        new InMemorySource(processClassInfo.getFullyQualifiedName(), code);
-
-    final JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
-    final InMemoryFileManager fileManager =
-        new InMemoryFileManager(compiler.getStandardFileManager(null, null, null));
-    final DiagnosticCollector<JavaFileObject> diagnostics = new DiagnosticCollector<>();
-
-    final StringWriter javacLog = new StringWriter();
-    final List<InMemorySource> toCompile = List.of(source);
-    final CompilationTask task =
-        compiler.getTask(javacLog, fileManager, diagnostics, null, null, toCompile);
-
-    boolean success = task.call();
-    // TODO log diagnostic info
-
-    if (success) {
-      return loadClassInstance(fileManager, processClassInfo);
-    } else {
-      throw new ProcessConstructionException("Error compiling process actions: " + diagnostics
-          .getDiagnostics().stream().map(diagnostic -> diagnostic.getMessage(Locale.ENGLISH))
-          .collect(Collectors.joining("\n")));
-    }
+  @Override
+  public <T extends Process> T buildProcess(final ProcessConfig<T, ?> processConfig,
+      final ExecutionQueue queue) throws ProcessConstructionException {
+    final Class<T> functionalInterface = processConfig.getFunctionalInterface();
+    final SourceFileData sourceFileData = new SourceFileData(processConfig, queue,
+        functionalInterface);
+    final String className = sourceFileData.getClassName();
+    final String code = sourceFileData.getContents();
+    final List<TypedArgument> args = sourceFileData.getInstanceVariables();
+    return compiler.compileAndInstantiate(className, code, args, functionalInterface);
   }
 
-  private Process loadClassInstance(final InMemoryFileManager fileManager,
-      final ProcessClassInfo classInfo) throws ProcessConstructionException {
+  public interface SourceSegment {
 
-    try {
-      final Class<?> loaded =
-          fileManager.getClassLoader(null).loadClass(classInfo.getFullyQualifiedName());
-      if (!Process.class.isAssignableFrom(loaded)) {
-        throw new ProcessConstructionException("Compiled process does not represent expected type");
-      }
-      final Class<? extends Process> actionClass = (Class<? extends Process>) loaded;
-      final Constructor<? extends Process> constructor =
-          actionClass.getConstructor(classInfo.getConstructorParameterTypes());
-      return constructor.newInstance(classInfo.getConstructorArgs());
-    } catch (ClassNotFoundException | NoSuchMethodException | InstantiationException
-        | IllegalAccessException | InvocationTargetException e) {
-      throw new ProcessConstructionException("Error loading generated process class", e);
-    }
+    String getContents(final int tabCount);
   }
 
-  private InjectableFactory getInjectableFactory(
-      final Class<? extends InjectableFactory> factoryClass) {
-    InjectableFactory factory = factoryCache.get(factoryClass);
-    if (factory == null) {
-      try {
-        final Constructor<? extends InjectableFactory> constructor = factoryClass.getConstructor();
-        factory = constructor.newInstance();
-        factoryCache.put(factoryClass, factory);
-      } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException
-          | InstantiationException e) {
-        throw new RuntimeException(
-            "Error instantiating injectable factory for class: " + factoryClass, e);
-      }
-    }
-    return factory;
-  }
 
-  private ActionSpec loadAction(final String name) throws ProcessConstructionException {
-    final ActionSpec actionSpec = engineSpec.getActions().get(name);
-    if (actionSpec == null) {
-      throw new ProcessConstructionException("Process references missing action: " + name);
-    }
-    return actionSpec;
-  }
+  private class SourceFileData {
 
-  private FunctionSpec loadFunction(final String name) throws ProcessConstructionException {
-    final FunctionSpec functionSpec = engineSpec.getFunctions().get(name);
-    if (functionSpec == null) {
-      throw new ProcessConstructionException("Process references missing function: " + name);
-    }
-    return functionSpec;
-  }
+    private final Map<Class<?>, Pair<String, String>> toImport = new HashMap<>();
+    private final Map<Object, Pair<Class<?>, String>> instanceVars = new LinkedHashMap<>();
+    private final long processId;
 
-  private static class InMemorySource extends SimpleJavaFileObject {
-
+    private final ProcessConfig<?, ?> config;
+    private final CallableSpec processSpec;
+    private final String engineSpecVarName;
+    private final String queueVarName;
+    private final String processInterfaceName;
     @Getter
-    private String name;
-    private String code;
+    private final String contents;
+    private final BlockData rootBlock;
 
-    private final ByteArrayOutputStream compiled = new ByteArrayOutputStream();
+    private SourceFileData(final ProcessConfig<?, ?> config, final ExecutionQueue queue,
+        final Class<?> processInterfaceClass) throws ProcessConstructionException {
+      this.processId = processCounter.getAndIncrement();
+      this.config = config;
+      this.engineSpecVarName = ensureInstanceVar(engineSpec);
+      this.queueVarName = ensureInstanceVar(queue, ExecutionQueue.class);
+      this.processSpec = engineSpec.getProcesses()
+          .values()
+          .stream()
+          .filter(spec -> spec.getMethod().getDeclaringClass().equals(processInterfaceClass))
+          .findFirst()
+          .orElseThrow(() -> new ProcessConstructionException(
+              ("Supplied process interface %s has not been " + "registered").formatted(
+                  processInterfaceClass)));
+      this.processInterfaceName = ensureImport(processSpec.getMethod().getDeclaringClass());
 
-    public InMemorySource(final String className, final String code) {
-      super(URI.create("string:///" + className.replace('.', '/') + Kind.SOURCE.extension),
-          Kind.SOURCE);
-      this.name = className;
-      this.code = code;
+      DEFAULT_IMPORTS.forEach(this::ensureImport);
+
+      final BlockConfig rootBlock = config.getRootBlock();
+      this.rootBlock = new BlockData(this, rootBlock, ROOT);
+      this.contents = generateContents();
     }
 
-    public InMemorySource(final String className, final Kind kind) {
-      super(URI.create("string:///" + className.replace('.', '/') + kind.extension), kind);
+    public String ensureInstanceVar(final Object object) {
+      return ensureInstanceVar(object, object.getClass());
     }
 
-    @Override
-    public CharSequence getCharContent(boolean ignoreEncodingErrors) {
-      return code;
+    public String ensureInstanceVar(final Object object, final Class<?> type) {
+      ensureImport(type);
+      return instanceVars.computeIfAbsent(object, obj -> new Pair<>(type, "var" + instanceVars
+          .size())).getRight();
     }
 
-    @Override
-    public OutputStream openOutputStream() {
-      return compiled;
-    }
-
-    public byte[] getCompiledBytes() {
-      return compiled.toByteArray();
-    }
-  }
-
-  public static class InMemoryFileManager extends ForwardingJavaFileManager<JavaFileManager> {
-    private final HashMap<String, InMemorySource> classes = new HashMap<>();
-
-    public InMemoryFileManager(final StandardJavaFileManager standardManager) {
-      super(standardManager);
-    }
-
-    @Override
-    public ClassLoader getClassLoader(final Location location) {
-      return new SecureClassLoader() {
-        @Override
-        protected Class<?> findClass(final String className) throws ClassNotFoundException {
-          if (classes.containsKey(className)) {
-            byte[] classFile = classes.get(className).getCompiledBytes();
-            Class<?> definedClass = super.defineClass(className, classFile, 0, classFile.length);
-            resolveClass(definedClass);
-            return definedClass;
-          } else {
-            throw new ClassNotFoundException();
+    public String ensureImport(final Class<?> classToImport) {
+      return toImport.computeIfAbsent(classToImport, c -> {
+        final List<String> nestedSegmentNames = new ArrayList<>();
+        Class<?> pointer = c;
+        final Class<?> root;
+        while (true) {
+          nestedSegmentNames.addFirst(pointer.getSimpleName());
+          if (pointer.getEnclosingClass() == null) {
+            root = pointer;
+            break;
           }
+          pointer = pointer.getEnclosingClass();
         }
-      };
+        return new Pair<>(root.getName(), String.join(".", nestedSegmentNames));
+      }).getRight();
     }
 
-    @Override
-    public InMemorySource getJavaFileForOutput(Location location, String className, Kind kind,
-        FileObject sibling) {
-      if (classes.containsKey(className)) {
-        return classes.get(className);
-      } else {
-        final InMemorySource inMemorySource = new InMemorySource(className, kind);
-        classes.put(className, inMemorySource);
-        return inMemorySource;
-      }
-    }
-  }
-
-  private class ProcessClassInfo {
-
-    @Getter
-    private final String processId;
-    private final String packageName;
-    private final String className;
-    private final Set<Class<?>> imports = new HashSet<>(DEFAULT_INCLUDES);
-    private final Map<Object, String> varNames = new LinkedHashMap<>();
-    private final List<ActionClassContext> innerClasses = new ArrayList<>();
-    private final Map<String, List<String>> childActionsToConstruct = new HashMap<>();
-    private final String rootActionsVarName;
-
-    private final AtomicInteger innerClassCount = new AtomicInteger(0);
-
-    public ProcessClassInfo(final String processId, final ProcessConfig processConfig,
-        final long index) throws ProcessConstructionException {
-
-      this.processId = processId;
-      this.packageName = String.format(PACKAGE_TPL, "pid_" + index);
-      this.className = "Process" + index;
-
-      this.rootActionsVarName = addChildActions(processConfig.getActions(), "root");
+    public String getClassName() {
+      return formatPackageName() + ".Process";
     }
 
-    public String getFullyQualifiedName() {
-      return packageName + "." + className;
+    public String generateContents() {
+
+      // Executable calls an return statement should be formatted first to ensure all
+      // needed import statements and instance vars are captured
+      final String executableCalls = formatExecutableCalls();
+      final String returnStatement = formatReturnStatement();
+
+      return CLASS_FILE_TPL.formatted(formatPackageName(), formatImports(), processInterfaceName,
+          formatFieldsAndConstructor(), formatMethodSignature(), formatArgsLoadingLogic(), "%s, %s"
+              .formatted(engineSpecVarName, queueVarName), executableCalls, returnStatement,
+          processId);
     }
 
-    public Class<?>[] getConstructorParameterTypes() {
-      return varNames.keySet().stream().map(Object::getClass).toArray(size -> new Class<?>[size]);
+    private String formatPackageName() {
+      return PACKAGE_TPL.formatted("process_" + processId);
     }
 
-    public Object[] getConstructorArgs() {
-      return varNames.keySet().toArray(Object[]::new);
-    }
-
-    /**
-     * Ensures that an import is included for the provided class
-     *
-     * @param toImport the class to import
-     * @return the unqualified name to use for the imported class
-     */
-    public String ensureImport(final Class<?> toImport) {
-      imports.add(toImport.getEnclosingClass() == null ? toImport : toImport.getEnclosingClass());
-      final String className = toImport.getName();
-      final int finalDotIndex = className.lastIndexOf('.');
-      final String simpleName =
-          finalDotIndex >= 0 ? className.substring(finalDotIndex + 1) : className;
-      return simpleName.replace('$', '.');
-    }
-
-    public String ensureInstanceVar(final Object var) {
-      ensureImport(var.getClass());
-      String varName = varNames.computeIfAbsent(var, k -> "var" + varNames.size());
-      return varName;
-    }
-
-    /**
-     * Adds a list of child actions. A ChildActions object representing the list will be added as an instance variable, and
-     * the variable name to reference will be returned;
-     *
-     * @param config the actions
-     * @param path the path of the actions
-     * @return the name of the ChildActions instance variable
-     * @throws ProcessConstructionException
-     */
-    public String addChildActions(final List<ActionConfig> config, final String path)
-        throws ProcessConstructionException {
-
-      final List<String> classNames = new ArrayList<>();
-
-      for (int i = 0; i < config.size(); i++) {
-        final ActionConfig actionConfig = config.get(i);
-        final ActionClassContext innerClassWriter =
-            new ActionClassContext(innerClassCount.getAndIncrement(), this, path, i, actionConfig);
-        final String className = innerClassWriter.getClassName();
-        classNames.add(className);
-        innerClasses.add(innerClassWriter);
-      }
-
-      final String varName = "children" + childActionsToConstruct.size();
-      childActionsToConstruct.put(varName, classNames);
-      return varName;
-    }
-
-    public String getFileContents() throws ProcessConstructionException {
-
-      final String innerClasses = prepareInnerClasses();
-
-      return String.format(PROCESS_CLASS_FILE_TPL, packageName, prepareImports(), className,
-          prepareInstanceVarsAndConstructor(), rootActionsVarName, processId, innerClasses);
-    }
-
-    private String prepareInnerClasses() throws ProcessConstructionException {
-      final StringBuilder builder = new StringBuilder();
-      for (final ActionClassContext innerClass : innerClasses) {
-        builder.append(innerClass.getInnerClassSource(this));
-      }
-      return builder.toString();
-    }
-
-    private String prepareImports() {
-      return imports.stream().map(Class::getName).sorted()
-          .map(className -> String.format("import %s;", className))
+    private String formatImports() {
+      return toImport.values()
+          .stream()
+          .map(Pair::getLeft)
+          .sorted()
+          .distinct()
+          .map("import %s;"::formatted)
           .collect(Collectors.joining("\n"));
     }
 
-    private String prepareInstanceVarsAndConstructor() {
-      final StringBuilder variableDeclarations = new StringBuilder();
-      final StringBuilder constructorParams = new StringBuilder();
-      final StringBuilder variableInitializations = new StringBuilder();
-      final Iterator<Entry<Object, String>> varIterator = varNames.entrySet().iterator();
-      while (varIterator.hasNext()) {
-        final Entry<Object, String> next = varIterator.next();
-        final boolean nonFinal = varIterator.hasNext();
-        final Class<?> variableClass = next.getKey().getClass();
-        final String simpleClassName = ensureImport(variableClass);
-        final String varName = next.getValue();
-        variableDeclarations
-            .append(String.format("\tprivate final %s %s;\n", simpleClassName, varName));
-        constructorParams.append(String.format("final %s %s", simpleClassName, varName));
-        if (nonFinal) {
-          constructorParams.append(", ");
-        }
-        variableInitializations.append(String.format("\t\tthis.%s = %s;\n", varName, varName));
-      }
-      childActionsToConstruct.forEach((varName, actionClassNames) -> {
-        final String arguments =
-            actionClassNames.stream().map(className -> String.format("new %s()", className))
-                .collect(Collectors.joining(", "));
-        variableDeclarations.append(String.format("\tprivate final Action[] %s;\n", varName));
-        variableInitializations
-            .append(String.format("\t\tthis.%s = new Action[]{%s};\n", varName, arguments));
-      });
-      return String.format("%s\n\tpublic %s(%s) {\n%s\t}\n", variableDeclarations, className,
-          constructorParams, variableInitializations);
+    private String formatFieldsAndConstructor() {
+      final String fieldDeclarations = instanceVars.values().stream().map(typeNamePair -> {
+        final Class<?> type = typeNamePair.getLeft();
+        final String typeRef = toImport.get(type).getRight();
+        final String instanceVarName = typeNamePair.getRight();
+        return "\tfinal %s %s;".formatted(typeRef, instanceVarName);
+      }).collect(Collectors.joining("\n"));
+      final String constructorArgs = instanceVars.values().stream().map(typeNamePair -> {
+        final Class<?> type = typeNamePair.getLeft();
+        final String typeRef = toImport.get(type).getRight();
+        final String instanceVarName = typeNamePair.getRight();
+        return "final %s %s".formatted(typeRef, instanceVarName);
+      }).collect(Collectors.joining(", "));
+      final String fieldInitializations = instanceVars.values()
+          .stream()
+          .map(Pair::getRight)
+          .map(instanceVarName -> "\t\tthis.%s = %s;".formatted(instanceVarName, instanceVarName))
+          .collect(Collectors.joining("\n"));
+
+      return PROCESS_CONSTRUCTOR_TPL.formatted(fieldDeclarations, constructorArgs,
+          fieldInitializations);
     }
 
-  }
-
-  private abstract class JavaWriter {
-
-    public abstract void write(final StringBuilder builder, final ProcessClassInfo outerContext,
-        final ActionClassContext innerContext) throws ProcessConstructionException;
-  }
-
-  @Getter
-  private class ActionClassContext {
-
-    private final int indexInProcess; // the global action count, used for unique inner class naming
-    private final ProcessClassInfo parent;
-    private final String path;
-    private final int index; // the index of this action in the containing list, used for logging/metrics
-    private final String actionName;
-
-    private final String className;
-    private final MethodWriter rootActionContext;
-
-    private ActionClassContext(final int indexInProcess, final ProcessClassInfo parent,
-        final String path, final int index, final ActionConfig actionConfig)
-        throws ProcessConstructionException {
-      this.indexInProcess = indexInProcess;
-      this.parent = parent;
-      this.path = path;
-      this.index = index;
-
-      this.className = "Action" + indexInProcess;
-
-      this.actionName = actionConfig.getName();
-      final ActionSpec actionSpec = loadAction(actionName);
-      this.rootActionContext = new MethodWriter(actionSpec, actionConfig);
-    }
-
-    public String getInnerClassSource(final ProcessClassInfo outerContext)
-        throws ProcessConstructionException {
-
-      final String actionImpl = prepareActionImpl(outerContext);
-      final String toString = escape(actionImpl);
-
-      return String.format(ACTION_INNER_CLASS_TPL, className, actionImpl, actionName,
-          parent.getProcessId(), path, index, toString);
-    }
-
-    private String prepareActionImpl(final ProcessClassInfo processClassInfo)
-        throws ProcessConstructionException {
-
+    private String formatMethodSignature() {
       final StringBuilder builder = new StringBuilder();
-
-      rootActionContext.write(builder, processClassInfo, this);
+      final Method method = processSpec.getMethod();
+      final Class<?> returnType = method.getReturnType();
+      builder.append("\tpublic ")
+          .append(Void.class.equals(returnType) ? "void" : ensureImport(returnType))
+          .append(" ")
+          .append(method.getName())
+          .append("(");
+      for (int i = 0; i < processSpec.getInputs().size(); i++) {
+        builder.append(i > 0 ? ", " : "");
+        final InputSpec input = processSpec.getInputs().get(i);
+        final String name = input.getName();
+        final boolean multi = input.isMulti();
+        final Class<?> type = input.getType();
+        final String typeName = ensureImport(type);
+        builder.append("final ").append(typeName).append(multi ? "[] " : " ").append(name);
+      }
+      builder.append(")");
       return builder.toString();
     }
 
-    /**
-     * Basic string escape implementation Java source code for the purpose of displaying the code as a toString displaying
-     * the compiled logic for debug purposes.
-     *
-     * @param string the input string
-     * @return
-     */
-    private String escape(String string) {
-      return string.replace("\\", "\\\\").replace("\t", "\\t").replace("\b", "\\b")
-          .replace("\n", "\\n").replace("\r", "\\r").replace("\f", "\\f").replace("\"", "\\\"");
+    private String formatArgsLoadingLogic() {
+      final StringBuilder builder = new StringBuilder();
+      for (final InputSpec input : processSpec.getInputs()) {
+        final String name = input.getName();
+        builder.append("\t\targs.put(\"").append(name).append("\", ").append(name).append(");\n");
+      }
+      return builder.toString();
     }
-  }
 
-  private abstract class ExpressionWriter extends JavaWriter {
-  }
+    private String formatExecutableCalls() {
+      return rootBlock.getContents(2);
+    }
 
-  @AllArgsConstructor
-  private class StaticValueWriter extends ExpressionWriter {
-
-    private final ParameterSpec parameterSpec;
-    private final ValueConfig valueConfig;
-
-    @Override
-    public void write(final StringBuilder builder, final ProcessClassInfo processClassInfo,
-        final ActionClassContext inner) throws ProcessConstructionException {
-
-      final String value = valueConfig.getValue();
-      final Class<?> type = parameterSpec.getType();
-      if (String.class.equals(type)) {
-        builder.append('"').append(value).append('"');
-      } else if (boolean.class.equals(type)) {
-        builder.append(Boolean.parseBoolean(value));
-      } else if (Boolean.class.equals(type)) {
-        builder.append("Boolean.").append(Boolean.parseBoolean(value) ? "TRUE" : "FALSE");
-      } else if (int.class.equals(type)) {
-        builder.append(Integer.parseInt(value));
-      } else if (Integer.class.equals(type)) {
-        builder.append("Integer.valueOf(\"").append(Integer.parseInt(value)).append("\")");
-      } else if (long.class.equals(type)) {
-        builder.append(Long.parseLong(value)).append('L');
-      } else if (Long.class.equals(type)) {
-        builder.append("Long.valueOf(\"").append(Long.parseLong(value)).append("\")");
-      } else if (float.class.equals(type)) {
-        builder.append(Float.parseFloat(value));
-      } else if (Float.class.equals(type)) {
-        builder.append("Float.valueOf(\"").append(Float.parseFloat(value)).append("\")");
-      } else if (double.class.equals(type)) {
-        builder.append(Double.parseDouble(value)).append('D');
-      } else if (Double.class.equals(type)) {
-        builder.append("Double.valueOf(\"").append(Double.parseDouble(value)).append("\")");
+    private String formatReturnStatement() {
+      final Class<?> type = processSpec.getType();
+      if (Void.class.equals(type)) {
+        return "";
       } else {
-        throw new ProcessConstructionException("Illegal value type: " + type);
+        final List<ExpressionConfig> returnStatement = config.getReturnExpression();
+        final ExpressionData expressionData;
+        if (processSpec.getType().isArray()) {
+          expressionData = new ArrayExpressionData(this, returnStatement, type);
+        } else {
+          // TODO add validation and handling
+          expressionData = mapExpression(this, returnStatement.getFirst(), type);
+        }
+        return "\n\t\treturn %s;".formatted(expressionData.getContents(0));
       }
     }
+
+    public List<TypedArgument> getInstanceVariables() {
+      return instanceVars.entrySet()
+          .stream()
+          .map(e -> TypedArgument.from(e.getValue().getLeft(), e.getKey()))
+          .collect(Collectors.toList());
+    }
   }
 
-  @AllArgsConstructor
-  private class ArgumentWriter extends ExpressionWriter {
 
-    private final ParameterSpec spec;
-    private final OneOf<List<ActionConfig>, List<InputConfig>> config;
+  @RequiredArgsConstructor
+  @Getter
+  private abstract class ExecutableData implements SourceSegment {
 
-    @Override
-    public void write(final StringBuilder builder, final ProcessClassInfo outer,
-        final ActionClassContext inner) throws ProcessConstructionException {
-      final Class<?> type = spec.getType();
-      final String name = spec.getName();
-      if (spec instanceof ComputedParameterSpec computedParameterSpec) {
-        if (config.isRight()) {
-          final List<InputConfig> inputs = config.getRight();
-          if (computedParameterSpec.isMulti()) {
-            final String simpleClassName = outer.ensureImport(type);
-            builder.append(simpleClassName).append("[]{");
-            for (final InputConfig input : inputs) {
-              writeInput(input, builder, outer, inner);
-            }
-            builder.append("}");
-          } else if (!inputs.isEmpty()) {
-            writeInput(inputs.get(0), builder, outer, inner);
-          } else if (!type.isPrimitive()) {
-            builder.append("null");
-          } else {
-            throw new ProcessConstructionException("Config is missing a required property value");
-          }
-        } else {
-          throw new ProcessConstructionException("");
-        }
-      } else {
-        if (type.equals(ModifiableExecutionContext.class)) {
-          builder.append("context");
-        } else if (type.equals(ExecutionContext.class)) {
-          builder.append("readonlyContext");
-        } else if (type.equals(ChildActions.class)) {
-          if (config.isLeft()) {
-            final String childPath =
-                String.format("%s[%s]/%s", inner.getPath(), inner.getIndex(), name);
-            final String varName = outer.addChildActions(config.getLeft(), childPath);
-            builder.append(varName);
-          }
-        } else {
-          final Injectable injectable = type.getAnnotation(Injectable.class);
-          if (injectable != null) {
-            final Class<? extends InjectableFactory> factoryClass = injectable.factory();
-            final InjectableFactory injectableFactory = getInjectableFactory(factoryClass);
-            final String varName = outer.ensureInstanceVar(injectableFactory);
-            final String simpleClassName = outer.ensureImport(type);
-            builder.append(varName).append(".getInjectable(").append(simpleClassName)
-                .append(", context)");
-          } else {
-            throw new ProcessConstructionException("Unable to inject unknown type: " + type);
-          }
+    protected final SourceFileData sourceFile;
+
+    protected final Coordinates coordinates;
+
+  }
+
+
+  private class BlockData extends ExecutableData {
+
+    private final List<ExecutableData> children = new ArrayList<>();
+
+    private BlockData(final SourceFileData sourceFile, final BlockConfig config,
+        final Coordinates coordinates) {
+      super(sourceFile, coordinates);
+
+      for (int i = 0; i < config.getExecutables().size(); i++) {
+        final ExecutableConfig childConfig = config.getExecutables().get(i);
+        final Coordinates childCoordinates = coordinates.getNthChild(i);
+        switch (childConfig) {
+          case ActionConfig actionConfig -> children.add(new ActionData(sourceFile, actionConfig,
+              childCoordinates));
+          case ConditionalConfig conditionalConfig -> children.add(new ConditionalData(sourceFile,
+              conditionalConfig, childCoordinates));
+          default -> throw new IllegalStateException("Unknown executable type: %s".formatted(
+              childConfig.getClass()));
         }
       }
     }
 
-    private void writeInput(final InputConfig input, final StringBuilder builder,
-        final ProcessClassInfo outer, final ActionClassContext inner)
-        throws ProcessConstructionException {
-      if (input instanceof ValueConfig valueConfig) {
-        new StaticValueWriter(spec, valueConfig).write(builder, outer, inner);
-      } else if (input instanceof FunctionConfig functionConfig) {
-        final String functionName = functionConfig.getName();
-        final FunctionSpec functionSpec = loadFunction(functionName);
-        new MethodWriter(functionSpec, functionConfig).write(builder, outer, inner);
+    @Override
+    public String getContents(final int tabCount) {
+      final StringBuilder builder = new StringBuilder();
+      for (final ExecutableData child : children) {
+        builder.append(child.getContents(tabCount));
       }
+      return builder.toString();
     }
   }
 
+
+  public class ActionData extends ExecutableData {
+
+    private final ActionConfig config;
+
+    private ActionData(final SourceFileData sourceFile, final ActionConfig config,
+        final Coordinates coordinates) {
+      super(sourceFile, coordinates);
+      this.config = config;
+    }
+
+    @Override
+    public String getContents(final int tabCount) {
+      final String tab = tabs(tabCount);
+      final StringBuilder builder = new StringBuilder();
+      builder.append(tab)
+          .append("// Action {")
+          .append(coordinates.asFormattedString(","))
+          .append("}")
+          .append("\n")
+          .append(tab);
+
+      final ProvidedCallableSpec actionSpec = engineSpec.getActions().get(config.getName());
+      final Class<?> outputType = actionSpec.getType();
+      final CallableExpressionData expressionData = new CallableExpressionData(getSourceFile(),
+          outputType, actionSpec, config.getArguments());
+
+      boolean nonVoid = !void.class.equals(outputType);
+
+      if (!nonVoid) {
+        builder.append(expressionData.getContents(tabCount)).append("\n").append(tab);
+      }
+      builder.append("context.setVariable(")
+          .append(coordinatesAsCodeInitializer(coordinates))
+          .append(", ");
+      if (nonVoid) {
+        builder.append(expressionData.getContents(tabCount));
+      } else {
+        builder.append("null");
+      }
+      builder.append(");\n");
+
+      return builder.toString();
+    }
+  }
+
+
+  private class ConditionalData extends ExecutableData {
+
+    private final ConditionalConfig config;
+    private final BlockData thenData;
+    private final BlockData elseData;
+
+    public ConditionalData(final SourceFileData sourceFile, final ConditionalConfig config,
+        final Coordinates coordinates) {
+      super(sourceFile, coordinates);
+      this.config = config;
+      this.thenData = new BlockData(sourceFile, config.getThen(), coordinates.getNthChild(0));
+      this.elseData = new BlockData(sourceFile, config.getElse(), coordinates.getNthChild(1));
+    }
+
+    @Override
+    public String getContents(final int tabCount) {
+      final StringBuilder builder = new StringBuilder();
+      final String tab = tabs(tabCount);
+      final ExpressionData conditional = mapExpression(sourceFile, config.getCondition(),
+          boolean.class);
+      builder.append(tab)
+          .append("if (")
+          .append(conditional.getContents(tabCount))
+          .append(") {\n")
+          .append(thenData.getContents(tabCount + 1))
+          .append(tab)
+          .append("} else {\n")
+          .append(elseData.getContents(tabCount + 1))
+          .append(tab)
+          .append("}\n");
+      return builder.toString();
+    }
+  }
 
 
   @Getter
-  private class MethodWriter extends ExpressionWriter {
+  private static abstract class ExpressionData implements SourceSegment {
 
-    private final MethodSpec methodSpec;
-    private final List<Pair<ParameterSpec, OneOf<List<ActionConfig>, List<InputConfig>>>> argumentData;
+    protected final SourceFileData sourceFile;
 
-    public MethodWriter(final MethodSpec methodSpec, final ActionConfig actionConfig) {
-      this.methodSpec = methodSpec;
-      argumentData = methodSpec.getParameters().stream()
-          .map(parameterSpec -> new Pair<>(parameterSpec,
-              OneOf.nullable(actionConfig.getActionArguments().get(parameterSpec.getName()),
-                  actionConfig.getInputArguments().get(parameterSpec.getName()))))
-          .collect(Collectors.toList());
-    }
-
-    public MethodWriter(final MethodSpec methodSpec, final FunctionConfig functionConfig) {
-      this.methodSpec = methodSpec;
-      argumentData = methodSpec.getParameters().stream().map(
-          parameterSpec -> new Pair<ParameterSpec, OneOf<List<ActionConfig>, List<InputConfig>>>(
-              parameterSpec,
-              OneOf.right(functionConfig.getArguments().get(parameterSpec.getName()))))
-          .collect(Collectors.toList());
-    }
-
-    @Override
-    public void write(final StringBuilder builder, final ProcessClassInfo outer,
-        final ActionClassContext inner) throws ProcessConstructionException {
-
-      final Object provider = methodSpec.getProvider();
-      final Method method = methodSpec.getMethod();
-
-      final List<ParameterSpec> parameters = methodSpec.getParameters();
-      if (provider instanceof Class<?>) {
-        // static method call
-        builder.append(((Class<?>) provider).getName()).append('.');
-      } else {
-        // instance method call
-        String instanceVarName = outer.ensureInstanceVar(provider);
-        builder.append(instanceVarName).append('.');
-      }
-      builder.append(method.getName()).append('(');
-
-      // write out the comma-separated list of arguments
-      for (int i = 0; i < argumentData.size(); i++) {
-        final Pair<ParameterSpec, OneOf<List<ActionConfig>, List<InputConfig>>> data =
-            argumentData.get(i);
-        final ParameterSpec spec = data.getLeft();
-        final OneOf<List<ActionConfig>, List<InputConfig>> config = data.getRight();
-
-        final boolean isLast = i == parameters.size() - 1;
-
-        final ArgumentWriter argumentContext = new ArgumentWriter(spec, config);
-        argumentContext.write(builder, outer, inner);
-
-        if (!isLast) {
-          builder.append(", ");
-        }
-      }
-      builder.append(')');
+    private ExpressionData(final SourceFileData sourceFile) {
+      this.sourceFile = sourceFile;
     }
   }
 
+
+  private class CallableExpressionData extends ExpressionData {
+
+    private final Class<?> requiredType;
+    private final Method method;
+    private final Object provider;
+    private final Class<?> outputType;
+
+    private final List<ExpressionData> args;
+
+    public CallableExpressionData(final SourceFileData sourceFile, final Class<?> requiredType,
+        final ProvidedCallableSpec spec, Map<String, List<ExpressionConfig>> args) {
+      this(sourceFile, requiredType, spec.getMethod(), spec.getProvider(), spec.getType(), spec
+          .getInputs(), args);
+    }
+
+    private CallableExpressionData(final SourceFileData sourceFile, final Class<?> requiredType,
+        final Method method, final Object provider, final Class<?> outputType,
+        final List<InputSpec> inputSpecs, final Map<String, List<ExpressionConfig>> arguments) {
+      super(sourceFile);
+
+      this.requiredType = requiredType;
+      this.method = method;
+      this.provider = provider;
+      this.outputType = outputType;
+      this.args = inputSpecs.stream()
+          .map(spec -> getArgument(spec, arguments.get(spec.getName())))
+          .collect(Collectors.toList());
+    }
+
+    public ExpressionData getArgument(final InputSpec inputSpec,
+        final List<ExpressionConfig> argument) {
+      final Class<?> type = inputSpec.getType();
+      final boolean multi = inputSpec.isMulti();
+      if (multi) {
+        return new ArrayExpressionData(getSourceFile(), argument, type);
+      } else {
+        final ExpressionConfig expressionConfig = argument.getFirst();
+        return mapExpression(getSourceFile(), expressionConfig, type);
+      }
+    }
+
+    @Override
+    public String getContents(final int tabCount) {
+      final String providerVar = this.getSourceFile().ensureInstanceVar(provider);
+      final String functionName = method.getName();
+      final String implementation = providerVar + "." + functionName + "(" + args.stream()
+          .map(arg -> arg.getContents(tabCount))
+          .collect(Collectors.joining(", ")) + ")";
+      if (!requiredType.equals(outputType)) {
+        return "context.convert(%s, %s.class)".formatted(implementation, getSourceFile()
+            .ensureImport(requiredType));
+      } else {
+        return implementation;
+      }
+    }
+  }
+
+
+  private class ValueExpressionData extends ExpressionData {
+
+    private final ValueConfig config;
+    private final Class<?> type;
+    @Getter
+    private final String contents;
+
+    private ValueExpressionData(final SourceFileData sourceFile, final ValueConfig config,
+        final Class<?> type) {
+      super(sourceFile);
+      this.config = config;
+      this.type = type;
+      this.contents = generateContents();
+    }
+
+    public String generateContents() {
+      final String value = config.getValue();
+      if (type.equals(int.class) || type.equals(Integer.class) || type.equals(float.class) || type
+          .equals(Float.class) || type.equals(byte.class) || type.equals(Byte.class) || type.equals(
+              boolean.class) || type.equals(Boolean.class)) {
+        // code representation is equivalent to string representation
+        return value;
+      } else if (type.equals(String.class)) {
+        // strings require quotes
+        return "\"" + value + "\"";
+      } else if (type.equals(char.class) || type == Character.class) {
+        // char requires single quotes
+        return "'" + value + "'";
+      } else if (type.equals(long.class) || type == Long.class) {
+        // longs require "L" suffix
+        return value + "L";
+      } else if (type.equals(double.class) || type == Double.class) {
+        // doubles require "D" suffix
+        return value + "D";
+      }
+      throw new IllegalStateException("Type cannot be represented as value: " + type);
+    }
+
+    @Override
+    public String getContents(final int tabCount) {
+      return contents;
+    }
+  }
+
+
+  private class VariableReferenceData extends ExpressionData {
+
+    private final ReferenceConfig config;
+    private final Class<?> type;
+
+    private VariableReferenceData(final SourceFileData sourceFile, final ReferenceConfig config,
+        final Class<?> type) {
+      super(sourceFile);
+      this.config = config;
+      this.type = type;
+    }
+
+    @Override
+    public String getContents(final int tabCount) {
+      final StringBuilder writer = new StringBuilder();
+      final Class<?> boxedType = BOXED_TYPE_MAPPING.getOrDefault(type, type);
+      final String typeName = getSourceFile().ensureImport(boxedType);
+
+      final Coordinates coordinates = config.getCoordinates();
+      final List<String> path = Objects.requireNonNullElse(config.getPath(), List.of());
+      writer.append("context.isVariableSet(")
+          .append(coordinatesAsCodeInitializer(coordinates))
+          .append(", ")
+          .append(typeName)
+          .append(".class");
+      for (final String p : path) {
+        writer.append(", \"").append(p).append("\"");
+      }
+      writer.append(")");
+      writer.append(" ? ");
+      writer.append("context.getVariable(")
+          .append(coordinatesAsCodeInitializer(coordinates))
+          .append(", ")
+          .append(typeName)
+          .append(".class");
+      for (final String p : path) {
+        writer.append(", \"").append(p).append("\"");
+      }
+      writer.append(")");
+      writer.append(" : ");
+      writer.append("null");
+      writer.append(" ");
+      return writer.toString();
+    }
+  }
+
+
+  private class ArrayExpressionData extends ExpressionData {
+
+    private final Class<?> type;
+    private final List<ExpressionData> args;
+
+    private ArrayExpressionData(final SourceFileData sourceFile,
+        final List<ExpressionConfig> configs, final Class<?> type) {
+      super(sourceFile);
+      this.type = type;
+      args = configs.stream()
+          .map(config -> mapExpression(sourceFile, config, type))
+          .collect(Collectors.toList());
+      getSourceFile().ensureImport(type);
+    }
+
+    @Override
+    public String getContents(final int tabCount) {
+      final StringBuilder builder = new StringBuilder();
+      final String typeName = getSourceFile().ensureImport(type);
+
+      // output all expressions as an array
+      builder.append("new ")
+          .append(typeName)
+          .append("[]{")
+          .append(args.stream()
+              .map(arg -> arg.getContents(tabCount))
+              .collect(Collectors.joining(", ")))
+          .append("}");
+      return builder.toString();
+    }
+  }
+
+
+  private ExpressionData mapExpression(final SourceFileData sourceFile,
+      final ExpressionConfig config, final Class<?> requiredType) {
+    if (config instanceof FunctionConfig functionConfig) {
+      final ProvidedCallableSpec functionSpec = engineSpec.getFunctions()
+          .get(functionConfig.getName());
+      return new CallableExpressionData(sourceFile, requiredType, functionSpec, functionConfig
+          .getArguments());
+    } else if (config instanceof ValueConfig valueConfig) {
+      return new ValueExpressionData(sourceFile, valueConfig, requiredType);
+    } else if (config instanceof ReferenceConfig referenceConfig) {
+      return new VariableReferenceData(sourceFile, referenceConfig, requiredType);
+    }
+    throw new IllegalStateException("Unknown expression config requiredType: " + config.getClass());
+  }
+
+  /**
+   * Formats coordinates as a string that can be inserted into Java source code that will evaluate
+   * as an identical instance of Coordinates at runtime
+   */
+  private static String coordinatesAsCodeInitializer(final Coordinates coordinates) {
+    return "Coordinates.from(%s)".formatted(coordinates.asFormattedString(","));
+  }
+
+  private static String tabs(final int tabCount) {
+    return "\t".repeat(Math.max(0, tabCount));
+  }
 }

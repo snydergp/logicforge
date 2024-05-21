@@ -1,278 +1,489 @@
 > ## Status
 >
-> * [2023-12-28] I've decided to clean this project up and bring it public, despite it very much still being a work-in-progress. See the [roadmap](#roadmap) section below for details on how I'd like to evolve things from here.
+> * [2024-05-20] Major refactor of the data model complete, with added abstractions representing
+    value (variable) storage and referencing of stored variables. Major progress made on the
+    frontend and end-to-end demos.
+> * [2023-12-28] I've decided to clean this project up and bring it public, despite it very much
+    still being a work-in-progress. See the [roadmap](#roadmap) section below for details on how I'd
+    like to evolve things from here.
 
 # LogicForge
 
-LogicForge is a library that facilitates the creation of "advanced editing" features that users can leverage to create complex logic for later execution. Example use cases are:
+LogicForge is a metaprogramming/visual programming library that facilitates the creation of
+"advanced editing" features which users can leverage to create complex logic for later execution.
+Some example use cases are:
 
-* For a content management system, allowing authors to target or secure content based on a user profile
+* For a content management system, allowing authors to target or secure content based on a user
+  profile
 * For a CDN, allowing admins to set up A/B testing or routing based on user profile
-* For analytics processing, allowing users to set up custom alerts and/or custom actions based on input filters
+* For analytics processing, allowing users to set up custom alerts and/or custom actions based on
+  input filters
 
-The system works by allowing developers to annotate Java methods as _actions_ (methods that hava side effects) or _functions_ (methods that return a value, but do not have side effects; i.e., "pure functions"). The library analyzes those methods through reflection to characterize the parameters and return type. 
+## Functionality
 
-```java
-@Action
-public static void setVariable(
-        ModifiableExecutionContext context,
-        String variableName,
-        String variableValue
-      ) {
-    context.put(variableName, variableValue);
-}
+LogicForge generates user-configured implementations for developer-defined interface methods,
+allowing users to create customized logic without coding.
 
-@Funtion
-public static int addIntegers(int a, int b) {
-    return a + b;
-}
-```
-_Example Java action and function_
-
-Actions and function methods can also include "injectable" parameters, such as the `context` parameter in the `setVariable` action above. These can be included in method signatures to be injected by the library at runtime.
-
-The introspected method data is used to generate UI elements that end users can leverage to compose those actions and functions with variables and static values to create custom logic without code.
-
-The generated UI components give users the ability to:
-
-* Add/remove/reorder actions in a process
-* Edit input values, including using functions or variable references as inputs
-* Add/remove/reorder inputs for multi-input parameters
-
-The UI is generated from the developer-supplied configuration, meaning users will only have access to capabilities the developer has chosen. All displayed text is provided via a translation dictionary, allowing text to be translated and altered without updating any code.
-
-![LogicForge UI](docs/images/ui.jpg "LogicForge UI")
-
-At runtime, the user-supplied logic is compiled into a Java class that can be executed against input variables (a user profile, an HTTP request).
+For example, a developer might create this interface that exposes a simple web server
+request/response:
 
 ```java
-package io.metalmind.generated.action.pid_0;
+package io.logicforge.demo.model.domain;
 
-import io.logicforge.core.engine.Action;
-import io.logicforge.core.engine.ActionExecutor;
-import io.logicforge.core.engine.ChildActionsImpl;
 import io.logicforge.core.engine.Process;
-import io.logicforge.core.engine.compile.CompilationProcessBuilderTest;
-import io.logicforge.core.exception.ProcessExecutionException;
-import io.logicforge.core.injectable.ChildActions;
-import io.logicforge.core.injectable.ExecutionContext;
-import io.logicforge.core.injectable.ModifiableExecutionContext;
 
-import java.util.concurrent.atomic.AtomicLong;
+public interface WebServerProcess extends Process {
 
-public class Process0 implements Process {
+  HttpResponse respond(final HttpRequest request);
 
-    private final AtomicLong executionCount = new AtomicLong(0L);
-
-    private final CompilationProcessBuilderTest.Functions var0;
-    private final Action[] children0;
-
-    public Process0(final CompilationProcessBuilderTest.Functions var0) {
-        this.var0 = var0;
-        this.children0 = new Action[]{new Action0()};
-    }
-
-
-    public void execute(final ModifiableExecutionContext context, final ActionExecutor executor) {
-        executionCount.getAndIncrement();
-        final ChildActions rootActions = new ChildActionsImpl(executor, children0);
-        rootActions.executeSync(context);
-    }
-
-    public String getProcessId() {
-        return "0";
-    }
-
-    public long getExecutionCount() {
-        return executionCount.get();
-    }
-
-    private class Action0 implements Action {
-
-        public void execute(final ModifiableExecutionContext context) throws ProcessExecutionException {
-            final ExecutionContext readonlyContext = context.getReadonlyView();
-
-            var0.recordPair(var0.concat("Hello, ", "World!"), var0.add(Integer.valueOf("3"), Integer.valueOf("5")));
-        }
-
-        public String getName() {
-            return "recordPair";
-        }
-
-        public String getProcessId() {
-            return "0";
-        }
-
-        public String getPath() {
-            return "root";
-        }
-
-        public int getIndex() {
-            return 0;
-        }
-
-        public String toString() {
-            return "var0.recordPair(var0.concat(\"Hello, \", \"World!\"), var0.add(Integer.valueOf(\"3\"), Integer.valueOf(\"5\")))";
-        }
-    }
 }
 ```
-_Generated Java code implementing a single-action process_
 
-## Concepts
+The LogicForge engine analyzes the provided method to determine the parameters and outputs, then
+builds a specification that models not only the process, but any functions and actions the end user
+can access while implementing the process. Developers have complete control over the available
+actions and functions, and can add custom capabilities with minimal effort.
 
-### Context
+![LogicForge UI](docs/images/ui-webserver.png "LogicForge UI")
 
-The input set of variables against which a process is executed. Processes can modify the context through actions (adding/setting/deleting variables), and the process container might examine the output context for downstream actions. For example, a process implementing a web server might be initialized with a variable containing an HTTP request object, and might expect an output variable containing an HTTP response object.
+The frontend consists of React components that provide the capability to edit the logic of the
+process. Users can reference input variables, perform actions, and leverage functions.
 
-### Process
+The saved process configuration model can then be instantiated into a dynamic implementation of the
+process interface and called as a normal Java method. Process objects can be called multiple times
+with different arguments, are thread-safe, and can be cached in-memory.
 
-A list of actions to be performed against a given input context. A process specification can include guarantees about input variables (preconditions) and expectations about output variables (post-conditions).
+```java
+import io.logicforge.core.engine.ExecutionQueue;
+import io.logicforge.demo.model.domain.HttpRequest;
+import io.logicforge.demo.model.domain.HttpResponse;
+import io.logicforge.demo.model.domain.WebServerProcess;
 
-### Action
+public class CustomWebServer {
 
-A function with side effects, and which does not produce an output value. Example actions might include:
+  private final WebServerProcess webServerProcess;
 
-* Setting a context variable
-* Reading file data into a variable
-* Making a web request and storing a response object in a variable
+  public CustomWebServer(final ProcessConfig<WebServerProcess, UUID> processConfig,
+      // The user-generate process config
+      final ProcessBuilder processBuilder,
+      // Used to convert the persisted process config into a callable object
+      final ExecutionQueue executionQueue
+      // Used to define allowed concurrency and throughput
+  ) {
+    this.webServerProcess = builder.buildProcess(processConfig, executionQueue);
+  }
 
-Each action can include developer-defined parameters that control how the action executes. For example, an action that makes an HTTP request might provide the following parameters:
+  public HttpResponse getCustomResponse(final HttpRequest request) {
+    return webServerProcess.respond(request);
+  }
+}
+```
 
-* URL (text)
-* HTTP method (enumerated text, including GET, POST, etc.)
-* Headers (a list of key/value pairs)
-* Payload (text)
+## Type System
 
-Actions are also able to include one or more lists of child actions. Use cases include:
+LogicForge exposes a simplified type system to users for ease of comprehension by non-technical
+users. Notable features of the type system include:
 
-* Conditional branch execution (ex: given a boolean input, execute one of two branches)
-* Concurrency (given a list of independent actions, execute them in parallel using a thread pool)
+### Inheritance
 
-### Function
+LogicForge builds a dynamic type system based on the input/output types of the registered actions,
+functions, and processes. When specifying expressions as inputs, users can use expressions that
+return either the specified type of the input, or any or its subtypes.
 
-A "pure function", or one that produces an output value but no side effects. Example functions might include:
+### Automatic Conversion
 
-* Concatenating a list of input values into a single output string
-* Determining the maximum value in a list of numerical inputs
-* Deriving a cryptographic signature of some input message, given a key
+Type conversions are handled transparently. Since the user does not need to manually convert between
+types, an expression returning an integer can be used to satisfy an input requiring a string.
+Converter methods can be registered to provide automatic conversions between any two types.
 
-Like actions, functions also allow developer-defined parameters that influence their execution.
+### Multiplicity
 
-### Input
+There are no builtin collection types. All types represent scalar values, but input or output
+expressions can allow multiple values. When an input allows multiple values, users will be able to
+add multiple expressions that satisfy the input type. Users will also be able to add expressions
+that themselves return multiple values, provided the expression's outputted scalar type satisfies
+the required input type. In this case, all output values will be "flattened" into a single array.
 
-An input is a value that is computed at runtime to represent a parameter for an action or function. An input is defined by the following attributes:
+### Future values
 
-* Type (e.g., text, integer, boolean)
-* Multi (whether the input is a list or a single value)
-* Required (whether an input is required)
-  * NOTE: future plans include more fine-grained validations (ex: min/max value count)
+Futures allow an action to execute in the background, concurrently with subsequent actions. This is
+useful in scenarios where multiple independent long-running actions (e.g., reading a file, making a
+web request) are executed in series. Rather than executing in series, the actions can be kicked off
+in separate threads and waited on by subsequent actions, potentially saving time. This is supported
+transparently to the end user for actions that return a Java Future type.
 
-Inputs are configured by users for each selected action/function. Inputs are text by default (validated to match the required type), but any input can also be supplied by:
+Future actions are executed by a thread pool. When a subsequent action references a Future value, it
+be awaited transparently.
 
-* A context variable
-* A function
+## Data Models
 
-Given this, users are able to create nested functions that allow precise and expansive control over a process without expensive developer customizations.
+LogicForge models arbitrary logic as a tree of configuration objects. This tree can be persisted and
+converted to callable java implementations as needed. The data model is described below.
 
-### Engine
+### Specification Model
 
-A developer-provided configuration that controls how users are able to define their processes. This includes:
+The specification model defines the capabilities exposed by a given LogicForge engine instance.
 
-* Supported process specifications
-* Available actions
-* Available functions
+#### Engine Specification
 
-## Customization
+The engine specification model defines the capabilities of a LogicForge engine instance, including
+available processes, actions, functions, and the type system.
 
-Developers are able to customize how an engine operates. In addition to controlling which of the builtin actions/functions are available to users, developers can:
+| Property  | Type                                                              |
+|-----------|-------------------------------------------------------------------|
+| processes | Map<ProcessId, [ProcessSpecification](#process-specification)>    |
+| types     | Map<TypeId, [TypeSpecification](#type-specification)>             |
+| actions   | Map<ActionId, [ActionSpecification](#action-specification)>       |
+| functions | Map<FunctionId, [FunctionSpecification](#function-specification)> |
 
-* Create new actions
-* Create new functions
-* Override/upgrade existing actions/functions
-* Add new types, including enumerated values
+#### Process Specification
 
-The following sections detail these customizations.
+Process Specification represents the input parameters and output type of a user-configurable
+process.
 
-### Creating a new action
+| Property | Type                                                           |
+|----------|----------------------------------------------------------------|
+| id       | ProcessId (String)                                             |
+| inputs   | List<[InputSpecification](#input-specification)>               |
+| output   | Optional<[ExpressionSpecification](#expression-specification)> |
 
-To create a new action, developers just need to supply the engine with a reference to the method name and containing class. Methods will be automatically analyzed to determine the list of input parameters. Actions can also define "injected" parameters that provide additional functionality. Injected parameters include:
+#### Type Specification
 
-* The execution context ([ModifiableExecutionContext](core/src/main/java/io/logicforge/core/injectable/ModifiableExecutionContext.java)), which provides the action context with the ability to get and set variables
-* Child actions ([ChildActions](core/src/main/java/io/logicforge/core/injectable/ChildActions.java)), to allow definition of lists of child action which the parent action can execute.
+A Type Specification represents a scalar runtime type and its relationship to other types.
+Types that represent enumerations have a pre-defined list of available values, whereas compound
+types have a list of available properties.
 
-The action will be rejected if it has a non-null return type, or if it defines unsupported input parameter types. Since parameter names are by default obtained via introspection, classes must be compiled with the `-parameters` flag to ensure these names are available at runtime. In cases where this is not feasible, or the parameter is renamed, the @Input annotation can be used to specify or override the parameter name.
+| Property   | Type                                                              |                                                                           |
+|------------|-------------------------------------------------------------------|---------------------------------------------------------------------------|
+| id         | TypeId (String)                                                   |                                                                           | 
+| supertypes | List<TypeId>                                                      |                                                                           | 
+| values     | List<ValueId>                                                     | Only present on enumerations                                              |
+| properties | Map<PropertyId, [PropertySpecification](#property-specification)> | Only present on compound types                                            |
+| valueType  | boolean                                                           | A flag that denotes whether the type can be represented by a simple value |
 
-Actions are stored and looked up by name. By default, the method name is used as this value, but this can be overridden using the @LogicForgeAction annotation. Both action and parameter names should be kept constant once in use to avoid breaking stored processes.
+#### Property Specification
 
-### Creating a new function
+A Property Specification defines a property on a compound type.
 
-Similar to creating an action, creating a function just requires a reference to the Java method representing the function. In addition to user-supplied parameters, the following injected parameters are available:
+| Property | Type                |
+|----------|---------------------|
+| id       | PropertyId (String) |
+| type     | TypeId (String)     |
+| multiple | boolean             |
+| optional | boolean             |
 
-* The execution context ([ExecutionContext](core/src/main/java/io/logicforge/core/injectable/ExecutionContext.java)), which provides the function with the ability to read variables from the context
+#### Action Specification
 
-Although not enforced, functions must take care to be free of side effects. Side effects in functions can lead to processes executing unpredictably.
+An Action Specification defines an available action.
 
-Like actions, functions are looked up by name. Therefore, care must be taken not to change the name of an in-use function name (or to supply an override via the @LogicForgeFunction annotation).
+| Property | Type                                                           |                                               |
+|----------|----------------------------------------------------------------|-----------------------------------------------|
+| id       | ActionId (String)                                              |                                               |
+| inputs   | List<[InputSpecification](#input-specification)>               |                                               |
+| output   | Optional<[ExpressionSpecification](#expression-specification)> | Only present on actions with non-void returns |
 
-### Non-Static Actions and Functions
+#### Function Specification
 
-While actions and functions should be designed as static whenever possible, there are use cases (for actions especially) where referencing local instance variables is required. For example, an action that executes a web request might wish to route all outgoing requests through a specially-configured client. Where static action and function methods can be referenced by method and class name only, non-static methods require a class instance to be constructed.
+An Function Specification defines an available function.
+
+| Property | Type                                                 |
+|----------|------------------------------------------------------|
+| id       | FunctionId (String)                                  |
+| inputs   | List<[InputSpecification](#input-specification)>     |
+| output   | [ExpressionSpecification](#expression-specification) |
+
+#### Expression Specification
+
+An expression specification represents the "shape" of a particular input or output value.
+
+| Property | Type                  |                                                                                                                          |
+|----------|-----------------------|--------------------------------------------------------------------------------------------------------------------------|
+| type     | List<TypeId> (String) | Will generally consist of a single value. Can also consist of multiple values ("union types") or no values ("void type") |
+| multiple | Boolean               |                                                                                                                          |
+
+#### Input Specification
+
+An input specification is an expression specification with additional metadata. The metadata is used
+to convey special relationships about the input to assist in editing.
+
+| Property                    | Type                |
+|-----------------------------|---------------------|
+| (All Expression Properties) |
+| metadata                    | Map<String, Object> |
+
+### Configuration Model
+
+The configuration model defines the structure used to represent a specific process implementation.
+Each configuration is relative to a particular specification. Updating the specification (e.g.,
+removing actions or functions) might invalidate the configuration or lead to unintended execution.
+
+#### Process
+
+A process represents user-defined actions, control structures, and their inputs. For processes with
+a return type, an output expression will also be configured. Actions and control structures are
+wrapped in "[blocks](#block)", and each process consists of a single "root block".
+
+| Property         | Type                      |
+|------------------|---------------------------|
+| rootBlock        | [Block](#block)           |
+| returnExpression | [Expression](#expression) |
+
+#### Block
+
+A block represents a series of [Executables](#executable). Executables are executed in series, and
+subsequent executables are started as soon as previous executables complete.
+
+| Property    | Type                            |
+|-------------|---------------------------------|
+| executables | List<[Executable](#executable)> |
+
+#### Executable
+
+Executable is an abstraction representing an executable entity. The concrete
+instances of Executable are [Action](#action) and [Control Structure](#control-structure).
+
+#### Action
+
+An action is an Executable function. Actions are structurally identical to [Functions](#function),
+although actions are able to manipulate state and actions do not necessarily need a non-void return
+type. When an action does have a non-void return, it's return value will be stored and can be
+referenced by subsequent actions.
+
+| Property | Type                                   | Note                                                                                 |
+|----------|----------------------------------------|--------------------------------------------------------------------------------------|
+| name     | String                                 | Maps the action configuration to its runtime method                                  |
+| inputs   | Map<String, [Expression](#expression)> | Expression configurations for each of the actions inputs, mapped by the input's name |
+| output   | Optional<[Variable](#variable)>        | Only present for actions with non-void returns                                       |
+
+#### Control Structure
+
+A control structure is used to control when and whether one or more child blocks are executed. At
+present, the only supported control structure is the Conditional, which executes one of two blocks
+based on a boolean input.
+
+When a control structure is executed and decides to execute a child block, all of the child block's
+executables will be executed before the control statement's execution completes.
+
+| Property    | Type                                   | Note                                                                                              |
+|-------------|----------------------------------------|---------------------------------------------------------------------------------------------------|
+| controlType | "CONDITIONAL"                          |                                                                                                   |
+| inputs      | Map<String, [Expression](#expression)> |                                                                                                   |
+| blocks      | List<[Block](#block)>                  | Indexed list of child blocks, the identity of which is dependent on the type of control structure |
+
+For the CONDITIONAL control type, a single input "condition" is declared, and there are two
+configurable child blocks: "then" (executed if true) and "else" (executed if false).
+
+#### Variable
+
+A Variable represents a stored value returned by an [Action](#action). It allows users to configure
+a name to represent the stored value, to help discern it from any other stored values that may be
+available. The title of a variable is only used for human display, not during actual execution.
+
+| Property | Type   |
+|----------|--------|
+| title    | String |
+
+#### Expression
+
+Expression is an abstraction representing any structure that evaluates to a value. Expressions are
+used to define inputs for actions and functions. The concrete Expression subtypes
+are [Function](#function), [Reference](#reference), and [Value](#value).
+
+#### Function
+
+A function represents a callable method with inputs and a return value. Unlike Actions, Functions
+are intended to represent "pure functions" which do not mutate state.
+
+| Property | Type                                   | Note                                                                                 |
+|----------|----------------------------------------|--------------------------------------------------------------------------------------|
+| name     | String                                 | Maps the function configuration to its runtime method                                |
+| inputs   | Map<String, [Expression](#expression)> | Expression configurations for each of the actions inputs, mapped by the input's name |
+
+#### Reference
+
+A reference is a usage of a stored value. If the referenced type is compound (
+see [Types](#types)), a child property can also be selected in place of the parent
+value. In addition to values stored bu actions, processes may specify input parameters that can also
+be referenced.
+
+Compound types may be deeply-nested. As a result a reference might define a list of properties use
+to deference the stored value in series.
+
+| Property    | Type        | Note                                                                                                                                                                                                  |
+|-------------|-------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| coordinates | Coordinates | The coordinates of the executable that stored the variable. Each action has a unique set of coordinates. Input variables supplied to the process are accessed via the special case "root coordinates" |
+| path        | String[]    | An array of property names, each representing a property defined on a compound types.                                                                                                                 |
+
+#### Value
+
+A static value. To simplify persistence, all values are stored as a String representation. Static
+values are associated with a type ID that indicates the runtime type to use for the value.
+
+| Property | Type   |
+|----------|--------|
+| value    | String |
+| typeId   | String | 
+
+## Configuration
+
+The LogicForge engine is configured by providing it with a series of annotated Java methods
+representing processes, actions, functions, and converters. Methods can be static, or bound to a
+particular class instance. In addition, custom types can be added that allow users to access child
+properties or call instance methods.
+
+### Processes
+
+Custom processes can be configured by creating an interface that extends the
+builtin [Process](core/src/main/java/io/logicforge/core/engine/Process.java) interface. Process
+interfaces should declare a single public method representing the desired inputs and an optional
+return value.
+
+Processes can be added to the engine specification
+via [EngineSpecBuilder](core/src/main/java/io/logicforge/core/model/domain/specification/EngineSpecBuilder.java)'
+s `withProcess` method.
+
+```java
+public interface CustomProcess extends Process {
+  boolean doSomething(final int a, final String b);
+}
+
+public EngineSpec configureEngine() {
+  return new EngineSpecBuilder()
+      // Add a process class
+      .withProcess(CustomProcess.class)
+
+      // ...Additional configuration
+      .build();
+}
+```
+
+### Actions, Functions and Converters
+
+Actions and Functions exist as Java methods annotated
+with [@Action](core/src/main/java/io/logicforge/core/annotations/elements/Action.java),
+[@Function](core/src/main/java/io/logicforge/core/annotations/elements/Function.java),
+or [@Converter](core/src/main/java/io/logicforge/core/annotations/elements/Converter.java).
+Methods are encapsulated by "providers" which are either the wrapping class (for static methods) or
+instance (for instance methods).
+
+LogicForge provides a builtin library of actions, functions, and converters. The BuiltinProviders
+class exposes all of the wrapping provider classes for easy configuration.
+
+```java
+public static class CustomProviders {
+
+  @Function
+  public static String divide(int a, int b) {
+    return a / b;
+  }
+
+  @Action
+  public static String readFile() {
+    final Path path = Path.of("/well-known-path.txt");
+    return Files.readString(path);
+  }
+}
+
+public EngineSpec configureEngine() {
+  return new EngineSpecBuilder()
+      // Add builtin providers
+      .withProviderClasses(BuiltinProviders.getAll())
+      // Add custom provider
+      .withProviderClasses(CustomProviders.class)
+
+      // ...Additional configuration
+      .build();
+}
+```
+
+### Types
+
+The type system does not need to be configured manually, as it is inferred from the full set of
+declared parameter and return types on all configured actions, functions, converters, and processes.
+The java object hierarchy is used to determine supertype/subtype information, which is used to
+enforce type-checking as the user is configuring a process. Converters are used to bridge types that
+don't have a builtin super/sub-type relationship.
+
+When a custom type is used, it will be treated as a value type by default, meaning it's value can be
+passed as an input or return value, but sub-properties cannot be accessed. If you want users to be
+able to leverage sub-properties, the class should be annotated
+with [@CompoundType](core/src/main/java/io/logicforge/core/annotations/elements/CompoundType.java)
+and any fields that should be accessible should be annotated
+with [@Property](core/src/main/java/io/logicforge/core/annotations/elements/Property.java).
+
+```java
+public static class CustomFunctions {
+  @Function
+  public CustomType buildCustomType(final String a, final int b) {
+    return new CustomType(a, b);
+  }
+}
 
 
-### Overriding or Upgrading Actions or Functions
+@CompoundType
+@RequiredArgsConstructor
+@Getter
+public static class CustomType {
 
-Since actions and functions are looked up by name, replacing it with a new function is as simple as matching the existing name (either implicitly via the method name itself, or explicitly using the [@Action](core/src/main/java/io/logicforge/core/annotations/Action.java) or [@Function](core/src/main/java/io/logicforge/core/annotations/Function.java) annotations). When changing the implementation of an in-use action or function, obey the following rules to avoid breaking existing processes:
+  @Property
+  private String a;
+  @Property
+  private int b;
 
-* Optional parameters can be freely added or removed
-* Required parameters can be removed, but not added
-* Parameter types can be widened (changed to a supertype), but not narrowed (changed to a subtype)
-* Non-multi parameters can be converted to multi, but not vice-versa
-* Injected parameters (those not configured by users) can be added or removed without restriction
+}
 
-Note that attempting to add multiple actions/functions with the same name will lead to an error, so changing an implementing method requires removing the old implementation from the engine configuration.
+public EngineSpec configureEngine() {
+  return new EngineSpecBuilder()
+      // Add custom provider
+      .withProviderClasses(CustomFunctions.class)
+      // compound type 'CustomType' is automatically added to the type
+      //  system and properties 'a' and 'b' will be available to users
+
+      // ...Additional configuration
+      .build();
+}
+```
 
 ## Roadmap
 
-This section contains prospective future releases.
+This section contains prospective future features and releases.
 
 * MVP (`0.1.0`)
-  * Frontend:
-    * Add/edit/remove/reorder actions
-    * Type-dependent input validation
-    * Variable support (including autocomplete and type-inference)
-  * Backend
-    * Basic set of builtin actions/functions/converters
-    * Thread management, including timeouts
-  * Demo:
-    * Backend:
-      * Example custom action & function
-      * Example persistence layer (MongoDB)
-      * Example web layer (Spring Boot Controllers)
     * Frontend:
-      * Wrapper application
-        * Author a single "Web Server" process that responds to HTTP requests
-        * Submit web requests to test endpoint (configured to call authored process) via HTTP console
+        * Clean up UX interactions (tab support, selection management)
+    * Backend
+        * Basic set of builtin actions/functions/converters
+        * Thread management, including timeouts
+        * Two ProcessBuilder implementations
+            * CompilationBuilder (compiles processes into Java classes, requires JDK)
+            * ReflectionBuilder (dynamically executes processes via Java Reflection)
+    * Demo:
+        * Add demo specifications and starting configuration for 3 use cases
+            * Web Server
+            * Event Filter
+            * Segmentation
 * Hardening
-  * Unit tests for core and frontend libraries
-  * Cucumber integration tests for demo
-  * Add Reflection-based processor for non-JVM systems
-  * Solidify developer documentation
+    * Unit tests for core and frontend libraries
+    * Cucumber integration tests for demo
+    * Add Reflection-based processor for non-JVM systems
+    * Solidify developer documentation
 * Performance (`1.0.0`)
-  * Write performance test scripts
-  * ASM-based class generation
-  * Maven Central release
-  * Frontend component theming
+    * Write performance test scripts
+    * ASM-based class generation
+    * Maven Central release
+    * NPM Release
+    * Demo Docker image release
 * Capability Plugins
-  * Add capability modules that can be included to extend the engine. Plugin modules will include functions and/or actions aligned with a specific problem domain. Potential modules:
-    * HTTP (send and/or process HTTP requests)
-    * Structure (utilities for dealing with structured data, including JSON and YAML)
-    * Crypto (encryption, decryption, hashing)
-    * File (operations for interacting with a filesystem)
-    * Image (ImageMagick wrapper)
-    * AI (submit prompts to a LLM (ollama?))
+    * Add capability modules that can be included to extend the engine. Plugin modules will include
+      functions and/or actions aligned with a specific problem domain. Potential modules:
+        * HTTP (send and/or process HTTP requests)
+        * Structure (utilities for dealing with structured data, including JSON and YAML)
+        * Crypto (encryption, decryption, hashing)
+        * File (operations for interacting with a filesystem)
+        * Image (ImageMagick wrapper)
+        * AI (submit prompts to a LLM (ollama?))
 * Observability
 * Advanced Management
-  * Process/Action-specific timeouts
-  * Complexity budgets
-  * Automated caching & invalidation of Processes and Engines
+    * Process/Action-specific timeouts
+    * Complexity budgets
+    * Automated caching & invalidation of Processes and Engines

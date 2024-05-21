@@ -1,0 +1,18 @@
+{
+  "palette": {
+    "mode": "dark",
+    "primary": {
+      "main": "#3fb5b1"
+    },
+    "secondary": {
+      "main": "#da597f"
+    },
+    "background": {
+      "default": "#282828",
+      "paper": "#282828"
+    },
+    "success": {
+      "main": "#b9f6ca"
+    }
+  }
+}

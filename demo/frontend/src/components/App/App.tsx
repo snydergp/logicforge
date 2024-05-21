@@ -1,6 +1,23 @@
 import api from '../../api/api';
-import React, { useEffect, useState } from 'react';
-import { ConfigType, EngineSpec, FrameEditor, ProcessConfig } from 'logicforge';
+import React, { useCallback, useEffect, useState } from 'react';
+import {
+  en,
+  EngineSpec,
+  ExpressionType,
+  FRAME_EDITOR_REDUX_NAMESPACE,
+  FrameEditor,
+  frameEditorGroupBy,
+  frameEditorSliceReducer,
+  mergeDeep,
+  ProcessConfig,
+} from 'logicforge';
+import { MessageTree } from 'logicforge/dist/components/I18n/I18n';
+import demoEn from '../../i18n/en.json';
+import { Box, createTheme, CssBaseline, ThemeProvider } from '@mui/material';
+import { ControlBar } from '../ControlBar/ControlBar';
+import undoable, { ActionCreators } from 'redux-undo';
+import { combineReducers, configureStore } from '@reduxjs/toolkit';
+import { Provider } from 'react-redux';
 
 enum State {
   LOADING = 'LOADING',
@@ -8,15 +25,56 @@ enum State {
   FAILED = 'FAILED',
 }
 
-export interface AppProps {
-  translations: object;
-  locale: string;
-}
+const WEB_SERVER_PROCESS_ID = '00000000-0000-0000-0000-000000000001';
 
-export function App({ translations, locale }: AppProps) {
+export const themeOptions = createTheme({
+  palette: {
+    mode: 'dark',
+    primary: {
+      main: '#3fb5b1',
+    },
+    secondary: {
+      main: '#da597f',
+    },
+    background: {
+      default: '#282828',
+      paper: '#282828',
+    },
+    success: {
+      main: '#b9f6ca',
+    },
+  },
+});
+
+export interface AppProps {}
+
+export function App({}: AppProps) {
   const [spec, setSpec] = useState<EngineSpec | undefined>();
   const [process, setProcess] = useState<ProcessConfig | undefined>();
   const [state, setState] = useState<State>(State.LOADING);
+
+  const store = configureStore({
+    reducer: undoable(
+      combineReducers({
+        [FRAME_EDITOR_REDUX_NAMESPACE]: frameEditorSliceReducer,
+      }),
+      { groupBy: frameEditorGroupBy },
+    ),
+  });
+
+  const handleKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLDivElement>) => {
+      const { key, metaKey, shiftKey } = event;
+      if (metaKey && key === 'z') {
+        if (!shiftKey) {
+          store.dispatch(ActionCreators.undo());
+        } else {
+          store.dispatch(ActionCreators.redo());
+        }
+      }
+    },
+    [store],
+  );
 
   useEffect(() => {
     api
@@ -26,13 +84,35 @@ export function App({ translations, locale }: AppProps) {
         () => setState(State.FAILED),
       )
       .then(() => {
-        api.fetchProcessConfiguration().then(
+        api.fetchProcessConfiguration(WEB_SERVER_PROCESS_ID).then(
           (returnedProcess) => setProcess(returnedProcess),
           () =>
             setProcess({
-              type: ConfigType.PROCESS,
-              name: 'example',
-              actions: [],
+              name: 'io.logicforge.demo.model.domain.WebServerProcess',
+              returnExpression: [
+                {
+                  differentiator: ExpressionType.FUNCTION,
+                  name: 'createHttpResponse',
+                  arguments: {
+                    status: [
+                      {
+                        differentiator: ExpressionType.VALUE,
+                        value: '200',
+                        typeId: 'int',
+                      },
+                    ],
+                    body: [
+                      {
+                        differentiator: ExpressionType.VALUE,
+                        value: 'Hello, World!',
+                        typeId: 'java.lang.String',
+                      },
+                    ],
+                  },
+                },
+              ],
+              externalId: WEB_SERVER_PROCESS_ID,
+              rootBlock: { executables: [] },
             }),
         );
       });
@@ -44,15 +124,22 @@ export function App({ translations, locale }: AppProps) {
     }
   }, [spec, process]);
 
+  const mergedTranslations = mergeDeep({}, demoEn, en);
+
   return state === State.READY ? (
-    <div>
-      <FrameEditor
-        config={process as ProcessConfig}
-        engineSpec={spec as EngineSpec}
-        translations={translations}
-        locale={locale}
-      ></FrameEditor>
-    </div>
+    <ThemeProvider theme={themeOptions}>
+      <CssBaseline />
+      <Provider store={store}>
+        <Box onKeyDown={handleKeyDown}>
+          <FrameEditor
+            config={process as ProcessConfig}
+            engineSpec={spec as EngineSpec}
+            translations={mergedTranslations as MessageTree}
+          ></FrameEditor>
+          <ControlBar save={api.saveProcessConfiguration} />
+        </Box>
+      </Provider>
+    </ThemeProvider>
   ) : state === State.LOADING ? (
     <div>
       <span>Loading data</span>

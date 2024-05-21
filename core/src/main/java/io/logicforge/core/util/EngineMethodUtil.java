@@ -13,30 +13,23 @@ import java.util.stream.Collectors;
 
 public class EngineMethodUtil {
 
-  public static Optional<Pair<EngineMethodType, Object>> analyzeMethod(final Method method) {
-    final List<Pair<EngineMethodType, Object>> annotatedTypes =
-        Arrays.stream(EngineMethodType.values())
-            .map(methodType -> new Pair<EngineMethodType, Object>(methodType,
-                method.getAnnotation((Class<? extends Annotation>) methodType.getAnnotationType())))
-            .filter(pair -> Objects.nonNull(pair.getRight())).collect(Collectors.toList());
+  public static Optional<EngineMethodType> analyzeMethod(final Method method) {
+    final List<EngineMethodType> annotatedTypes = Arrays.stream(EngineMethodType.values())
+        .filter(type -> method.getAnnotation(type.getAnnotationType()) != null)
+        .toList();
+
 
     if (annotatedTypes.size() > 1) {
-      final String annotationClassList = annotatedTypes.stream().map(Pair::getRight)
-          .map(Object::getClass).map(Class::toString).collect(Collectors.joining(", "));
+      final String annotationClassList = annotatedTypes.stream()
+          .map(EngineMethodType::getAnnotationType)
+          .map(Class::getName)
+          .collect(Collectors.joining(", "));
       throw new IllegalStateException(
-          String.format("Method %s has multiple annotations where only one is permitted: %s",
-              method, annotationClassList));
+          "Method %s has multiple annotations where only one is permitted: %s".formatted(method,
+              annotationClassList));
     }
 
     return annotatedTypes.isEmpty() ? Optional.empty() : Optional.of(annotatedTypes.get(0));
   }
 
-  public static Optional<EngineMethodType> getTypeForAnnotation(final Object annotation) {
-    if (annotation == null) {
-      return Optional.empty();
-    }
-    final Class<?> annotationType = annotation.getClass();
-    return Arrays.stream(EngineMethodType.values())
-        .filter(type -> type.getAnnotationType().isAssignableFrom(annotationType)).findFirst();
-  }
 }

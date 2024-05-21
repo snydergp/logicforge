@@ -1,0 +1,122 @@
+{
+  "differentiator": "PROCESS",
+  "name": "io.logicforge.Example",
+  "externalId": 123,
+  "rootBlock": {
+    "differentiator": "BLOCK",
+    "executables": [
+      {
+        "differentiator": "ACTION",
+        "name": "log",
+        "arguments": {
+          "message": [
+            {
+              "differentiator": "FUNCTION",
+              "name": "concatenate",
+              "arguments": {
+                "values": [
+                  {
+                    "differentiator": "VALUE",
+                    "value": "Hello",
+                    "typeId": "java.lang.String"
+                  },
+                  {
+                    "differentiator": "VALUE",
+                    "value": ", ",
+                    "typeId": "java.lang.String"
+                  },
+                  {
+                    "differentiator": "VALUE",
+                    "value": "World",
+                    "typeId": "java.lang.String"
+                  },
+                  {
+                    "differentiator": "FUNCTION",
+                    "name": "concatenate",
+                    "arguments": {
+                      "values": [
+                        {
+                          "differentiator": "VALUE",
+                          "value": "!",
+                          "typeId": "java.lang.String"
+                        },
+                        {
+                          "differentiator": "VALUE",
+                          "value": "!",
+                          "typeId": "java.lang.String"
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "level": [
+            {
+              "differentiator": "VALUE",
+              "value": "INFO",
+              "typeId": "io.logicforge.core.builtin.types.LogLevel"
+            }
+          ]
+        }
+      },
+      {
+        "differentiator": "ACTION",
+        "name": "log",
+        "arguments": {
+          "message": [
+            {
+              "differentiator": "FUNCTION",
+              "name": "concatenate",
+              "arguments": {
+                "values": [
+                  {
+                    "differentiator": "VALUE",
+                    "value": "Hello",
+                    "typeId": "java.lang.String"
+                  },
+                  {
+                    "differentiator": "VALUE",
+                    "value": ", ",
+                    "typeId": "java.lang.String"
+                  },
+                  {
+                    "differentiator": "VALUE",
+                    "value": "World",
+                    "typeId": "java.lang.String"
+                  },
+                  {
+                    "differentiator": "FUNCTION",
+                    "name": "concatenate",
+                    "arguments": {
+                      "values": [
+                        {
+                          "differentiator": "VALUE",
+                          "value": "!",
+                          "typeId": "java.lang.String"
+                        },
+                        {
+                          "differentiator": "VALUE",
+                          "value": "!",
+                          "typeId": "java.lang.String"
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "level": [
+            {
+              "differentiator": "VALUE",
+              "value": "INFO",
+              "typeId": "io.logicforge.core.builtin.types.LogLevel"
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

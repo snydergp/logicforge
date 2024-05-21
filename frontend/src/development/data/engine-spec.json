@@ -1,0 +1,277 @@
+{
+  "processes": {
+    "io.logicforge.Example": {
+      "inputs": {
+        "request": {
+          "type": [
+            "io.logicforge.http.HttpRequest"
+          ],
+          "multi": false,
+          "optional": false,
+          "metadata": {}
+        }
+      },
+      "output": {
+        "type": [
+          "io.logicforge.http.HttpResponse"
+        ],
+        "multi": false,
+        "metadata": {}
+      },
+      "name": "example"
+    }
+  },
+  "actions": {
+    "store-variable": {
+      "metadata": {
+        "DYNAMIC_RETURN_TYPE": "value"
+      },
+      "inputs": {
+        "value": {
+          "type": [
+            "java.lang.Object"
+          ],
+          "multi": false,
+          "metadata": {
+            "INFLUENCES_RETURN_TYPE": null
+          }
+        }
+      },
+      "output": {
+        "type": [
+          "java.lang.Object"
+        ],
+        "multi": false,
+        "metadata": {}
+      }
+    },
+    "log": {
+      "metadata": {},
+      "inputs": {
+        "message": {
+          "type": [
+            "java.lang.String"
+          ],
+          "multi": false,
+          "metadata": {}
+        },
+        "level": {
+          "type": [
+            "io.logicforge.logging.LogLevel"
+          ],
+          "multi": false,
+          "metadata": {}
+        }
+      },
+      "output": {
+        "type": [],
+        "multi": false,
+        "metadata": {}
+      }
+    }
+  },
+  "functions": {
+    "concatenate": {
+      "output": {
+        "type": [
+          "java.lang.String"
+        ],
+        "multi": false,
+        "metadata": {}
+      },
+      "inputs": {
+        "values": {
+          "multi": true,
+          "type": [
+            "java.lang.String"
+          ],
+          "metadata": {}
+        }
+      },
+      "metadata": {}
+    },
+    "min": {
+      "output": {
+        "type": [
+          "java.lang.Number"
+        ],
+        "multi": false,
+        "metadata": {}
+      },
+      "inputs": {
+        "values": {
+          "multi": true,
+          "type": [
+            "java.lang.Number"
+          ],
+          "metadata": {}
+        }
+      },
+      "metadata": {}
+    },
+    "and": {
+      "output": {
+        "type": [
+          "boolean"
+        ],
+        "multi": false,
+        "metadata": {}
+      },
+      "inputs": {
+        "values": {
+          "multi": true,
+          "type": [
+            "boolean"
+          ],
+          "metadata": {}
+        }
+      },
+      "metadata": {}
+    },
+    "newHttpResponse": {
+      "output": {
+        "type": [
+          "io.logicforge.http.HttpResponse"
+        ],
+        "multi": false,
+        "metadata": {}
+      },
+      "inputs": {
+        "status": {
+          "multi": false,
+          "type": [
+            "int"
+          ],
+          "metadata": {}
+        },
+        "body": {
+          "multi": false,
+          "type": [
+            "java.lang.String"
+          ],
+          "metadata": {}
+        }
+      },
+      "metadata": {}
+    }
+  },
+  "types": {
+    "java.lang.Object": {
+      "supertypes": [],
+      "properties": {},
+      "valueType": false
+    },
+    "java.lang.String": {
+      "supertypes": [
+        "java.lang.Object"
+      ],
+      "properties": {},
+      "valueType": true
+    },
+    "java.lang.Number": {
+      "supertypes": [
+        "java.lang.Object"
+      ],
+      "properties": {},
+      "valueType": true
+    },
+    "int": {
+      "supertypes": [
+        "java.lang.Number"
+      ],
+      "properties": {},
+      "valueType": true
+    },
+    "float": {
+      "supertypes": [
+        "java.lang.Number"
+      ],
+      "properties": {},
+      "valueType": true
+    },
+    "boolean": {
+      "supertypes": [
+        "java.lang.Object"
+      ],
+      "properties": {},
+      "valueType": true,
+      "values": [
+        "true",
+        "false"
+      ]
+    },
+    "io.logicforge.logging.LogLevel": {
+      "supertypes": [
+        "java.lang.Object"
+      ],
+      "properties": {},
+      "valueType": true,
+      "values": [
+        "ERROR",
+        "WARNING",
+        "INFO",
+        "DEBUG",
+        "TRACE"
+      ]
+    },
+    "io.logicforge.http.HttpRequest": {
+      "supertypes": [
+        "java.lang.Object"
+      ],
+      "properties": {
+        "method": {
+          "name": "method",
+          "type": [
+            "java.lang.String"
+          ],
+          "multi": false,
+          "optional": false
+        },
+        "path": {
+          "name": "path",
+          "type": [
+            "java.lang.String"
+          ],
+          "multi": false,
+          "optional": false
+        },
+        "recursiveRequest": {
+          "name": "recursiveRequest",
+          "type": [
+            "io.logicforge.http.HttpRequest"
+          ],
+          "multi": false,
+          "optional": false
+        }
+      },
+      "valueType": false
+    },
+    "io.logicforge.http.HttpResponse": {
+      "supertypes": [
+        "java.lang.Object"
+      ],
+      "properties": {
+        "method": {
+          "name": "status",
+          "type": [
+            "int"
+          ],
+          "multi": false,
+          "optional": false
+        },
+        "path": {
+          "name": "body",
+          "type": [
+            "java.lang.String"
+          ],
+          "multi": false,
+          "optional": false
+        }
+      },
+      "valueType": false
+    }
+  },
+  "controls": [
+    "CONDITIONAL"
+  ]
+}

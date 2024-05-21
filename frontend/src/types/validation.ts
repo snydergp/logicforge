@@ -1,138 +1,261 @@
 import { toNumber } from 'lodash';
+import { EngineSpec } from './specification';
+import { WellKnownType } from '../constant/well-known-type';
+import { TypeUnion } from './types';
+import { ContentKey } from './content';
 
-export interface Validator {
-  validate(value: string): string[] | undefined;
+export enum ErrorCode {
+  /** A required value is invalid (value-type input not matching type) */
+  INVALID_VALUE = 'INVALID_VALUE',
+  INVALID_VALUE_NO_LITERAL = 'INVALID_VALUE_NO_LITERAL',
+  /** A reference to a variable that has not yet been set */
+  INVALID_REFERENCE = 'INVALID_REFERENCE',
+  /** A reference to an optional initial variable or a conditional variable outside a check */
+  UNCHECKED_REFERENCE = 'UNCHECKED_REFERENCE',
+  /** An expression (function or reference) of a type not convertable to its required input type */
+  UNSATISFIED_INPUT_TYPE_MISMATCH = 'UNSATISFIED_INPUT_TYPE_MISMATCH',
+  /** An expression returns multiple values where its input requires a single value */
+  UNSATISFIED_INPUT_ARITY_MISMATCH = 'UNSATISFIED_INPUT_ARITY_MISMATCH',
 }
 
-class RequiredValidator implements Validator {
-  validate(value: string): string[] | undefined {
-    return value.length === 0 ? ['Required'] : undefined;
-  }
+export enum ErrorLevel {
+  /** Denotes a situation which the user may want to review, but which will not block saving */
+  WARNING = 'WARNING',
+  /** Denotes an illegal state that will block saving */
+  ERROR = 'ERROR',
 }
 
-export class RegexValidator implements Validator {
-  private readonly _regex: RegExp;
-  private readonly _message: string | undefined;
-
-  constructor(regex: RegExp, message?: string) {
-    this._regex = regex;
-    this._message = message;
-  }
-
-  validate(value: string): string[] | undefined {
-    if (value !== null && !value.match(this._regex)) {
-      return [
-        this._message !== undefined
-          ? this._message
-          : `Must match regular expression ${this._regex}`,
-      ];
-    }
-    return undefined;
-  }
-}
-
-export class MinLengthValidator implements Validator {
-  private readonly _limit: number;
-
-  constructor(limit: number) {
-    this._limit = limit;
-  }
-
-  validate(value: string): string[] {
-    if (value != null && value.length < this._limit) {
-      return [`Must be ${this._limit} characters or more`];
-    }
-    return [];
-  }
-}
-
-export class MaxLengthValidator implements Validator {
-  private readonly _limit: number;
-
-  constructor(limit: number) {
-    this._limit = limit;
-  }
-
-  validate(value: string): string[] {
-    if (value != null && value.length > this._limit) {
-      return [`Must be ${this._limit} characters or fewer`];
-    }
-    return [];
-  }
-}
-
-export class EnumValidator implements Validator {
-  private readonly _values: string[];
-
-  constructor(values: string[]) {
-    this._values = values;
-  }
-
-  validate(value: string): string[] | undefined {
-    return this._values.indexOf(value) >= 0 ? undefined : ['Not a valid enumerated value'];
-  }
-}
-
-export const ALWAYS_VALID: Validator = {
-  validate(value: string): string[] | undefined {
-    return undefined;
-  },
+export type ValidationError = {
+  /** The code indicating the error scenario */
+  code: ErrorCode;
+  /** The level of the error */
+  level: ErrorLevel;
+  /** Additional data regarding the error, used for production of error messages **/
+  data: { [key: string]: any };
 };
 
-export class CompositeValidator implements Validator {
-  private readonly _validators: Validator[];
+export function validateValue(
+  value: string,
+  type: TypeUnion,
+  engineSpec: EngineSpec,
+): ValidationError[] {
+  const validator = getValidatorForType(type, engineSpec);
+  return validator(value);
+}
 
-  constructor(validators: Validator[]) {
-    this._validators = validators;
-  }
+function getValidatorForType(type: TypeUnion, engineSpec: EngineSpec) {
+  return compositeValidator(
+    type.map((typeId) => {
+      const typeSpec = engineSpec.types[typeId];
+      if (typeSpec.valueType && Object.values(WellKnownType as object).includes(typeId)) {
+        switch (typeId as WellKnownType) {
+          case WellKnownType.OBJECT:
+            return NEVER_VALID;
+          case WellKnownType.STRING:
+            return ALWAYS_VALID;
+          case WellKnownType.BOOLEAN:
+            return BOOLEAN_STRING;
+          case WellKnownType.INTEGER:
+            return INTEGER_STRING;
+          case WellKnownType.LONG:
+            return LONG_STRING;
+          case WellKnownType.FLOAT:
+          case WellKnownType.DOUBLE:
+            return DECIMAL_STRING;
+        }
+      } else if (typeSpec.values !== undefined && typeSpec.values.length > 0) {
+        return enumValidator(typeSpec.values);
+      } else if (!typeSpec.valueType) {
+        return () => [invalidValueNoLiteral(typeId)];
+      }
+      return NEVER_VALID;
+    }),
+  );
+}
 
-  validate(value: string): string[] | undefined {
-    for (let validator of this._validators) {
-      const errors = validator.validate(value);
+interface Validator {
+  (value: string): ValidationError[];
+}
+
+function requiredValidator(): Validator {
+  return (value: string) => {
+    return [
+      ...(value.length === 0
+        ? [
+            {
+              code: ErrorCode.INVALID_VALUE,
+              level: ErrorLevel.ERROR,
+              data: {
+                message: 'i18n:errors.messages.required',
+              },
+            },
+          ]
+        : []),
+    ];
+  };
+}
+
+function regexValidator(
+  regex: RegExp,
+  message: string = 'i18n:labels.error-must-match-regex',
+): Validator {
+  return (value: string) => {
+    return [
+      ...(value !== null && !value.match(regex)
+        ? [
+            {
+              code: ErrorCode.INVALID_VALUE,
+              level: ErrorLevel.ERROR,
+              data: {
+                message: message,
+                regex: regex.source,
+              },
+            },
+          ]
+        : []),
+    ];
+  };
+}
+
+function enumValidator(values: string[]): Validator {
+  return (value: string) => {
+    return [
+      ...(values.indexOf(value) < 0
+        ? [
+            {
+              code: ErrorCode.INVALID_VALUE,
+              level: ErrorLevel.ERROR,
+              data: {
+                message: 'i18n:labels.error-must-match-enum',
+                values: values.join(', '),
+              },
+            },
+          ]
+        : []),
+    ];
+  };
+}
+
+export const ALWAYS_VALID: Validator = () => [];
+
+function neverValid(messageOrError: string | ValidationError): Validator {
+  return () => {
+    return [
+      typeof messageOrError === 'string'
+        ? {
+            code: ErrorCode.INVALID_VALUE,
+            level: ErrorLevel.ERROR,
+            data: {
+              message: messageOrError,
+            },
+          }
+        : messageOrError,
+    ];
+  };
+}
+
+function compositeValidator(validators: Validator[]): Validator {
+  return (value: string) => {
+    for (let validator of validators) {
+      const errors = validator(value);
       if (errors !== undefined && errors.length > 0) {
         // stop at the first validator to find errors. Subsequent validators can be built on assumptions verified by
         //  previous validators (e.g., string represents an integer value)
         return errors;
       }
     }
-    return undefined;
-  }
+    return [];
+  };
 }
 
-export class NumericRangeValidator implements Validator {
-  private readonly _min: number;
-  private readonly _max: number;
-
-  constructor(min: number, max: number) {
-    this._min = min;
-    this._max = max;
-  }
-  validate(value: string): string[] | undefined {
+function numericRangeValidator(min: number, max: number): Validator {
+  return (value: string) => {
     const number = toNumber(value);
-    return number < this._min
-      ? [`Value must be greater than ${this._min}`]
-      : number > this._max
-      ? [`Value must be less than ${this._max}`]
-      : undefined;
-  }
+    return number < min
+      ? [
+          {
+            code: ErrorCode.INVALID_VALUE,
+            level: ErrorLevel.ERROR,
+            data: {
+              message: 'i18n:labels.error-less-than-range',
+              min: min.toString(),
+            },
+          },
+        ]
+      : number > max
+      ? [
+          {
+            code: ErrorCode.INVALID_VALUE,
+            level: ErrorLevel.ERROR,
+            data: {
+              message: 'i18n:labels.error-greater-than-range',
+              min: max.toString(),
+            },
+          },
+        ]
+      : [];
+  };
 }
 
-export const REQUIRED: Validator = new RequiredValidator();
+export function unsatisfiedInputTypeMismatch(
+  requiredType: TypeUnion,
+  type: TypeUnion,
+): ValidationError {
+  return {
+    code: ErrorCode.UNSATISFIED_INPUT_TYPE_MISMATCH,
+    level: ErrorLevel.ERROR,
+    data: { requiredType, type },
+  };
+}
 
-export const BOOLEAN_STRING: Validator = new EnumValidator(['true', 'false']);
+export function invalidReference(
+  variableKey: ContentKey,
+  referenceKey: ContentKey,
+): ValidationError {
+  return {
+    code: ErrorCode.INVALID_REFERENCE,
+    level: ErrorLevel.ERROR,
+    data: { variableKey, referenceKey },
+  };
+}
 
-export const INTEGER_STRING: Validator = new CompositeValidator([
+export function uncheckedReference(
+  variableKey: ContentKey,
+  referenceKey: ContentKey,
+): ValidationError {
+  return {
+    code: ErrorCode.UNCHECKED_REFERENCE,
+    level: ErrorLevel.WARNING,
+    data: { variableKey, referenceKey },
+  };
+}
+
+export function invalidValueNoLiteral(typeId: string): ValidationError {
+  return {
+    code: ErrorCode.INVALID_VALUE_NO_LITERAL,
+    level: ErrorLevel.ERROR,
+    data: { typeId },
+  };
+}
+
+const NEVER_VALID: Validator = neverValid('i18n:invalid-value-select-function-or-variable');
+
+const REQUIRED: Validator = requiredValidator();
+
+const BOOLEAN_STRING: Validator = enumValidator(['true', 'false']);
+
+const INTEGER_STRING: Validator = compositeValidator([
   REQUIRED,
-  new RegexValidator(/^(-?[1-9]+[0-9]*)|0$/, 'Must be a valid integer'),
-  new NumericRangeValidator(-(2 ** 31), 2 ** 31 - 1),
+  regexValidator(/^(-?[1-9]+[0-9]*)|0$/, 'i18n:errors.messages.integer'),
+  numericRangeValidator(-(2 ** 31), 2 ** 31 - 1),
 ]);
 
-export const LONG_STRING: Validator = new CompositeValidator([
+const LONG_STRING: Validator = compositeValidator([
   REQUIRED,
-  new RegexValidator(/^(-?[1-9]+[0-9]*)|0$/, 'Must be a valid integer'),
-  new NumericRangeValidator(-(2 ** 63), 2 ** 63 - 1),
+  regexValidator(/^(-?[1-9]+[0-9]*)|0$/, 'i18n:errors.messages.integer'),
+  numericRangeValidator(-(2 ** 63), 2 ** 63 - 1),
 ]);
 
-export const DECIMAL_STRING: Validator = new RegexValidator(
+const DECIMAL_STRING: Validator = regexValidator(
   /^-?([0-9]*[1-9][0-9]*(\.[0-9]+)?|0*\.[0-9]*[1-9][0-9]*|0)$/,
 );
