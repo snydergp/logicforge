@@ -1,7 +1,7 @@
 import { toNumber } from 'lodash';
 import { EngineSpec } from './specification';
 import { WellKnownType } from '../constant/well-known-type';
-import { TypeIntersection } from './types';
+import { TypeUnion } from './types';
 import { ContentKey } from './content';
 
 export enum ErrorCode {
@@ -36,14 +36,14 @@ export type ValidationError = {
 
 export function validateValue(
   value: string,
-  type: TypeIntersection,
+  type: TypeUnion,
   engineSpec: EngineSpec,
 ): ValidationError[] {
   const validator = getValidatorForType(type, engineSpec);
   return validator(value);
 }
 
-function getValidatorForType(type: TypeIntersection, engineSpec: EngineSpec) {
+function getValidatorForType(type: TypeUnion, engineSpec: EngineSpec) {
   return compositeValidator(
     type.map((typeId) => {
       const typeSpec = engineSpec.types[typeId];
@@ -198,8 +198,8 @@ function numericRangeValidator(min: number, max: number): Validator {
 }
 
 export function unsatisfiedInputTypeMismatch(
-  requiredType: TypeIntersection,
-  type: TypeIntersection,
+  requiredType: TypeUnion,
+  type: TypeUnion,
 ): ValidationError {
   return {
     code: ErrorCode.UNSATISFIED_INPUT_TYPE_MISMATCH,

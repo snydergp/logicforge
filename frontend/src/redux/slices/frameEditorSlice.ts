@@ -41,8 +41,8 @@ import {
   ReferenceConfig,
   ReferenceContent,
   TypeId,
-  TypeIntersection,
   TypeSystem,
+  TypeUnion,
   unsatisfiedInputTypeMismatch,
   validateValue,
   ValidationError,
@@ -64,7 +64,7 @@ import {
   recurseUp,
   resolveContent,
   typeEquals,
-  typeIntersection,
+  typeUnion,
 } from '../../util';
 import { WellKnownType } from '../../constant/well-known-type';
 import { MetadataProperties } from '../../constant/metadata-properties';
@@ -572,7 +572,7 @@ function doConvertValueToReference(
   const referenceKey = nextKey(contentStore);
   const referencePath = [...(path !== undefined ? [path] : [])];
   const { type, multi } = resolveExpressionInfoForReference(variableKey, referencePath, state);
-  parentArgContent.calculatedType = typeIntersection(parentArgContent.calculatedType, type);
+  parentArgContent.calculatedType = typeUnion(parentArgContent.calculatedType, type);
 
   const errors: ValidationError[] = [];
 
@@ -679,7 +679,7 @@ function doPropagateTypeChanges(expressionKey: string, state: FrameEditorState) 
       return childExpression.type;
     })
     .reduce((previous, current) => {
-      return typeIntersection(previous, current);
+      return typeUnion(previous, current);
     }, []);
   parentArgument.calculatedType = calculatedType;
 
@@ -860,7 +860,7 @@ function ensureErrorByCode(errors: ValidationError[], error: ValidationError) {
 }
 
 function findFunctionsMatchingTypeConstraints(
-  type: TypeIntersection,
+  type: TypeUnion,
   multi: boolean,
   state: FrameEditorState,
 ) {
@@ -1449,7 +1449,7 @@ function importReference(config: ReferenceConfig, parentKey: ContentKey, state: 
 function importVariable(
   config: VariableConfig | undefined,
   parentKey: ContentKey,
-  type: TypeIntersection,
+  type: TypeUnion,
   multi: boolean,
   initial: boolean,
   state: FrameEditorState,

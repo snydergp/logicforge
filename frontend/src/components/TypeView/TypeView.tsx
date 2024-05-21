@@ -1,10 +1,10 @@
-import { TypeIntersection } from '../../types';
+import { TypeUnion } from '../../types';
 import { useTranslate } from '../I18n/I18n';
 import { Typography, useTheme } from '@mui/material';
 import { labelKey, typeTitleKey } from '../../util';
 
 export interface TypeViewProps {
-  type: TypeIntersection;
+  type: TypeUnion;
   multi?: boolean;
   optional?: boolean;
 }

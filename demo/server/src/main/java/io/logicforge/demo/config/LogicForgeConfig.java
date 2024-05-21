@@ -41,7 +41,7 @@ public class LogicForgeConfig {
   @Bean
   public EngineSpec engineSpec(final HttpOperations httpOperations)
       throws EngineConfigurationException {
-    return new EngineSpecBuilder().withProviderClasses(BuiltinProviders.getBuiltinProviders())
+    return new EngineSpecBuilder().withProviderClasses(BuiltinProviders.getAll())
         .withProcess(WebServerProcess.class)
         .withControls(ControlStatementType.CONDITIONAL)
         .withProviderInstance(httpOperations, false)

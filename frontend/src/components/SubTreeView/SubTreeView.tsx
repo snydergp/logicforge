@@ -13,7 +13,7 @@ import {
   ExpressionSpec,
   FunctionContent,
   ReferenceContent,
-  TypeIntersection,
+  TypeUnion,
   ValueContent,
   VariableContent,
 } from '../../types';
@@ -315,7 +315,7 @@ function ExpressionTreeView({ content, allContent, expressionSpec }: ExpressionT
 interface LabelWithTypeViewProps {
   title: string;
   description: string;
-  type: TypeIntersection;
+  type: TypeUnion;
   multi: boolean;
 }
 

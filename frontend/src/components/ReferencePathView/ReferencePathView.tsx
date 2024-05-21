@@ -1,10 +1,4 @@
-import {
-  ContentKey,
-  ContentType,
-  ReferenceContent,
-  TypeIntersection,
-  VariableContent,
-} from '../../types';
+import { ContentKey, ContentType, ReferenceContent, TypeUnion, VariableContent } from '../../types';
 import { useContent } from '../../hooks/useContent';
 import { useSelector } from 'react-redux';
 import { selectEngineSpec } from '../../redux/slices/frameEditorSlice';
@@ -103,7 +97,7 @@ function SegmentTree({ segmentModels, index }: SegmentTreeProps) {
 type SegmentModel = {
   propertyName: string;
   propertyLabel: string;
-  type: TypeIntersection;
+  type: TypeUnion;
   multi: boolean;
   optional: boolean;
 };

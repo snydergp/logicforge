@@ -4,14 +4,14 @@
  */
 
 import { WellKnownType } from '../constant/well-known-type';
-import { TypeId, TypeIntersection } from './types';
+import { TypeId, TypeUnion } from './types';
 
 export enum ControlType {
   CONDITIONAL = 'CONDITIONAL',
 }
 
 export type TypePropertySpec = {
-  type: TypeIntersection;
+  type: TypeUnion;
   multi: boolean;
   optional: boolean;
 };

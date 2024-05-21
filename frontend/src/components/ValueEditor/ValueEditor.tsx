@@ -1,4 +1,4 @@
-import { ArgumentContent, TypeId, TypeIntersection, TypeSpec, ValueContent } from '../../types';
+import { ArgumentContent, TypeId, TypeSpec, TypeUnion, ValueContent } from '../../types';
 import {
   Autocomplete,
   AutocompleteRenderGroupParams,
@@ -391,7 +391,7 @@ export function ValueEditor({ contentKey }: ValueEditorProps) {
 interface TypeSelectorProps {
   contentKey: string;
   onSelectType: (typeId: string) => void;
-  availableTypes: TypeIntersection;
+  availableTypes: TypeUnion;
   selectedType: TypeId;
 }
 

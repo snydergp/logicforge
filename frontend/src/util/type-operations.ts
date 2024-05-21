@@ -1,12 +1,12 @@
-import { TypeId, TypeIntersection, TypeSpec, TypeSystem } from '../types';
+import { TypeId, TypeSpec, TypeSystem, TypeUnion } from '../types';
 
 export function generateTypeSystem(types: { [key: string]: TypeSpec }): TypeSystem {
   const mapping = generateTypeMapping(types);
-  const typeIds = canonicalTypeIntersection(Object.keys(mapping));
+  const typeIds = canonicalTypeUnion(Object.keys(mapping));
   const parents = Object.entries(mapping)
     .filter(([, typeInfo]) => typeInfo.supertypes.length > 0)
     .map(([typeId, typeInfo]) => {
-      return { [typeId]: canonicalTypeIntersection(typeInfo.supertypes) };
+      return { [typeId]: canonicalTypeUnion(typeInfo.supertypes) };
     })
     .reduce((collect, value) => {
       return Object.assign(collect, value);
@@ -14,7 +14,7 @@ export function generateTypeSystem(types: { [key: string]: TypeSpec }): TypeSyst
   const children = Object.entries(mapping)
     .filter(([, typeInfo]) => typeInfo.subtypes.length > 0)
     .map(([typeId, typeInfo]) => {
-      return { [typeId]: canonicalTypeIntersection(typeInfo.subtypes) };
+      return { [typeId]: canonicalTypeUnion(typeInfo.subtypes) };
     })
     .reduce((collect, value) => {
       return Object.assign(collect, value);
@@ -22,7 +22,7 @@ export function generateTypeSystem(types: { [key: string]: TypeSpec }): TypeSyst
   const descendants = typeIds
     .map((typeId) => {
       const subtypeKeys = Object.keys(collectSubtypes(typeId, mapping));
-      return subtypeKeys.length > 0 ? { [typeId]: canonicalTypeIntersection(subtypeKeys) } : {};
+      return subtypeKeys.length > 0 ? { [typeId]: canonicalTypeUnion(subtypeKeys) } : {};
     })
     .reduce((collect, value) => {
       return Object.assign(collect, value);
@@ -39,7 +39,7 @@ export function generateTypeSystem(types: { [key: string]: TypeSpec }): TypeSyst
         const existing = collect[descendantTypeId] ? collect[descendantTypeId] : [];
         return {
           ...collect,
-          [descendantTypeId]: typeIntersection(existing, typeId),
+          [descendantTypeId]: typeUnion(existing, typeId),
         };
       },
       {} as { [key: string]: string[] },
@@ -64,32 +64,32 @@ type TypeInfo = {
   supertypes: string[];
 };
 
-export function typeEquals(reference: TypeIntersection, compare: TypeIntersection) {
+export function typeEquals(reference: TypeUnion, compare: TypeUnion) {
   return (
     reference.length === compare.length &&
     reference.every((typeId, index) => typeId === compare[index])
   );
 }
 
-export function typeIntersection(a: TypeIntersection | TypeId, b: TypeIntersection | TypeId) {
-  const intersectionA: TypeIntersection = typeof a === 'string' ? [a] : a;
-  const intersectionB: TypeIntersection = typeof b === 'string' ? [b] : b;
+export function typeUnion(a: TypeUnion | TypeId, b: TypeUnion | TypeId) {
+  const unionA: TypeUnion = typeof a === 'string' ? [a] : a;
+  const unionB: TypeUnion = typeof b === 'string' ? [b] : b;
 
   let indexA = 0,
     indexB = 0;
 
   const output: TypeId[] = [];
-  while (indexA < intersectionA.length || indexB < intersectionB.length) {
-    if (indexA === intersectionA.length) {
-      output.push(...intersectionB.slice(indexB));
+  while (indexA < unionA.length || indexB < unionB.length) {
+    if (indexA === unionA.length) {
+      output.push(...unionB.slice(indexB));
       break;
     }
-    if (indexB === intersectionB.length) {
-      output.push(...intersectionA.slice(indexA));
+    if (indexB === unionB.length) {
+      output.push(...unionA.slice(indexA));
       break;
     }
-    const itemA = intersectionA[indexA];
-    const itemB = intersectionB[indexB];
+    const itemA = unionA[indexA];
+    const itemB = unionB[indexB];
     const comparison = itemA.localeCompare(itemB);
     if (comparison < 0) {
       output.push(itemA);
@@ -103,15 +103,12 @@ export function typeIntersection(a: TypeIntersection | TypeId, b: TypeIntersecti
       indexB++;
     }
   }
-  return canonicalTypeIntersection(output);
+  return canonicalTypeUnion(output);
 }
 
-export function isTypeIntersectionASubset(
-  reference: TypeIntersection | TypeId,
-  toCompare: TypeIntersection | TypeId,
-) {
-  const ref: TypeIntersection = typeof reference === 'string' ? [reference] : reference;
-  const compare: TypeIntersection = typeof toCompare === 'string' ? [toCompare] : toCompare;
+export function isTypeUnionASubset(reference: TypeUnion | TypeId, toCompare: TypeUnion | TypeId) {
+  const ref: TypeUnion = typeof reference === 'string' ? [reference] : reference;
+  const compare: TypeUnion = typeof toCompare === 'string' ? [toCompare] : toCompare;
 
   // verify that every ID in the toCompare arg is represented in the reference arg
   return compare.every((typeId) => {
@@ -119,19 +116,19 @@ export function isTypeIntersectionASubset(
   });
 }
 
-export function canonicalTypeIntersection(typeIds: TypeId[]) {
-  // copy the intersection, sort, then remove any duplicates
+export function canonicalTypeUnion(typeIds: TypeId[]) {
+  // copy the union, sort, then remove any duplicates
   return [...typeIds.sort()].filter((value, index, array) => {
     return array.indexOf(value) === index;
   });
 }
 
 export function doesTypeMatchRequirements(
-  input: TypeIntersection,
-  requirements: TypeIntersection,
+  input: TypeUnion,
+  requirements: TypeUnion,
   typeSystem: TypeSystem,
 ) {
-  // each potential type in the input intersection must be contained by a type in the requirements
+  // each potential type in the input union must be contained by a type in the requirements
   for (const typeId of input) {
     if (binarySearch(requirements, typeId) < 0) {
       // type not directly declared -- check inheritance
@@ -156,17 +153,17 @@ export function doesTypeMatchRequirements(
  * @param type
  * @param typeSystem
  */
-export function expandType(type: TypeIntersection, typeSystem: TypeSystem) {
+export function expandType(type: TypeUnion, typeSystem: TypeSystem) {
   return type
     .map((typeId) => {
-      return typeIntersection(typeId, typeSystem.descendants[typeId] || []);
+      return typeUnion(typeId, typeSystem.descendants[typeId] || []);
     })
     .reduce((collect, current) => {
-      return typeIntersection(collect, current);
-    }, [] as TypeIntersection);
+      return typeUnion(collect, current);
+    }, [] as TypeUnion);
 }
 
-function binarySearch(arr: TypeIntersection, item: TypeId) {
+function binarySearch(arr: TypeUnion, item: TypeId) {
   let startIndex = 0,
     endIndex = arr.length - 1;
 

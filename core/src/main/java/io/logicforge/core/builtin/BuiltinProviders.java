@@ -23,13 +23,12 @@ public final class BuiltinProviders {
 
   /**
    * Returns an array of all action/function/converter provider classes. This class array can be
-   * ingested by
-   * {@link EngineSpecBuilder#withProviderClasses(Class[])} to build an engine specification with
-   * all builtin methods.
+   * ingested by {@link EngineSpecBuilder#withProviderClasses(Class[])} to build an engine
+   * specification with all builtin methods.
    *
    * @return an array of all builtin method provider classes
    */
-  public static Class<?>[] getBuiltinProviders() {
+  public static Class<?>[] getAll() {
     return BUILTIN_PROVIDERS.toArray(new Class[0]);
   }
 

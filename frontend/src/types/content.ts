@@ -6,7 +6,7 @@
 
 import { CallableSpec, ControlType } from './specification';
 import { ValidationError } from './validation';
-import { TypeIntersection } from './types';
+import { TypeUnion } from './types';
 
 export type ArgumentName = string;
 export type ContentKey = string;
@@ -39,7 +39,7 @@ export type Content = {
 };
 
 export type ExpressionInfo = {
-  type: TypeIntersection;
+  type: TypeUnion;
   multi: boolean;
   optional: boolean;
 };
@@ -118,11 +118,11 @@ export type ArgumentContent = ListContent & {
   differentiator: ContentType.ARGUMENT;
   allowMulti: boolean;
   /** An exhaustive list of all allowable TypeIds, including subtypes */
-  allowedType: TypeIntersection;
+  allowedType: TypeUnion;
   /** The mapped parameters declared type (generally just a single TypeId, but not necessarily) */
-  declaredType: TypeIntersection;
+  declaredType: TypeUnion;
   /** The potential return type(s), given the argument's current configuration */
-  calculatedType: TypeIntersection;
+  calculatedType: TypeUnion;
   propagateTypeChanges: boolean;
 };
 

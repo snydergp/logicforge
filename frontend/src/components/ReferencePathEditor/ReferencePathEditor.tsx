@@ -2,8 +2,8 @@ import {
   ContentKey,
   ContentType,
   ReferenceContent,
-  TypeIntersection,
   TypePropertySpec,
+  TypeUnion,
   VariableContent,
 } from '../../types';
 import { useContent } from '../../hooks/useContent';
@@ -97,7 +97,7 @@ export function ReferencePathEditor({ contentKey, open, onClose }: ReferencePath
 }
 
 interface PropertyTreeViewProps {
-  type: TypeIntersection;
+  type: TypeUnion;
   multi: boolean;
   optional: boolean;
   path: string[];

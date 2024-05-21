@@ -1,12 +1,12 @@
 export type TypeId = string;
 
 /**
- * A list of type IDs representing type intersection. The data structure should always be sorted and
+ * A list of type IDs representing type union. The data structure should always be sorted and
  * non-repeating
  */
-export type TypeIntersection = readonly TypeId[];
+export type TypeUnion = readonly TypeId[];
 
-export const VOID_TYPE: TypeIntersection = [];
+export const VOID_TYPE: TypeUnion = [];
 
 /**
  * A data structure that captures all type relationships for later reuse
@@ -15,23 +15,23 @@ export type TypeSystem = {
   /**
    * An array of all defined type IDs
    */
-  typeIds: TypeIntersection;
+  typeIds: TypeUnion;
   /**
    * A mapping between a type id and an array of all types from which the key DIRECTLY inherits
    */
-  parents: { [key: TypeId]: TypeIntersection };
+  parents: { [key: TypeId]: TypeUnion };
   /**
    * A mapping between a type id and an array of all types for which the key is DIRECTLY inherited
    */
-  children: { [key: TypeId]: TypeIntersection };
+  children: { [key: TypeId]: TypeUnion };
   /**
    * A mapping between a type id and an array of all types from which the key inherits, both
    * DIRECTLY and INDIRECTLY
    */
-  ancestors: { [key: TypeId]: TypeIntersection };
+  ancestors: { [key: TypeId]: TypeUnion };
   /**
    * A mapping between a type id and an array of all types for which the key is inherited, both
    * DIRECTLY and INDIRECTLY
    */
-  descendants: { [key: TypeId]: TypeIntersection };
+  descendants: { [key: TypeId]: TypeUnion };
 };
