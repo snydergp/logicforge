@@ -28,8 +28,8 @@ public class HttpOperations {
   }
 
   @Function
-  public HttpResponse createHttpResponse(final int status, final String body) {
-    return HttpResponse.builder().status(status).body(body).build();
+  public HttpResponse createHttpResponse(final double status, final String body) {
+    return HttpResponse.builder().status((int) status).body(body).build();
   }
 
   public Future<HttpResponse> sendHttpRequest(final HttpRequest request) throws URISyntaxException,

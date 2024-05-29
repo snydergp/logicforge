@@ -34,10 +34,6 @@
         "String": {
           "title": "Text",
           "description": "A text string"
-        },
-        "Number": {
-          "title": "Number",
-          "description": "A whole number or decimal"
         }
       }
     },
@@ -53,21 +49,9 @@
         }
       }
     },
-    "int": {
-      "title": "Integer",
-      "description": "A whole number (non-decimal) value"
-    },
-    "long": {
-      "title": "Integer",
-      "description": "A whole number (non-decimal) value"
-    },
-    "float": {
-      "title": "Decimal",
-      "description": "A decimal number"
-    },
     "double": {
-      "title": "Decimal",
-      "description": "A decimal number"
+      "title": "Number",
+      "description": "A decimal/integer number value"
     }
   },
   "actions": {
@@ -81,7 +65,7 @@
         }
       }
     },
-    "log": {
+    "logMessage": {
       "title": "Log Message",
       "description": "Outputs a message to the log",
       "parameters": {
@@ -117,6 +101,16 @@
         }
       }
     },
+    "not": {
+      "title": "Not",
+      "description": "Inverts an input boolean value (returns true for false, and  false for true)",
+      "parameters": {
+        "value": {
+          "title": "Value",
+          "description": "The input boolean"
+        }
+      }
+    },
     "concatenate": {
       "title": "Concatenate",
       "description": "Joins a list of values together into a single string of text",
@@ -124,6 +118,681 @@
         "values": {
           "title": "Values",
           "description": "The list of values to join"
+        }
+      }
+    },
+    "reverseText": {
+      "title": "Reverse Text",
+      "description": "Reverses an input text string",
+      "parameters": {
+        "text": {
+          "title": "Input Value",
+          "description": "The text to reverse"
+        }
+      }
+    },
+    "truncateText": {
+      "title": "Truncate Text",
+      "description": "Truncates an input text string. If the input string is longer than the supplied length, the original string will be returned.",
+      "parameters": {
+        "text": {
+          "title": "Input Text",
+          "description": "The text to truncate"
+        },
+        "length": {
+          "title": "Length",
+          "description": "The length to which the text should be truncated"
+        }
+      }
+    },
+    "textContains": {
+      "title": "Text Contains",
+      "description": "Checks if a text string contains another string",
+      "parameters": {
+        "text": {
+          "title": "Input Text",
+          "description": "The text in which the substring might occur"
+        },
+        "substring": {
+          "title": "Substring",
+          "description": "The substring to check for"
+        }
+      }
+    },
+    "matchCount": {
+      "title": "Text Match Count",
+      "description": "Returns the number of times a substring occurs in a text string",
+      "parameters": {
+        "text": {
+          "title": "Input Text",
+          "description": "The text in which the substring might occur"
+        },
+        "substring": {
+          "title": "Substring",
+          "description": "The substring to check for"
+        }
+      }
+    },
+    "findOffset": {
+      "title": "Find Text Offset",
+      "description": "Returns the character number at which the given substring occurs in the input string, or -1 if the substring is not found.",
+      "parameters": {
+        "text": {
+          "title": "Input Text",
+          "description": "The text in which the substring might occur"
+        },
+        "substring": {
+          "title": "Substring",
+          "description": "The substring to check for"
+        }
+      }
+    },
+    "minimumDouble": {
+      "title": "Minimum",
+      "description": "Returns the minimum number in the list of input values. This operation will fail if no values are provided.",
+      "parameters": {
+        "values": {
+          "title": "Values",
+          "description": "The list of number values"
+        }
+      }
+    },
+    "maximumDouble": {
+      "title": "Maximum",
+      "description": "Returns the maximum number in the list of input values. This operation will fail if no values are provided.",
+      "parameters": {
+        "values": {
+          "title": "Values",
+          "description": "The list of number values"
+        }
+      }
+    },
+    "sumDoubles": {
+      "title": "Sum",
+      "description": "Returns the sum of the provided list of numeric values",
+      "parameters": {
+        "values": {
+          "title": "Values",
+          "description": "The list of number values"
+        }
+      }
+    },
+    "differenceDoubles": {
+      "title": "Subtract",
+      "description": "Returns the difference of two numeric values",
+      "parameters": {
+        "a": {
+          "title": "Input Value",
+          "description": "The number to subtract from"
+        },
+        "b": {
+          "title": "Subtraction Amount",
+          "description": "The number to subtract"
+        }
+      }
+    },
+    "negateDouble": {
+      "title": "Negative",
+      "description": "Returns the negative of an input value. Equivalent to multiplying by -1.",
+      "parameters": {
+        "value": {
+          "title": "Input Value",
+          "description": "The number to negate"
+        }
+      }
+    },
+    "multiplyDoubles": {
+      "title": "Multiply",
+      "description": "Returns the product of the provided list of numeric values",
+      "parameters": {
+        "values": {
+          "title": "Values",
+          "description": "The list of number values"
+        }
+      }
+    },
+    "sortDoubles": {
+      "title": "Sort Numbers",
+      "description": "Returns the input list of numeric values in increasing order",
+      "parameters": {
+        "values": {
+          "title": "Values",
+          "description": "The list of number values"
+        }
+      }
+    },
+    "reverseSortDoubles": {
+      "title": "Reverse Sort Numbers",
+      "description": "Returns the input list of numeric values in decreasing order",
+      "parameters": {
+        "values": {
+          "title": "Values",
+          "description": "The list of number values"
+        }
+      }
+    },
+    "averageDoubles": {
+      "title": "Average",
+      "description": "Returns the average of the input list of numeric values",
+      "parameters": {
+        "values": {
+          "title": "Values",
+          "description": "The list of number values"
+        }
+      }
+    },
+    "isLessThanDouble": {
+      "title": "Less Than",
+      "description": "Returns true if a test value is less than a reference value",
+      "parameters": {
+        "test": {
+          "title": "Test Value",
+          "description": "The value to test"
+        },
+        "reference": {
+          "title": "Reference Value",
+          "description": "The value to test"
+        }
+      }
+    },
+    "isGreaterThanDouble": {
+      "title": "Less Than",
+      "description": "Returns true if a test value is greater than a reference value",
+      "parameters": {
+        "test": {
+          "title": "Test Value",
+          "description": "The value to test"
+        },
+        "reference": {
+          "title": "Reference Value",
+          "description": "The value to test"
+        }
+      }
+    },
+    "isLessThanOrEqualDouble": {
+      "title": "Less Than",
+      "description": "Returns true if a test value is less than or equal to a reference value",
+      "parameters": {
+        "test": {
+          "title": "Test Value",
+          "description": "The value to test"
+        },
+        "reference": {
+          "title": "Reference Value",
+          "description": "The value to test"
+        }
+      }
+    },
+    "isGreaterThanOrEqualDouble": {
+      "title": "Less Than",
+      "description": "Returns true if a test value is greater than or equal to a reference value",
+      "parameters": {
+        "test": {
+          "title": "Test Value",
+          "description": "The value to test"
+        },
+        "reference": {
+          "title": "Reference Value",
+          "description": "The value to test"
+        }
+      }
+    },
+    "exponentDouble": {
+      "title": "Exponent",
+      "description": "Raises one numeric value to the power of another",
+      "parameters": {
+        "test": {
+          "title": "Base",
+          "description": "The base number"
+        },
+        "reference": {
+          "title": "Exponent",
+          "description": "The exponent"
+        }
+      }
+    },
+    "roundDouble": {
+      "title": "Round",
+      "description": "Rounds an input number to the nearest whole number",
+      "parameters": {
+        "value": {
+          "title": "Value",
+          "description": "The number to round"
+        }
+      }
+    },
+    "floorDouble": {
+      "title": "Floor",
+      "description": "Rounds an input number down to the nearest whole number value",
+      "parameters": {
+        "value": {
+          "title": "Value",
+          "description": "The number to round"
+        }
+      }
+    },
+    "ceilingDouble": {
+      "title": "Ceiling",
+      "description": "Rounds an input number down to the nearest whole number value",
+      "parameters": {
+        "value": {
+          "title": "Value",
+          "description": "The number to round"
+        }
+      }
+    },
+    "findObject": {
+      "title": "Find Index",
+      "description": "Returns the index of a given value in a list, or -1 if the value is not in the list",
+      "parameters": {
+        "value": {
+          "title": "Value",
+          "description": "The value to lookup"
+        },
+        "values": {
+          "title": "List",
+          "description": "The list of values to search"
+        }
+      }
+    },
+    "countMatchingObjects": {
+      "title": "Count Matches",
+      "description": "Returns the count of values in a list that match a given value",
+      "parameters": {
+        "match": {
+          "title": "Value",
+          "description": "The value to lookup"
+        },
+        "values": {
+          "title": "List",
+          "description": "The list of values to search"
+        }
+      }
+    },
+    "removeMatchingObjects": {
+      "title": "Remove Matches",
+      "description": "Returns all values in a list that do not match a given value. A new list is returned, and the original list is not altered.",
+      "parameters": {
+        "match": {
+          "title": "Value",
+          "description": "The value to remove"
+        },
+        "values": {
+          "title": "List",
+          "description": "The list of values to search"
+        }
+      }
+    },
+    "containsObject": {
+      "title": "Contains",
+      "description": "Returns whether a given value is contained in a list",
+      "parameters": {
+        "value": {
+          "title": "Value",
+          "description": "The value to find"
+        },
+        "values": {
+          "title": "List",
+          "description": "The list of values to search"
+        }
+      }
+    },
+    "removeObjectByIndex": {
+      "title": "Remove Index",
+      "description": "Returns all values in a given list except the specified index. A new list is returned, and the original list is not altered.",
+      "parameters": {
+        "index": {
+          "title": "Index",
+          "description": "The index of the object to remove"
+        },
+        "values": {
+          "title": "List",
+          "description": "The list of values to search"
+        }
+      }
+    },
+    "objectListLength": {
+      "title": "Length",
+      "description": "Returns the length (count) of the specified list",
+      "parameters": {
+        "values": {
+          "title": "List",
+          "description": "The list of values"
+        }
+      }
+    },
+    "isEqualObjects": {
+      "title": "Equals",
+      "description": "Returns whether the provided values are equal. If more than two values are provided, all values must be equal.",
+      "parameters": {
+        "values": {
+          "title": "Values",
+          "description": "The values to check for equality"
+        }
+      }
+    },
+    "localDateToday": {
+      "title": "Current Date (Local)",
+      "description": "Returns the current date, without timezone.",
+      "parameters": {}
+    },
+    "localTimeNow": {
+      "title": "Current Time (Local)",
+      "description": "Returns the current time, without timezone.",
+      "parameters": {}
+    },
+    "localDateTimeNow": {
+      "title": "Current Date/Time (Local)",
+      "description": "Returns the current date/time, without timezone.",
+      "parameters": {}
+    },
+    "addLocalDateTimePeriod": {
+      "title": "Add to Date (Local)",
+      "description": "Returns a local date plus some amount of time",
+      "parameters": {
+        "date": {
+          "title": "Date",
+          "description": "The date to add time to"
+        },
+        "time": {
+          "title": "Add",
+          "description": "The amount of time to add to the date"
+        },
+        "timeUnit": {
+          "title": "Time Unit",
+          "description": "The unit to use for the provided time value"
+        }
+      }
+    },
+    "subtractLocalDateTimePeriod": {
+      "title": "Subtract from Date (Local)",
+      "description": "Returns a local date minus some amount of time",
+      "parameters": {
+        "date": {
+          "title": "Date",
+          "description": "The date to subtract time from"
+        },
+        "time": {
+          "title": "Subtract",
+          "description": "The amount of time to subtract from the date"
+        },
+        "timeUnit": {
+          "title": "Time Unit",
+          "description": "The unit to use for the provided time value"
+        }
+      }
+    },
+    "addLocalTimeTimePeriod": {
+      "title": "Add to Time (Local)",
+      "description": "Returns a local time plus some amount of time",
+      "parameters": {
+        "date": {
+          "title": "Time",
+          "description": "The date to add time to"
+        },
+        "time": {
+          "title": "Plus",
+          "description": "The amount of time to add to the date"
+        },
+        "timeUnit": {
+          "title": "Time Unit",
+          "description": "The unit to use for the provided time value"
+        }
+      }
+    },
+    "subtractLocalTimeTimePeriod": {
+      "title": "Subtract from Time (Local)",
+      "description": "Returns a local time minus some amount of time",
+      "parameters": {
+        "date": {
+          "title": "Time",
+          "description": "The date to subtract time from"
+        },
+        "time": {
+          "title": "Subtract",
+          "description": "The amount of time to subtract from the date"
+        },
+        "timeUnit": {
+          "title": "Time Unit",
+          "description": "The unit to use for the provided time value"
+        }
+      }
+    },
+    "addLocalDateTimeTimePeriod": {
+      "title": "Add to Date/Time (Local)",
+      "description": "Returns a local date/time plus some amount of time",
+      "parameters": {
+        "date": {
+          "title": "Date/Time",
+          "description": "The date/time to add time to"
+        },
+        "time": {
+          "title": "Plus",
+          "description": "The amount of time to add to the date/time"
+        },
+        "timeUnit": {
+          "title": "Time Unit",
+          "description": "The unit to use for the provided time value"
+        }
+      }
+    },
+    "subtractLocalDateTimeTimePeriod": {
+      "title": "Subtract from Date/Time (Local)",
+      "description": "Returns a local date/time minus some amount of time",
+      "parameters": {
+        "date": {
+          "title": "Date/Time",
+          "description": "The date/time to subtract time from"
+        },
+        "time": {
+          "title": "Subtract",
+          "description": "The amount of time to subtract from the date/time"
+        },
+        "timeUnit": {
+          "title": "Time Unit",
+          "description": "The unit to use for the provided time value"
+        }
+      }
+    },
+    "getLocalDateDifference": {
+      "title": "Date Difference (Local)",
+      "description": "Gets the difference between two dates in some time unit. Returned value will be positive when test is after reference.",
+      "parameters": {
+        "reference": {
+          "title": "Reference Date",
+          "description": "The reference date"
+        },
+        "test": {
+          "title": "Test Date",
+          "description": "The test date"
+        },
+        "timeUnit": {
+          "title": "Time Unit",
+          "description": "The unit to use"
+        }
+      }
+    },
+    "getLocalTimeDifference": {
+      "title": "Time Difference (Local)",
+      "description": "Gets the difference between two times in some time unit. Returned value will be positive when test is after reference.",
+      "parameters": {
+        "reference": {
+          "title": "Reference Time",
+          "description": "The reference time"
+        },
+        "test": {
+          "title": "Test Time",
+          "description": "The test time"
+        },
+        "timeUnit": {
+          "title": "Time Unit",
+          "description": "The unit to use"
+        }
+      }
+    },
+    "getLocalDateTimeDifference": {
+      "title": "Date/Time Difference (Local)",
+      "description": "Gets the difference between two date/times in some time unit. Returned value will be positive when test is after reference.",
+      "parameters": {
+        "reference": {
+          "title": "Reference Date/Time",
+          "description": "The reference date/time"
+        },
+        "test": {
+          "title": "Test Date/Time",
+          "description": "The test date/time"
+        },
+        "timeUnit": {
+          "title": "Time Unit",
+          "description": "The unit to use"
+        }
+      }
+    },
+    "combineLocalDateAndTime": {
+      "title": "Combine Date and Time (Local)",
+      "description": "Returns a date/time from separate local date and time values",
+      "parameters": {
+        "date": {
+          "title": "Date",
+          "description": "The date to use"
+        },
+        "time": {
+          "title": "Time",
+          "description": "The time to use"
+        }
+      }
+    },
+    "getDateFromLocalDateTime": {
+      "title": "Get Date From Date/Time (Local)",
+      "description": "Returns the date for a corresponding date/time",
+      "parameters": {
+        "dateTime": {
+          "title": "Date/Time",
+          "description": "The date/time to use"
+        }
+      }
+    },
+    "getTimeFromLocalDateTime": {
+      "title": "Get Time From Date/Time (Local)",
+      "description": "Returns the time for a corresponding date/time",
+      "parameters": {
+        "dateTime": {
+          "title": "Date/Time",
+          "description": "The date/time to use"
+        }
+      }
+    },
+    "isLocalDateBefore": {
+      "title": "Is Date Before (Local)",
+      "description": "Returns whether a test date is before a reference date",
+      "parameters": {
+        "reference": {
+          "title": "Reference Date",
+          "description": "The reference date"
+        },
+        "test": {
+          "title": "Test Date",
+          "description": "The test date"
+        }
+      }
+    },
+    "isLocalDateAfter": {
+      "title": "Is Date After (Local)",
+      "description": "Returns whether a test date is after a reference date",
+      "parameters": {
+        "reference": {
+          "title": "Reference Date",
+          "description": "The reference date"
+        },
+        "test": {
+          "title": "Test Date",
+          "description": "The test date"
+        }
+      }
+    },
+    "isLocalTimeBefore": {
+      "title": "Is Time Before (Local)",
+      "description": "Returns whether a test time is before a reference time",
+      "parameters": {
+        "reference": {
+          "title": "Reference Time",
+          "description": "The reference time"
+        },
+        "test": {
+          "title": "Test Time",
+          "description": "The test time"
+        }
+      }
+    },
+    "isLocalTimeAfter": {
+      "title": "Is Time After (Local)",
+      "description": "Returns whether a test time is after a reference time",
+      "parameters": {
+        "reference": {
+          "title": "Reference Time",
+          "description": "The reference time"
+        },
+        "test": {
+          "title": "Test Time",
+          "description": "The test time"
+        }
+      }
+    },
+    "isLocalDateTimeBefore": {
+      "title": "Is Date/Time Before (Local)",
+      "description": "Returns whether a test date/time is before a reference date/time",
+      "parameters": {
+        "reference": {
+          "title": "Reference Date/Time",
+          "description": "The reference date/time"
+        },
+        "test": {
+          "title": "Test Date/Time",
+          "description": "The test date/time"
+        }
+      }
+    },
+    "isLocalDateTimeAfter": {
+      "title": "Is Date/Time After (Local)",
+      "description": "Returns whether a test date/time is after a reference date/time",
+      "parameters": {
+        "reference": {
+          "title": "Reference Date/Time",
+          "description": "The reference date/time"
+        },
+        "test": {
+          "title": "Test Date/Time",
+          "description": "The test date/time"
+        }
+      }
+    },
+    "localDateToString": {
+      "title": "Date to Text (Local)",
+      "description": "Returns a textual representation of a date",
+      "parameters": {
+        "date": {
+          "title": "Date",
+          "description": "The date"
+        }
+      }
+    },
+    "localTimeToString": {
+      "title": "Time to Text (Local)",
+      "description": "Returns a textual representation of a time",
+      "parameters": {
+        "date": {
+          "title": "Time",
+          "description": "The time"
+        }
+      }
+    },
+    "localDateTimeToString": {
+      "title": "Date/Time to Text (Local)",
+      "description": "Returns a textual representation of a date/time",
+      "parameters": {
+        "date": {
+          "title": "Date/Time",
+          "description": "The date/time"
         }
       }
     }

@@ -42,12 +42,15 @@ public interface WebServerProcess extends Process {
 The LogicForge engine analyzes the provided method to determine the parameters and outputs, then
 builds a specification that models not only the process, but any functions and actions the end user
 can access while implementing the process. Developers have complete control over the available
-actions and functions, and can add custom capabilities with minimal effort.
+actions and functions (collectively called "operations"), and can add custom capabilities with
+minimal effort.
 
 ![LogicForge UI](docs/images/ui-webserver.png "LogicForge UI")
 
 The frontend consists of React components that provide the capability to edit the logic of the
-process. Users can reference input variables, perform actions, and leverage functions.
+process. Users can reference input variables, perform actions, and leverage functions. The usage is
+similar to writing nested Excel functions, where the inputs to a function might be supplied by
+another function, a cell reference, or a static value.
 
 The saved process configuration model can then be instantiated into a dynamic implementation of the
 process interface and called as a normal Java method. Process objects can be called multiple times

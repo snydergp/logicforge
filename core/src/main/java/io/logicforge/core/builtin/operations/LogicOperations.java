@@ -1,8 +1,8 @@
-package io.logicforge.core.builtin.functions;
+package io.logicforge.core.builtin.operations;
 
 import io.logicforge.core.annotations.elements.Function;
 
-public class LogicFunctions {
+public class LogicOperations {
 
   @Function
   public static boolean and(final boolean... values) {
