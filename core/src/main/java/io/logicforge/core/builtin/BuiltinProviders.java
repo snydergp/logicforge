@@ -20,16 +20,9 @@ import lombok.NoArgsConstructor;
 public final class BuiltinProviders {
 
   private static final List<Class<?>> BUILTIN_PROVIDERS = List.of(BooleanConverters.class,
-      DecimalConverters.class,
-      IntegerConverters.class,
-      StringConverters.class,
-      LogicOperations.class,
-      MathOperations.class,
-      TextOperations.class,
-      VariableOperations.class,
-      LoggingOperations.class,
-      MultiOperations.class,
-      LocalDateTimeOperations.class);
+      DecimalConverters.class, IntegerConverters.class, StringConverters.class,
+      LogicOperations.class, MathOperations.class, TextOperations.class, VariableOperations.class,
+      LoggingOperations.class, MultiOperations.class, LocalDateTimeOperations.class);
 
   /**
    * Returns an array of all action/function/converter provider classes. This class array can be

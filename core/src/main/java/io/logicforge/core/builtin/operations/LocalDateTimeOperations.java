@@ -2,6 +2,8 @@ package io.logicforge.core.builtin.operations;
 
 import io.logicforge.core.annotations.elements.Converter;
 import io.logicforge.core.annotations.elements.Function;
+import io.logicforge.core.annotations.metadata.Category;
+import io.logicforge.core.constant.WellKnownCategories;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -12,6 +14,7 @@ import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
 
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
+@Category(WellKnownCategories.LOCAL_DATE_TIME)
 public final class LocalDateTimeOperations {
 
   @Function
@@ -30,58 +33,50 @@ public final class LocalDateTimeOperations {
   }
 
   @Function
-  public static LocalDate addLocalDateTimePeriod(final LocalDate date,
-      final double time,
+  public static LocalDate addLocalDateTimePeriod(final LocalDate date, final double time,
       final TimeUnit timeUnit) {
     return date.plus((long) time, timeUnit.toChronoUnit());
   }
 
   @Function
-  public static LocalDate subtractLocalDateTimePeriod(final LocalDate date,
-      final double time,
+  public static LocalDate subtractLocalDateTimePeriod(final LocalDate date, final double time,
       final TimeUnit timeUnit) {
     return date.minus((long) time, timeUnit.toChronoUnit());
   }
 
   @Function
-  public static LocalTime addLocalTimeTimePeriod(final LocalTime date,
-      final double time,
+  public static LocalTime addLocalTimeTimePeriod(final LocalTime date, final double time,
       final TimeUnit timeUnit) {
     return date.plus((long) time, timeUnit.toChronoUnit());
   }
 
   @Function
-  public static LocalTime subtractLocalTimeTimePeriod(final LocalTime date,
-      final double time,
+  public static LocalTime subtractLocalTimeTimePeriod(final LocalTime date, final double time,
       final TimeUnit timeUnit) {
     return date.minus((long) time, timeUnit.toChronoUnit());
   }
 
   @Function
   public static LocalDateTime addLocalDateTimeTimePeriod(final LocalDateTime date,
-      final double time,
-      final TimeUnit timeUnit) {
+      final double time, final TimeUnit timeUnit) {
     return date.plus((long) time, timeUnit.toChronoUnit());
   }
 
   @Function
   public static LocalDateTime subtractLocalDateTimeTimePeriod(final LocalDateTime date,
-      final double time,
-      final TimeUnit timeUnit) {
+      final double time, final TimeUnit timeUnit) {
     return date.minus((long) time, timeUnit.toChronoUnit());
   }
 
   @Function
-  public static double getLocalDateDifference(final LocalDate reference,
-      final LocalDate test,
+  public static double getLocalDateDifference(final LocalDate reference, final LocalDate test,
       final TimeUnit timeUnit) {
     final long dayDifference = test.toEpochDay() - reference.toEpochDay();
     return timeUnit.convert(dayDifference, TimeUnit.DAYS);
   }
 
   @Function
-  public static double getLocalTimeDifference(final LocalTime reference,
-      final LocalTime test,
+  public static double getLocalTimeDifference(final LocalTime reference, final LocalTime test,
       final TimeUnit timeUnit) {
     final long nanoDifference = test.toNanoOfDay() - reference.toNanoOfDay();
     return timeUnit.convert(nanoDifference, TimeUnit.NANOSECONDS);
@@ -89,10 +84,9 @@ public final class LocalDateTimeOperations {
 
   @Function
   public static double getLocalDateTimeDifference(final LocalDateTime reference,
-      final LocalDateTime test,
-      final TimeUnit timeUnit) {
-    final long nanoDifference =
-        test.toInstant(ZoneOffset.UTC).getNano() - reference.toInstant(ZoneOffset.UTC).getNano();
+      final LocalDateTime test, final TimeUnit timeUnit) {
+    final long nanoDifference = test.toInstant(ZoneOffset.UTC).getNano() - reference.toInstant(
+        ZoneOffset.UTC).getNano();
     return timeUnit.convert(nanoDifference, TimeUnit.NANOSECONDS);
   }
 

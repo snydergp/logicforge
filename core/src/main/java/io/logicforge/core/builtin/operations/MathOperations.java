@@ -1,8 +1,11 @@
 package io.logicforge.core.builtin.operations;
 
 import io.logicforge.core.annotations.elements.Function;
+import io.logicforge.core.annotations.metadata.Category;
+import io.logicforge.core.constant.WellKnownCategories;
 import java.util.Arrays;
 
+@Category(WellKnownCategories.MATH)
 public class MathOperations {
 
   private static final String ERR_EMPTY = "this function requires at least one input value";

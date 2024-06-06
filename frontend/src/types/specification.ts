@@ -35,6 +35,7 @@ export type InputSpec = ExpressionSpec & {
 export type CallableSpec = {
   inputs: { [key: string]: InputSpec };
   output: InputSpec;
+  metadata: { [key: string]: any };
 };
 
 export type EngineSpec = {

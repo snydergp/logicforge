@@ -2,15 +2,14 @@ package io.logicforge.core.model.dto.specification;
 
 import java.util.Map;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.experimental.SuperBuilder;
 
+@EqualsAndHashCode(callSuper = true)
 @Data
 @SuperBuilder
-public class CallableSpecDTO {
+public class ProvidedCallableSpecDTO extends CallableSpecDTO {
 
-  private String name;
-  private Map<String, InputSpecDTO> inputs;
-  private ExpressionSpecDTO output;
   private Map<String, Object> metadata;
 
 }

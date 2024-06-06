@@ -5,6 +5,7 @@ import io.logicforge.core.annotations.elements.CompoundType;
 import io.logicforge.core.annotations.elements.Converter;
 import io.logicforge.core.annotations.elements.Function;
 import io.logicforge.core.annotations.elements.Property;
+import io.logicforge.core.annotations.metadata.Category;
 import io.logicforge.core.annotations.metadata.InfluencesReturnType;
 import io.logicforge.core.annotations.metadata.Name;
 import io.logicforge.core.common.Pair;
@@ -313,6 +314,10 @@ public class EngineSpecBuilder {
     final List<InputSpec> inputSpecs = processParameters(method);
     final Pair<Class<?>, Boolean> typeInfo = registerType(returnType, true);
 
+    final Map<String, Object> metadata = new HashMap<>();
+    final Optional<String> categoryOptional = getCategoryForMethod(method);
+    categoryOptional.ifPresent(s -> metadata.put(MetadataFlags.CATEGORY, s));
+
     final ProvidedCallableSpec actionSpec = ProvidedCallableSpec.builder()
         .name(name)
         .inputs(inputSpecs)
@@ -320,6 +325,7 @@ public class EngineSpecBuilder {
         .method(method)
         .type(typeInfo.getLeft())
         .multi(typeInfo.getRight())
+        .metadata(metadata)
         .build();
     actions.put(name, actionSpec);
   }
@@ -335,6 +341,10 @@ public class EngineSpecBuilder {
     final String name = getNameForMethod(method);
     final List<InputSpec> inputSpecs = processParameters(method);
 
+    final Map<String, Object> metadata = new HashMap<>();
+    final Optional<String> categoryOptional = getCategoryForMethod(method);
+    categoryOptional.ifPresent(s -> metadata.put(MetadataFlags.CATEGORY, s));
+
     final ProvidedCallableSpec functionSpec = ProvidedCallableSpec.builder()
         .name(name)
         .inputs(inputSpecs)
@@ -342,6 +352,7 @@ public class EngineSpecBuilder {
         .method(method)
         .type(typeInfo.getLeft())
         .multi(typeInfo.getRight())
+        .metadata(metadata)
         .build();
     functions.put(name, functionSpec);
   }
@@ -424,6 +435,19 @@ public class EngineSpecBuilder {
   private static String getNameForMethod(final Method method) {
     final Name name = method.getAnnotation(Name.class);
     return name != null ? name.value() : method.getName();
+  }
+
+  private static Optional<String> getCategoryForMethod(final Method method) {
+    final Category methodCategory = method.getAnnotation(Category.class);
+    if (methodCategory != null) {
+      return Optional.of(methodCategory.value());
+    }
+    final Class<?> declaringClass = method.getDeclaringClass();
+    final Category classCategory = declaringClass.getAnnotation(Category.class);
+    if (classCategory != null) {
+      return Optional.of(classCategory.value());
+    }
+    return Optional.empty();
   }
 
   private static boolean isMethodStatic(final Method method) {

@@ -96,6 +96,14 @@ export function controlBlockDescriptionKey(controlName: string, blockName: strin
   return `controls.${controlName}.blocks.${blockName}.description`;
 }
 
+export function categoryTitle(categoryId: string) {
+  return `categories.${categoryId}.title`;
+}
+
+export function categoryDescription(categoryId: string) {
+  return `categories.${categoryId}.description`;
+}
+
 export function errorKey(errorCode: ErrorCode) {
   return `errors.${errorCode}`;
 }

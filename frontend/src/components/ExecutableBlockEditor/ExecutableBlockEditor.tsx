@@ -40,6 +40,8 @@ import { useTranslate } from '../I18n/I18n';
 import {
   actionDescriptionKey,
   actionTitleKey,
+  categoryDescription,
+  categoryTitle,
   controlBlockTitleKey,
   controlDescriptionKey,
   controlParameterTitleKey,
@@ -52,6 +54,7 @@ import { Search } from '@mui/icons-material';
 import { ArgumentEditor } from '../ArgumentEditor/ArgumentEditor';
 import { ContextActions } from '../ContextActions/ContextActions';
 import { ListItemView, ListView } from '../SharedElements/SharedElements';
+import { MetadataProperties } from '../../constant/metadata-properties';
 
 const DRAG_DROP_GROUP: string = 'executables';
 
@@ -401,6 +404,17 @@ type ExecutableItem = {
   description: string;
 };
 
+type CategoryItem = {
+  id: string;
+  title: string;
+  description: string;
+};
+
+type CategorizedExecutableCollection = {
+  categorized: { [key: string]: ExecutableItem[] };
+  categories: { [key: string]: CategoryItem };
+};
+
 function ExecutableSelectionDialog(props: ExecutableSelectionDialogProps) {
   const { parentKey, open, cancel } = props;
   const translate = useTranslate();
@@ -425,34 +439,120 @@ function ExecutableSelectionDialog(props: ExecutableSelectionDialogProps) {
 
   const actionItems = useMemo(
     () =>
-      actions.map((action) => {
+      actions.map((actionName) => {
+        const action = engineSpec.actions[actionName];
+        const category = action.metadata[MetadataProperties.CATEGORY] || 'none';
         return {
-          group: ACTIONS_GROUP_ID,
-          name: action,
-          title: translate(actionTitleKey(action)),
-          description: translate(actionDescriptionKey(action)),
+          group: category,
+          name: actionName,
+          title: translate(actionTitleKey(actionName)),
+          description: translate(actionDescriptionKey(actionName)),
         } as ExecutableItem;
       }),
-    [actions, translate],
+    [actions, translate, engineSpec],
   );
 
-  const allItems = useMemo(() => [...controlItems, ...actionItems], [controlItems, actionItems]);
-  allItems.sort((a, b) => {
-    return b.name.localeCompare(a.name) || a.title.localeCompare(b.title);
-  });
+  const allItems: CategorizedExecutableCollection = useMemo(() => {
+    const categorized: {
+      [key: string]: ExecutableItem[];
+    } = { [CONTROLS_GROUP_ID]: [...controlItems] };
+    actionItems.forEach((actionItem) => {
+      let categoryItems = categorized[actionItem.group];
+      if (!categoryItems) {
+        categoryItems = [];
+        categorized[actionItem.group] = categoryItems;
+      }
+      categoryItems.push(actionItem);
+    });
+    const categories = Object.keys(categorized)
+      .map((categoryId) => {
+        return {
+          id: categoryId,
+          title: translate(categoryTitle(categoryId)),
+          description: translate(categoryDescription(categoryId)),
+        };
+      })
+      .reduce(
+        (previous, current) => {
+          previous[current.id] = current;
+          return previous;
+        },
+        {} as { [key: string]: CategoryItem },
+      );
+    return { categorized, categories };
+  }, [controlItems, actionItems, translate]);
 
   const [searchText, setSearchText] = useState('');
-  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [selectedItem, setSelectedItem] = useState<ExecutableItem | undefined>();
 
-  const filteredItems = useMemo(() => {
-    const filtered: ExecutableItem[] = [];
-    allItems.forEach((item) => {
-      if (matches(searchText, item)) {
-        filtered.push(item);
-      }
-    });
-    return filtered;
+  const filteredItems: CategorizedExecutableCollection = useMemo(() => {
+    const categorized = Object.entries(allItems.categorized)
+      .map(([key, value]) => {
+        const categoryData = allItems.categories[key];
+        // for category matches, return all items in category
+        if (matchesCategory(searchText, categoryData)) {
+          return { [key]: value };
+        }
+        // else filter individual matches
+        return { [key]: value.filter((item) => matchesItem(searchText, item)) };
+      })
+      .reduce((previous, current) => {
+        Object.assign(previous, current);
+        return previous;
+      }, {});
+    const categories = Object.values(allItems.categories)
+      .filter((category) => {
+        return categorized.hasOwnProperty(category.id) && categorized[category.id].length > 0;
+      })
+      .reduce(
+        (previous, current) => {
+          previous[current.id] = current;
+          return previous;
+        },
+        {} as { [key: string]: CategoryItem },
+      );
+    return {
+      categorized,
+      categories,
+    };
   }, [searchText, allItems]);
+
+  const filteredItemsList = useMemo<
+    CategorizedExecutableCollection & {
+      categoryOrder: CategoryItem[];
+      inOrder: ExecutableItem[];
+    }
+  >(() => {
+    // determine alphabetical category order
+    const categoryOrder = Object.values(filteredItems.categories).sort((a, b) =>
+      a.title.localeCompare(b.title),
+    );
+    const inOrder = categoryOrder
+      .map((category) => {
+        const categoryItems = filteredItems.categorized[category.id];
+        return categoryItems || [];
+      })
+      .reduce((previous, current) => {
+        return [...previous, ...current];
+      }, []);
+    return {
+      ...filteredItems,
+      categoryOrder,
+      inOrder,
+    };
+  }, [filteredItems, translate]);
+
+  const [selectedIndex, setSelectedIndex] = useState<number>(0);
+  // as the selection or list is updated, reset the selected index to match
+  useEffect(() => {
+    const index =
+      selectedItem === undefined
+        ? 0
+        : filteredItemsList.inOrder.findIndex((item) => {
+            return item.group === selectedItem.group && item.name === selectedItem.name;
+          });
+    setSelectedIndex(index);
+  }, [filteredItemsList, selectedItem, setSelectedIndex]);
 
   const handleSearchTextUpdate = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -469,14 +569,14 @@ function ExecutableSelectionDialog(props: ExecutableSelectionDialogProps) {
   );
 
   const handleSelect = useCallback(() => {
-    let executableItem = filteredItems[selectedIndex];
+    let executableItem = filteredItemsList.inOrder[selectedIndex];
     handleSelection(
       parentKey,
       executableItem.name,
       executableItem.group === CONTROLS_GROUP_ID ? ContentType.CONTROL : ContentType.ACTION,
     );
     cancel();
-  }, [parentKey, selectedIndex, filteredItems, handleSelection, cancel]);
+  }, [parentKey, selectedIndex, filteredItemsList, handleSelection, cancel]);
 
   const handleSearchKeyDown = useCallback(
     (event: React.KeyboardEvent<HTMLInputElement>) => {
@@ -485,14 +585,14 @@ function ExecutableSelectionDialog(props: ExecutableSelectionDialogProps) {
           setSelectedIndex(Math.max(selectedIndex - 1, 0));
           break;
         case 'ArrowDown':
-          setSelectedIndex(Math.min(selectedIndex + 1, filteredItems.length - 1));
+          setSelectedIndex(Math.min(selectedIndex + 1, filteredItemsList.inOrder.length - 1));
           break;
         case 'Enter':
           handleSelect();
           break;
       }
     },
-    [selectedIndex, setSelectedIndex, filteredItems, handleSelect],
+    [selectedIndex, setSelectedIndex, filteredItemsList, handleSelect],
   );
 
   return (
@@ -515,7 +615,7 @@ function ExecutableSelectionDialog(props: ExecutableSelectionDialogProps) {
             }
             sx={{ mx: 2 }}
           />
-          {renderGroupedList(filteredItems, selectedIndex, setSelectedIndex)}
+          {renderGroupedList(filteredItemsList, selectedItem, setSelectedItem)}
         </Stack>
       </DialogContent>
       <DialogActions>
@@ -531,56 +631,60 @@ function ExecutableSelectionDialog(props: ExecutableSelectionDialogProps) {
 }
 
 function renderGroupedList(
-  items: ExecutableItem[],
-  selectedIndex: number,
-  setSelectedIndex: (index: number) => void,
+  filtered: CategorizedExecutableCollection & {
+    categoryOrder: CategoryItem[];
+    inOrder: ExecutableItem[];
+  },
+  selectedItem: ExecutableItem | undefined,
+  setSelectedItem: (item: ExecutableItem) => void,
 ) {
-  if (items.length === 0) {
+  if (filtered.inOrder.length === 0) {
     return null;
   }
-  const actionIndex = items.findIndex((item) => item.group);
   return (
     <List sx={{ mt: 1, minWidth: '400px', minHeight: '500px' }}>
-      {actionIndex > 0 && <Typography key={CONTROLS_GROUP_ID}>Controls</Typography>}
-      {actionIndex > 0 &&
-        items.slice(0, actionIndex).map((item, index) => {
-          return (
-            <ListItem key={`${item.group}-${item.name}`}>
-              <ListItemButton
-                onClick={() => setSelectedIndex(index)}
-                selected={index === selectedIndex}
-              >
-                <ListItemText secondary={<span>{item.description}</span>}>
-                  {item.title}
-                </ListItemText>
-              </ListItemButton>
-            </ListItem>
-          );
-        })}
-      {actionIndex >= 0 && <Typography key={ACTIONS_GROUP_ID}>Actions</Typography>}
-      {actionIndex >= 0 &&
-        items.slice(actionIndex).map((item, index) => {
-          return (
-            <ListItem key={`${item.group}-${item.name}`}>
-              <ListItemButton
-                onClick={() => setSelectedIndex(index + actionIndex)}
-                selected={index + actionIndex === selectedIndex}
-              >
-                <ListItemText secondary={<span>{item.description}</span>}>
-                  {item.title}
-                </ListItemText>
-              </ListItemButton>
-            </ListItem>
-          );
-        })}
+      {filtered.categoryOrder.map((category) => {
+        const categoryItems = filtered.categorized[category.id];
+        return (
+          <>
+            <Typography key={category.id}>{category.title}</Typography>
+            {categoryItems.map((item) => {
+              return (
+                <ListItem key={`${item.group}-${item.name}`}>
+                  <ListItemButton
+                    onClick={() => setSelectedItem(item)}
+                    selected={
+                      selectedItem !== undefined &&
+                      selectedItem.group === item.group &&
+                      selectedItem.name === item.name
+                    }
+                  >
+                    <ListItemText secondary={<span>{item.description}</span>}>
+                      {item.title}
+                    </ListItemText>
+                  </ListItemButton>
+                </ListItem>
+              );
+            })}
+          </>
+        );
+      })}
     </List>
   );
 }
 
-function matches(searchString: string, item: ExecutableItem): boolean {
+function matchesItem(searchString: string, item: ExecutableItem): boolean {
   const searchStringUppercase = searchString.toUpperCase();
   return (
     item.name.toUpperCase().includes(searchStringUppercase) ||
+    item.title.toUpperCase().includes(searchStringUppercase) ||
+    item.description.toUpperCase().includes(searchStringUppercase)
+  );
+}
+
+function matchesCategory(searchString: string, item: CategoryItem): boolean {
+  const searchStringUppercase = searchString.toUpperCase();
+  return (
     item.title.toUpperCase().includes(searchStringUppercase) ||
     item.description.toUpperCase().includes(searchStringUppercase)
   );

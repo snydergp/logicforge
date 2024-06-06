@@ -1,5 +1,6 @@
 package io.logicforge.core.model.domain.specification;
 
+import java.util.Map;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.experimental.SuperBuilder;
@@ -10,5 +11,6 @@ import lombok.experimental.SuperBuilder;
 public class ProvidedCallableSpec extends CallableSpec {
 
   private final Object provider;
+  private final Map<String, Object> metadata;
 
 }

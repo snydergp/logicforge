@@ -2,9 +2,12 @@ package io.logicforge.core.builtin.operations;
 
 
 import io.logicforge.core.annotations.elements.Action;
+import io.logicforge.core.annotations.metadata.Category;
 import io.logicforge.core.builtin.types.LogLevel;
+import io.logicforge.core.constant.WellKnownCategories;
 import org.slf4j.LoggerFactory;
 
+@Category(WellKnownCategories.LOGGING)
 public class LoggingOperations {
 
   public static final String DEFAULT_LOGGER = LoggingOperations.class.getName();

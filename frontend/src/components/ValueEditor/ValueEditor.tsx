@@ -1,4 +1,11 @@
-import { ArgumentContent, TypeId, TypeSpec, TypeUnion, ValueContent } from '../../types';
+import {
+  ArgumentContent,
+  EngineSpec,
+  TypeId,
+  TypeSpec,
+  TypeUnion,
+  ValueContent,
+} from '../../types';
 import {
   Autocomplete,
   AutocompleteRenderGroupParams,
@@ -17,18 +24,25 @@ import { useDispatch, useSelector } from 'react-redux';
 import {
   convertValueToFunction,
   convertValueToReference,
+  LogicForgeReduxState,
   selectAvailableVariables,
   selectContentByKey,
   selectEngineSpec,
   updateValue,
   updateValueType,
   VariableModel,
-} from '../../redux/slices/frameEditorSlice';
-import { functionTitleKey, labelKey, typeEnumValueTitleKey, typeTitleKey } from '../../util';
+} from '../../redux';
+import {
+  categoryTitle,
+  functionTitleKey,
+  labelKey,
+  typeEnumValueTitleKey,
+  typeTitleKey,
+} from '../../util';
 import { TranslateFunction, useTranslate } from '../I18n/I18n';
-import { LogicForgeReduxState } from '../../redux';
 import { useContent } from '../../hooks/useContent';
 import { TypeView } from '../TypeView/TypeView';
+import { MetadataProperties } from '../../constant/metadata-properties';
 
 export interface ValueEditorProps {
   contentKey: string;
@@ -90,15 +104,25 @@ function buildLiteralOptions(
   }
 }
 
-function buildFunctionOptions(functionIds: string[], translate: TranslateFunction): Option[] {
+function buildFunctionOptions(
+  functionIds: string[],
+  translate: TranslateFunction,
+  engineSpec: EngineSpec,
+): Option[] {
   return [
-    ...functionIds.map((key) => {
-      return {
-        id: key,
-        groupId: FUNCTION_OPTION_ID,
-        label: translate(functionTitleKey(key)),
-      } as Option;
-    }),
+    ...functionIds
+      .map((key) => {
+        const functionSpec = engineSpec.functions[key];
+        const category = functionSpec.metadata[MetadataProperties.CATEGORY] || 'none';
+        return {
+          id: key,
+          groupId: category,
+          label: translate(functionTitleKey(key)),
+        } as Option;
+      })
+      // FUTURE: sort should be done in the context of translations so ordering is consistent
+      //  across locales
+      .sort((a, b) => a.groupId.localeCompare(b.groupId)),
     ...[USE_LITERAL_OPTION],
   ];
 }
@@ -149,11 +173,11 @@ export function ValueEditor({ contentKey }: ValueEditorProps) {
     switch (mode) {
       case Mode.LITERAL:
         const type = content.type;
-        const [typeId] = type; // Value expressions always have a single, non-intersection type
+        const [typeId] = type; // Value expressions always have a single, non-union type
         const typeSpec = engineSpec.types[typeId];
         return buildLiteralOptions(typeSpec, typeId, translate);
       case Mode.FUNCTION:
-        return buildFunctionOptions(content.availableFunctionIds, translate);
+        return buildFunctionOptions(content.availableFunctionIds, translate, engineSpec);
       case Mode.VARIABLE:
         return buildVariableOptions(availableVariables, translate);
     }
@@ -327,9 +351,15 @@ export function ValueEditor({ contentKey }: ValueEditorProps) {
 
   const groupRenderer = useCallback(
     (params: AutocompleteRenderGroupParams) => {
+      const groupTitle =
+        params.group === ENUM_GROUP_ID
+          ? translate(labelKey('enum-selection'))
+          : params.group === NON_LITERAL_GROUP_ID
+          ? translate(labelKey('non-literal-selection'))
+          : translate(categoryTitle(params.group));
       return (
         <li key={params.key}>
-          <GroupHeader>{translate(labelKey(params.group))}</GroupHeader>
+          <GroupHeader>{groupTitle}</GroupHeader>
           <GroupItems>{params.children}</GroupItems>
         </li>
       );

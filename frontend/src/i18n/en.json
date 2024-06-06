@@ -296,7 +296,7 @@
       }
     },
     "isGreaterThanDouble": {
-      "title": "Less Than",
+      "title": "Greater Than",
       "description": "Returns true if a test value is greater than a reference value",
       "parameters": {
         "test": {
@@ -310,7 +310,7 @@
       }
     },
     "isLessThanOrEqualDouble": {
-      "title": "Less Than",
+      "title": "Less Than or Equal",
       "description": "Returns true if a test value is less than or equal to a reference value",
       "parameters": {
         "test": {
@@ -324,7 +324,7 @@
       }
     },
     "isGreaterThanOrEqualDouble": {
-      "title": "Less Than",
+      "title": "Greater Than or Equal",
       "description": "Returns true if a test value is greater than or equal to a reference value",
       "parameters": {
         "test": {
@@ -819,6 +819,44 @@
       }
     }
   },
+  "categories": {
+    "controls": {
+      "title": "Control Flow",
+      "description": "Structures for controlling when and how actions are executed"
+    },
+    "local-date-time": {
+      "title": "Date Time (Local)",
+      "description": "Operations for working with date/time values (without time zone data)"
+    },
+    "logging": {
+      "title": "Logging",
+      "description": "Operations dealing with logging"
+    },
+    "logic": {
+      "title": "Logic",
+      "description": "Functions for working with true/false values"
+    },
+    "math": {
+      "title": "Math",
+      "description": "Functions for working numeric values"
+    },
+    "multi": {
+      "title": "Lists",
+      "description": "Functions for working with lists of values"
+    },
+    "none": {
+      "title": "Other",
+      "description": "Other available operations"
+    },
+    "text": {
+      "title": "Text",
+      "description": "Functions for working with text values"
+    },
+    "variable": {
+      "title": "Stored Values",
+      "description": "Operations for working with stored values"
+    }
+  },
   "errors": {
     "INVALID_VALUE": "Invalid Value: {message}",
     "INVALID_VALUE_NO_LITERAL": "The required type ({i18n:types.[typeId].title}) cannot be provided from a literal value. Select a function or reference to use.",
@@ -843,11 +881,13 @@
     "conditional-click-to-edit": "Click to edit condition",
     "description": "Description",
     "edit-reference": "Edit Variable Reference",
+    "enum-selection": "Available Values",
     "errors": "Errors",
     "function": "Function",
     "initial-variable": "Variable",
     "initial-variables": "Initial Variables",
     "new-executable": "Add Action/Condition",
+    "non-literal-selection": "Other Options",
     "multiple": "multi",
     "process": "Process",
     "property": "Property",

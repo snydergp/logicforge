@@ -12,8 +12,8 @@ public class EngineSpecDTO {
 
   private Map<String, CallableSpecDTO> processes;
   private Map<String, TypeSpecDTO> types;
-  private Map<String, CallableSpecDTO> actions;
-  private Map<String, CallableSpecDTO> functions;
+  private Map<String, ProvidedCallableSpecDTO> actions;
+  private Map<String, ProvidedCallableSpecDTO> functions;
   private List<ControlStatementType> controls;
 
 }

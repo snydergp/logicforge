@@ -16,6 +16,7 @@ import io.logicforge.core.model.domain.config.ValueConfig;
 import io.logicforge.core.model.domain.specification.CallableSpec;
 import io.logicforge.core.model.domain.specification.EngineSpec;
 import io.logicforge.core.model.domain.specification.InputSpec;
+import io.logicforge.core.model.domain.specification.ProvidedCallableSpec;
 import io.logicforge.core.model.domain.specification.TypePropertySpec;
 import io.logicforge.core.model.domain.specification.TypeSpec;
 import io.logicforge.core.model.dto.config.ActionConfigDTO;
@@ -32,6 +33,7 @@ import io.logicforge.core.model.dto.specification.CallableSpecDTO;
 import io.logicforge.core.model.dto.specification.EngineSpecDTO;
 import io.logicforge.core.model.dto.specification.ExpressionSpecDTO;
 import io.logicforge.core.model.dto.specification.InputSpecDTO;
+import io.logicforge.core.model.dto.specification.ProvidedCallableSpecDTO;
 import io.logicforge.core.model.dto.specification.TypePropertySpecDTO;
 import io.logicforge.core.model.dto.specification.TypeSpecDTO;
 import java.util.ArrayList;
@@ -82,8 +84,8 @@ public abstract class DTOMapper<ID> {
     return EngineSpecDTO.builder()
         .processes(callableSpecsExternal(engineSpec.getProcesses()))
         .types(typeSpecsExternal(engineSpec.getTypes()))
-        .actions(callableSpecsExternal(engineSpec.getActions()))
-        .functions(callableSpecsExternal(engineSpec.getFunctions()))
+        .actions(providedCallableSpecsExternal(engineSpec.getActions()))
+        .functions(providedCallableSpecsExternal(engineSpec.getFunctions()))
         .controls(engineSpec.getControls())
         .build();
   }
@@ -184,7 +186,7 @@ public abstract class DTOMapper<ID> {
 
   protected ExecutableConfigDTO executableExternal(final ExecutableConfig internal) {
     if (internal instanceof ActionConfig actionConfig) {
-      return providedCallableSpecExternal(actionConfig);
+      return actionExternal(actionConfig);
     } else if (internal instanceof ControlStatementConfig controlStatementConfig) {
       return controlStatementExternal(controlStatementConfig);
     }
@@ -200,7 +202,7 @@ public abstract class DTOMapper<ID> {
     return out;
   }
 
-  protected ActionConfigDTO providedCallableSpecExternal(final ActionConfig internal) {
+  protected ActionConfigDTO actionExternal(final ActionConfig internal) {
     final ActionConfigDTO out = new ActionConfigDTO();
     out.setName(internal.getName());
     out.setArguments(internal.getArguments()
@@ -290,6 +292,27 @@ public abstract class DTOMapper<ID> {
             .type(expressionSpecExternal(internal.getType()))
             .multi(internal.isMulti())
             .build())
+        .build();
+  }
+
+  protected Map<String, ProvidedCallableSpecDTO> providedCallableSpecsExternal(
+      final Map<String, ? extends ProvidedCallableSpec> internal) {
+    return internal.values()
+        .stream()
+        .map(this::providedCallableSpecExternal)
+        .collect(Collectors.toMap(ProvidedCallableSpecDTO::getName, Function.identity()));
+  }
+
+  protected ProvidedCallableSpecDTO providedCallableSpecExternal(
+      final ProvidedCallableSpec internal) {
+    return ProvidedCallableSpecDTO.builder()
+        .name(internal.getName())
+        .inputs(inputSpecsExternal(internal.getInputs()))
+        .output(ExpressionSpecDTO.builder()
+            .type(expressionSpecExternal(internal.getType()))
+            .multi(internal.isMulti())
+            .build())
+        .metadata(internal.getMetadata())
         .build();
   }
 
